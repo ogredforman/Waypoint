@@ -1,0 +1,200 @@
+package api
+
+import (
+	"bytes"
+	"context"
+	"database/sql"
+	"encoding/json"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"testing"
+
+	"github.com/ogredforman/waypoint/internal/db"
+)
+
+// openDB opens a real SQLite database in a temp dir.
+func openDB(t *testing.T) *sql.DB {
+	t.Helper()
+	sqlDB, err := db.Open(context.Background(), filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	return sqlDB
+}
+
+// jsonLogger returns a logger that writes JSON lines to the returned buffer.
+func jsonLogger() (*slog.Logger, *bytes.Buffer) {
+	var buf bytes.Buffer
+	return slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})), &buf
+}
+
+// logLines decodes each JSON log line in buf.
+func logLines(t *testing.T, buf *bytes.Buffer) []map[string]any {
+	t.Helper()
+	var lines []map[string]any
+	dec := json.NewDecoder(buf)
+	for {
+		var m map[string]any
+		if err := dec.Decode(&m); err == io.EOF {
+			return lines
+		} else if err != nil {
+			t.Fatal(err)
+		}
+		lines = append(lines, m)
+	}
+}
+
+func do(t *testing.T, h http.Handler, method, target string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(method, target, nil))
+	return rec
+}
+
+func TestHealth(t *testing.T) {
+	logger, buf := jsonLogger()
+	sqlDB := openDB(t)
+	h := NewRouter(Deps{DB: sqlDB, Logger: logger})
+
+	rec := do(t, h, http.MethodGet, "/api/health")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("Content-Type = %q, want application/json", ct)
+	}
+	var body healthResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Status != "ok" {
+		t.Errorf("status field = %q, want ok", body.Status)
+	}
+
+	// A database that can't be reached makes the server unhealthy.
+	if err := sqlDB.Close(); err != nil {
+		t.Fatal(err)
+	}
+	rec = do(t, h, http.MethodGet, "/api/health")
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status after close = %d, want 503", rec.Code)
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Status != "unavailable" {
+		t.Errorf("status field after close = %q, want unavailable", body.Status)
+	}
+	var sawWarn bool
+	for _, line := range logLines(t, buf) {
+		errText, _ := line["err"].(string)
+		if line["msg"] == "health: db ping failed" && line["level"] == "WARN" && errText != "" {
+			sawWarn = true
+		}
+	}
+	if !sawWarn {
+		t.Error("no WARN log line for the failed ping")
+	}
+}
+
+func TestRequestLogging(t *testing.T) {
+	logger, buf := jsonLogger()
+	h := NewRouter(Deps{DB: openDB(t), Logger: logger})
+
+	// The query string must not be logged: later endpoints may carry diary text in it.
+	do(t, h, http.MethodGet, "/api/health?secret=diary")
+
+	lines := logLines(t, buf)
+	if len(lines) != 1 {
+		t.Fatalf("got %d log lines, want 1: %v", len(lines), lines)
+	}
+	line := lines[0]
+	checks := map[string]any{
+		"level":  "INFO",
+		"msg":    "request",
+		"method": "GET",
+		"path":   "/api/health",
+		"status": float64(200),
+	}
+	for k, want := range checks {
+		if line[k] != want {
+			t.Errorf("log %s = %v, want %v", k, line[k], want)
+		}
+	}
+	for _, k := range []string{"bytes", "duration", "request_id"} {
+		if _, ok := line[k]; !ok {
+			t.Errorf("log line missing %s: %v", k, line)
+		}
+	}
+	if id, _ := line["request_id"].(string); id == "" {
+		t.Errorf("request_id is empty")
+	}
+	if bytes.Contains(buf.Bytes(), []byte("diary")) {
+		t.Errorf("query string leaked into logs")
+	}
+}
+
+func TestPanicRecovery(t *testing.T) {
+	logger, buf := jsonLogger()
+	r := newMux(Deps{DB: openDB(t), Logger: logger})
+	r.Get("/api/boom", func(http.ResponseWriter, *http.Request) { panic("boom") })
+
+	rec := do(t, r, http.MethodGet, "/api/boom")
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", rec.Code)
+	}
+
+	var sawPanic, sawRequest bool
+	for _, line := range logLines(t, buf) {
+		switch line["msg"] {
+		case "handler panic":
+			sawPanic = line["level"] == "ERROR" && line["panic"] == "boom"
+		case "request":
+			sawRequest = line["status"] == float64(500)
+		}
+	}
+	if !sawPanic {
+		t.Error("no ERROR log line for the panic")
+	}
+	if !sawRequest {
+		t.Error("request log line does not record status 500")
+	}
+}
+
+func TestErrorShape(t *testing.T) {
+	logger, _ := jsonLogger()
+	r := newMux(Deps{DB: openDB(t), Logger: logger})
+	r.Get("/api/boom", func(http.ResponseWriter, *http.Request) { panic("boom") })
+
+	tests := []struct {
+		name, method, target string
+		status               int
+		code                 string
+	}{
+		{"unknown endpoint", http.MethodGet, "/api/nope", http.StatusNotFound, "not_found"},
+		{"wrong method", http.MethodPost, "/api/health", http.StatusMethodNotAllowed, "method_not_allowed"},
+		{"panic", http.MethodGet, "/api/boom", http.StatusInternalServerError, "internal"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := do(t, r, tt.method, tt.target)
+			if rec.Code != tt.status {
+				t.Errorf("status = %d, want %d", rec.Code, tt.status)
+			}
+			if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
+				t.Errorf("Content-Type = %q, want application/json", ct)
+			}
+			var body errorBody
+			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+				t.Fatalf("body %q: %v", rec.Body.String(), err)
+			}
+			if body.Error.Code != tt.code || body.Error.Message == "" {
+				t.Errorf("error = %+v, want code %q and a message", body.Error, tt.code)
+			}
+		})
+	}
+}

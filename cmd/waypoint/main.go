@@ -7,9 +7,13 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
+	"os/signal"
 	"runtime"
+	"syscall"
 
+	"github.com/ogredforman/waypoint/internal/api"
 	"github.com/ogredforman/waypoint/internal/config"
 	"github.com/ogredforman/waypoint/internal/db"
 )
@@ -61,6 +65,25 @@ func run() int {
 		return 1
 	}
 	logger.Info("database ready", "schema_version", version, "applied", applied)
-	logger.Info("nothing else is wired up yet (PLAN 0.4+)")
+
+	ln, err := net.Listen("tcp", cfg.Addr())
+	if err != nil {
+		logger.Error("startup failed", "err", err)
+		return 1
+	}
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	go func() {
+		// Once shutdown starts, restore default signal handling so a second
+		// Ctrl-C kills the process instead of waiting out a slow shutdown.
+		<-ctx.Done()
+		stop()
+	}()
+	router := api.NewRouter(api.Deps{DB: sqlDB, Logger: logger})
+	if err := api.Serve(ctx, ln, router, logger); err != nil {
+		logger.Error("server stopped", "err", err)
+		return 1
+	}
+	logger.Info("stopped")
 	return 0
 }
