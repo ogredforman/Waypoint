@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"runtime"
 
 	"github.com/ogredforman/waypoint/internal/config"
+	"github.com/ogredforman/waypoint/internal/db"
 )
 
 func main() {
@@ -39,6 +41,26 @@ func run() int {
 		"addr", cfg.Addr(),
 		"log_level", cfg.LogLevel.String(),
 	)
-	logger.Info("nothing else is wired up yet (PLAN 0.3+)")
+
+	ctx := context.Background()
+	sqlDB, err := db.Open(ctx, cfg.DBPath())
+	if err != nil {
+		logger.Error("startup failed", "err", err)
+		return 1
+	}
+	defer func() { _ = sqlDB.Close() }()
+
+	migrations, err := db.Migrations()
+	if err != nil {
+		logger.Error("startup failed", "err", err)
+		return 1
+	}
+	version, applied, err := db.Migrate(ctx, sqlDB, migrations)
+	if err != nil {
+		logger.Error("startup failed", "err", err, "applied", applied)
+		return 1
+	}
+	logger.Info("database ready", "schema_version", version, "applied", applied)
+	logger.Info("nothing else is wired up yet (PLAN 0.4+)")
 	return 0
 }

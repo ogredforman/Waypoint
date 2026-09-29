@@ -28,7 +28,7 @@ Task IDs are `<stage>.<task>` (e.g. `1.5`). Tick tasks `[x]` as they're finished
 Tasks:
 - [x] **0.1** Initialize the Go module, repo layout (SPEC §10.2), and a `Makefile` with `dev`, `build`, `test`, `lint`, `sqlc` targets (the commands `AGENTS.md` refers to).
 - [x] **0.2** Config loading (flags > env > `config.toml`); OS-appropriate data dir for the DB.
-- [ ] **0.3** SQLite via `modernc.org/sqlite` with WAL mode; goose migrations embedded and run at startup.
+- [x] **0.3** SQLite via `modernc.org/sqlite` with WAL mode; goose migrations embedded and run at startup.
 - [ ] **0.4** Initial migration with the full core schema from SPEC §6.1 (milestones table included but unused).
 - [ ] **0.5** sqlc setup and first generated queries.
 - [ ] **0.6** chi server with `/api/health`, structured logging (`log/slog`), graceful shutdown, bound to `127.0.0.1:<port>`.
