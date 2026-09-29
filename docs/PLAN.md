@@ -34,7 +34,7 @@ Tasks:
 - [x] **0.6** chi server with `/api/health`, structured logging (`log/slog`), graceful shutdown, bound to `127.0.0.1:<port>`.
 - [x] **0.7** Svelte + TS + Vite + Tailwind app in `/web`; production build embedded via `embed.FS`; SPA fallback routing; dev proxy for `/api`.
 - [x] **0.8** Decide API type-sharing approach and record it in `/docs/adr/0001-api-types.md`.
-- [ ] **0.9** CI (GitHub Actions or similar): test and cross-compile for linux/darwin/windows.
+- [x] **0.9** CI (GitHub Actions or similar): test and cross-compile for linux/darwin/windows.
 
 **Exit criteria:** `make build` produces a binary on each OS that opens a page in the browser showing "Waypoint" and a healthy API status. The DB file is created and migrated.
 
@@ -178,7 +178,7 @@ Tasks:
 ## Parked
 
 Ideas and tangents captured mid-work (via `/park`). Not scheduled. Review them at the start of each stage.
-- [ ] SPEC §10.1 lists a `release` Makefile target that no task covers yet; add it alongside cross-compiling in CI (parked 2026-09-29; suggested stage: 0, with 0.9)
+- [ ] SPEC §10.1 lists a `release` Makefile target that no task covers yet; CI (0.9) cross-compiles inline, so a `release` target belongs with the release pipeline (parked 2026-09-29; suggested stage: 4, with 4.2)
 - [ ] Configurable bind host (e.g. `0.0.0.0` for Docker); only safe once auth exists, so the server stays on `127.0.0.1` for now (parked 2026-09-29; suggested stage: later)
 - [ ] Test that the Go enums in `internal/domain` match the SQL `CHECK (... IN ...)` lists in the migrations (parked 2026-09-29; suggested stage: 1, with 1.1)
 - [ ] `recoverPanics` logs the full panic value at Error; once handlers touch entries, a panic message built from request data could leak diary text. Log a trimmed/typed value instead (parked 2026-09-29; suggested stage: 1, with 1.14)
