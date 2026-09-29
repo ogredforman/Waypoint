@@ -1,0 +1,50 @@
+# --- Build output ---
+/bin/
+/dist/
+/waypoint
+/waypoint.exe
+*.exe
+*.test
+*.out
+coverage.*
+
+# Built frontend. It's embedded into the binary at build time, not committed.
+# (Stage 0 keeps a placeholder file so `go build` works before the first frontend build.)
+/internal/web/dist/*
+!/internal/web/dist/.gitkeep
+
+# --- Frontend ---
+node_modules/
+/web/dist/
+/web/.svelte-kit/
+/web/.vite/
+/web/test-results/
+/web/playwright-report/
+/web/playwright/.cache/
+
+# --- Local data and config (never commit your diary or API keys) ---
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+/data/
+config.toml
+.env
+.env.*
+!.env.example
+
+# --- Claude Code personal files ---
+CLAUDE.local.md
+.claude/settings.local.json
+
+# --- Editors / OS ---
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+.DS_Store
+Thumbs.db
+
+# --- Scratch ---
+/tmp/
