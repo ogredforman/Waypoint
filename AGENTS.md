@@ -56,3 +56,5 @@ These are created in Stage 0 task 0.1. Until then, they don't exist.
 3. Tick the task `[x]` in `docs/PLAN.md`.
 4. If a design decision changed, update `docs/SPEC.md` or add `docs/adr/NNNN-title.md` in the same commit.
 5. One task per commit. Message format: `<area>: <what changed> (PLAN <stage>.<task>)`.
+   No AI attribution in commit messages (no `Co-Authored-By` or model credit lines).
+   Commit when asked, but don't push; the owner pushes.
