@@ -224,7 +224,7 @@ Requirements are tagged by the stage in which they're first needed: **[P]** Prot
 | Realtime | Server-Sent Events | Simpler than WebSockets; one direction is enough |
 | Frontend | Svelte 5 + TypeScript + Vite, built as a static SPA | Embedded via `embed.FS`. Dev mode uses the Vite dev server proxying `/api`. |
 | Styling | Tailwind CSS | |
-| API types | Hand-written OpenAPI spec (or Go structs → TS generation) | Keep FE and BE types in sync; decide in Stage 0 (see §13) |
+| API types | Go DTO structs → TS types generated with `tygo` | Go is the source of truth; generated TS is committed and checked by `make lint`. Some Go types need mapping rules (`time.Time`, nullable fields). See [ADR 0001](./adr/0001-api-types.md). |
 | LLM | Anthropic Go SDK or plain HTTP; OpenAI-compatible HTTP client | Structured output via tool/function calling with a JSON schema, validated server-side |
 | Config | Flags > env vars (`WAYPOINT_*`) > `config.toml` in the OS config dir | |
 | Desktop | PWA first; Wails or Tauri shell later | |
@@ -245,7 +245,8 @@ Requirements are tagged by the stage in which they're first needed: **[P]** Prot
 /internal/pipeline/       snapshot builder, worker, retries
 /internal/changeset/      op validation, temp-ID resolution, transactional apply
 /internal/briefing/       heuristic + LLM briefing
-/internal/api/            handlers, SSE hub, DTOs
+/internal/api/            handlers, SSE hub
+/internal/api/apitypes/   wire DTOs + SSE payloads; source for generated TS types (ADR 0001)
 /internal/web/            embed.FS for built frontend
 /web/                     Svelte app (Vite project)
 /docs/                    SPEC.md, PLAN.md, adr/ (architecture decision records)
@@ -340,7 +341,6 @@ UX notes: keyboard-first diary input (Ctrl/Cmd+Enter to submit); calm visual des
 
 ## 13. Open questions
 
-- API type sharing: an OpenAPI-first approach versus generating TS types from Go structs (e.g. `tygo`). Decide in Stage 0 and record it as an ADR.
 - Should entries scoped to "auto" be allowed to link across multiple projects in one extraction? (Default: yes, but ops for non-active projects become `park_idea` instead.)
 - Auto-apply threshold for high-confidence ops: off by default; revisit after dogfooding.
 - Desktop shell: Wails or Tauri with a sidecar. Defer until after MVP.

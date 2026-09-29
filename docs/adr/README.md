@@ -10,4 +10,4 @@ old one's status is changed to `Superseded by NNNN`.
 
 | # | Title | Status |
 |---|---|---|
-| 0001 | API type sharing between Go and the frontend | Pending (PLAN 0.8) |
+| [0001](./0001-api-types.md) | API type sharing between Go and the frontend | Accepted |

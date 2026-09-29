@@ -33,7 +33,7 @@ Tasks:
 - [x] **0.5** sqlc setup and first generated queries.
 - [x] **0.6** chi server with `/api/health`, structured logging (`log/slog`), graceful shutdown, bound to `127.0.0.1:<port>`.
 - [x] **0.7** Svelte + TS + Vite + Tailwind app in `/web`; production build embedded via `embed.FS`; SPA fallback routing; dev proxy for `/api`.
-- [ ] **0.8** Decide API type-sharing approach and record it in `/docs/adr/0001-api-types.md`.
+- [x] **0.8** Decide API type-sharing approach and record it in `/docs/adr/0001-api-types.md`.
 - [ ] **0.9** CI (GitHub Actions or similar): test and cross-compile for linux/darwin/windows.
 
 **Exit criteria:** `make build` produces a binary on each OS that opens a page in the browser showing "Waypoint" and a healthy API status. The DB file is created and migrated.
@@ -66,7 +66,7 @@ Tasks:
 - [ ] **1.13** Heuristic `Briefer` (SPEC §7.3). Recompute on changeset apply and task edit.
 
 ### 1E. API
-- [ ] **1.14** Endpoints from SPEC §10.5, except settings UI editing and export (config file only for now).
+- [ ] **1.14** Endpoints from SPEC §10.5, except settings UI editing and export (config file only for now). DTOs live in `internal/api/apitypes` with generated TS types (ADR 0001).
 - [ ] **1.15** API integration tests using the mock extractor end to end.
 
 ### 1F. UI
@@ -183,3 +183,4 @@ Ideas and tangents captured mid-work (via `/park`). Not scheduled. Review them a
 - [ ] Test that the Go enums in `internal/domain` match the SQL `CHECK (... IN ...)` lists in the migrations (parked 2026-09-29; suggested stage: 1, with 1.1)
 - [ ] `recoverPanics` logs the full panic value at Error; once handlers touch entries, a panic message built from request data could leak diary text. Log a trimmed/typed value instead (parked 2026-09-29; suggested stage: 1, with 1.14)
 - [ ] Custom `/api` 405 handler drops the `Allow` header that chi's default sets (RFC 9110 requires it); build it when more routes exist (parked 2026-09-29; suggested stage: 1, with 1.14)
+- [ ] Add `tygo` (`go tool`), `make gen`, and a stale-output check in `make lint`; set the Go→TS mapping rules from ADR 0001 (`time.Time`, `int64` IDs, nullable/`omitempty` fields, enum output style); list `make gen` in AGENTS.md Commands; move the health response type into `apitypes`. Do this when the first DTOs land (parked 2026-09-29; suggested stage: 1, with 1.14)
