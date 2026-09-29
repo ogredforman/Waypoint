@@ -235,7 +235,7 @@ Requirements are tagged by the stage in which they're first needed: **[P]** Prot
 ```
 /cmd/waypoint/            main.go — flags, config, wiring, server start
 /internal/config/         config loading
-/internal/db/             migrations/ (goose .sql), queries/ (sqlc .sql), generated code
+/internal/db/             migrations/ (goose .sql), queries/ (sqlc .sql), dbgen/ (sqlc-generated Go)
 /internal/domain/         core types, enums, validation (no I/O)
 /internal/store/          repository layer over sqlc
 /internal/extract/        Extractor interface, types, JSON schema, prompt templates

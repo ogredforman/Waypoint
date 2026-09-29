@@ -39,10 +39,13 @@ ifneq ($(HAVE_WEB),)
 	npm --prefix web test
 endif
 
-## lint: go vet, staticcheck, svelte-check
+## lint: go vet, staticcheck, sqlc diff (generated code is current), svelte-check
 lint:
 	go vet ./...
 	go tool staticcheck ./...
+ifneq ($(HAVE_SQLC),)
+	go tool sqlc diff
+endif
 ifneq ($(HAVE_WEB),)
 	npm --prefix web run check
 endif
@@ -50,7 +53,7 @@ endif
 ## sqlc: regenerate query code after editing internal/db/queries/
 sqlc:
 ifneq ($(HAVE_SQLC),)
-	sqlc generate
+	go tool sqlc generate
 else
 	@echo Nothing to generate: no sqlc.yaml yet, see PLAN 0.5
 endif

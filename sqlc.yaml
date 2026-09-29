@@ -1,0 +1,14 @@
+# sqlc config. Run `make sqlc` after editing internal/db/queries/; never hand-edit
+# the generated code in internal/db/dbgen/. The schema comes straight from the goose
+# migrations (sqlc skips the Down sections), so there's no second copy of it.
+version: "2"
+sql:
+  - engine: sqlite
+    schema: internal/db/migrations
+    queries: internal/db/queries
+    gen:
+      go:
+        package: dbgen
+        out: internal/db/dbgen
+        emit_pointers_for_null_types: true
+        emit_empty_slices: true

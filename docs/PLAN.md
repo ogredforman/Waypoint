@@ -30,7 +30,7 @@ Tasks:
 - [x] **0.2** Config loading (flags > env > `config.toml`); OS-appropriate data dir for the DB.
 - [x] **0.3** SQLite via `modernc.org/sqlite` with WAL mode; goose migrations embedded and run at startup.
 - [x] **0.4** Initial migration with the full core schema from SPEC §6.1 (milestones table included but unused).
-- [ ] **0.5** sqlc setup and first generated queries.
+- [x] **0.5** sqlc setup and first generated queries.
 - [ ] **0.6** chi server with `/api/health`, structured logging (`log/slog`), graceful shutdown, bound to `127.0.0.1:<port>`.
 - [ ] **0.7** Svelte + TS + Vite + Tailwind app in `/web`; production build embedded via `embed.FS`; SPA fallback routing; dev proxy for `/api`.
 - [ ] **0.8** Decide API type-sharing approach and record it in `/docs/adr/0001-api-types.md`.
