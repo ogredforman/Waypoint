@@ -73,6 +73,8 @@ These are requirements, not suggestions. Agents should treat violations as bugs.
 | **Change op** | A single proposed mutation inside a changeset | `changeset_id`, `position` (order within the changeset), `op_type`, `payload` (JSON), `rationale?`, `confidence?`, `status` (pending / applied / rejected / edited), `applied_payload?` |
 | **Briefing** | Cached "what's next" output per project | `project_id`, `next_task_id?`, `next_reason`, `recap`, `generated_at`, `source` (heuristic / llm) |
 
+Validation in `internal/domain` enforces two rules the schema doesn't: a blocker has `resolved_entry_id` only when it is resolved (it may be resolved without one, by a manual edit), and a follow-up question has `answer_entry_id` exactly when it is answered.
+
 ### 6.2 Change op types
 
 Ops are the only way extraction output mutates state. Each op payload is typed and validated server-side.

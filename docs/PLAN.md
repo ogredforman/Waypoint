@@ -45,7 +45,7 @@ Tasks:
 **Goal:** the complete core loop, *write → extract → review → apply → briefing*, working end to end with the deterministic **mock extractor**. This validates the data model, pipeline, changeset system, and UI before any AI cost or unpredictability enters the picture.
 
 ### 1A. Domain and state
-- [ ] **1.1** Domain types, enums, and validation in `internal/domain`.
+- [x] **1.1** Domain types, enums, and validation in `internal/domain`.
 - [ ] **1.2** Store layer: CRUD for projects, tasks, blockers, ideas, entries (insert-only), observations, and links.
 - [ ] **1.3** Project status rules, including the active-project cap.
 
@@ -180,7 +180,6 @@ Tasks:
 Ideas and tangents captured mid-work (via `/park`). Not scheduled. Review them at the start of each stage.
 - [ ] SPEC §10.1 lists a `release` Makefile target that no task covers yet; CI (0.9) cross-compiles inline, so a `release` target belongs with the release pipeline (parked 2026-09-29; suggested stage: 4, with 4.2)
 - [ ] Configurable bind host (e.g. `0.0.0.0` for Docker); only safe once auth exists, so the server stays on `127.0.0.1` for now (parked 2026-09-29; suggested stage: later)
-- [ ] Test that the Go enums in `internal/domain` match the SQL `CHECK (... IN ...)` lists in the migrations (parked 2026-09-29; suggested stage: 1, with 1.1)
 - [ ] `recoverPanics` logs the full panic value at Error; once handlers touch entries, a panic message built from request data could leak diary text. Log a trimmed/typed value instead (parked 2026-09-29; suggested stage: 1, with 1.14)
 - [ ] Custom `/api` 405 handler drops the `Allow` header that chi's default sets (RFC 9110 requires it); build it when more routes exist (parked 2026-09-29; suggested stage: 1, with 1.14)
 - [ ] Add `tygo` (`go tool`), `make gen`, and a stale-output check in `make lint`; set the Go→TS mapping rules from ADR 0001 (`time.Time`, `int64` IDs, nullable/`omitempty` fields, enum output style); list `make gen` in AGENTS.md Commands; move the health response type into `apitypes`. Do this when the first DTOs land (parked 2026-09-29; suggested stage: 1, with 1.14)
