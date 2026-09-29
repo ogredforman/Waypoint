@@ -2,7 +2,7 @@
 
 > Companion to [`SPEC.md`](./SPEC.md). The spec defines *what* and *why*; this plan defines *order*, *scope per stage*, and *exit criteria*. Each stage should end in a runnable, usable state. Don't pull later-stage work forward.
 
-**Current stage: Stage 0 — Foundations**
+**Current stage: Stage 1 — Prototype (mock AI, no real model)**
 
 Task IDs are `<stage>.<task>` (e.g. `1.5`). Tick tasks `[x]` as they're finished. `/next-task` picks the first unchecked task in the current stage; `/park` adds ideas to the Parked section at the bottom.
 
@@ -21,7 +21,7 @@ Task IDs are `<stage>.<task>` (e.g. `1.5`). Tick tasks `[x]` as they're finished
 
 ---
 
-## Stage 0 — Foundations (scaffolding)
+## Stage 0 — Foundations (scaffolding) — done 2026-09-29
 
 **Goal:** an empty but correctly wired app that builds and runs on all three OSes.
 

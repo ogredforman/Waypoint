@@ -3,7 +3,7 @@
 A local-first, AI-assisted diary that turns what you write about your projects into a plan you can
 actually follow: tasks, blockers, parked ideas, and one clear next action.
 
-**Status:** Stage 0 (foundations). The binary builds and runs, but doesn't do anything yet.
+**Status:** Stage 1 (prototype, mock AI). Stage 0 is done: the binary builds, runs, and passes CI on Linux, macOS, and Windows, but doesn't do anything yet.
 
 - What it is and why: [`docs/SPEC.md`](docs/SPEC.md)
 - How it's being built, and what's next: [`docs/PLAN.md`](docs/PLAN.md)
