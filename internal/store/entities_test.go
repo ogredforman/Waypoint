@@ -54,6 +54,44 @@ func TestProjects(t *testing.T) {
 	}
 }
 
+func TestCountActiveProjects(t *testing.T) {
+	s, _, _ := newTestStore(t)
+	ctx := context.Background()
+
+	if n, err := s.CountActiveProjects(ctx); err != nil || n != 0 {
+		t.Fatalf("empty DB: CountActiveProjects = %d, %v; want 0", n, err)
+	}
+	var parked domain.Project
+	inTx(t, s, func(tx *Tx) error {
+		for _, st := range domain.ProjectStatuses() {
+			p, err := tx.CreateProject(ctx, domain.Project{Title: string(st), Status: st})
+			if err != nil {
+				return err
+			}
+			if st == domain.ProjectParked {
+				parked = p
+			}
+		}
+		_, err := tx.CreateProject(ctx, domain.Project{Title: "second active", Status: domain.ProjectActive})
+		return err
+	})
+	if n, err := s.CountActiveProjects(ctx); err != nil || n != 2 {
+		t.Errorf("CountActiveProjects = %d, %v; want 2", n, err)
+	}
+
+	// Inside a transaction the count sees the transaction's own writes.
+	inTx(t, s, func(tx *Tx) error {
+		parked.Status = domain.ProjectActive
+		if _, err := tx.UpdateProject(ctx, parked); err != nil {
+			return err
+		}
+		if n, err := tx.CountActiveProjects(ctx); err != nil || n != 3 {
+			t.Errorf("in tx: CountActiveProjects = %d, %v; want 3", n, err)
+		}
+		return nil
+	})
+}
+
 func TestTasks(t *testing.T) {
 	s, _, c := newTestStore(t)
 	ctx := context.Background()

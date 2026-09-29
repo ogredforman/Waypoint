@@ -158,7 +158,7 @@ Requirements are tagged by the stage in which they're first needed: **[P]** Prot
 
 **Projects**
 - [P] Create, view, edit, and change status of projects.
-- [P] Enforce the active-project cap (configurable, default 3).
+- [P] Enforce the active-project cap (configurable, default 3). Any project status can change to any other; the cap only stops a project from *becoming* active when the cap is reached. Projects already active stay active if the cap is lowered. A manually created project may start active (if there is room) or parked; a project proposed by extraction (`create_project`) is always parked (§6.2).
 - [L] Milestones.
 
 **Tasks**

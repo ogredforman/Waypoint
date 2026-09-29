@@ -59,7 +59,7 @@ func TestLoadDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	dataHome, _ := env("XDG_DATA_HOME")
-	want := Config{Port: DefaultPort, DataDir: filepath.Join(dataHome, "waypoint"), LogLevel: slog.LevelInfo}
+	want := Config{Port: DefaultPort, DataDir: filepath.Join(dataHome, "waypoint"), LogLevel: slog.LevelInfo, ActiveProjectCap: 3}
 	if cfg != want {
 		t.Errorf("got %+v, want %+v", cfg, want)
 	}
@@ -83,13 +83,15 @@ func TestLoadPrecedence(t *testing.T) {
 		wantPort  int
 		wantDir   string // "" means the default data dir
 		wantLevel slog.Level
+		wantCap   int // 0 means the default
 	}{
 		{
 			name:      "file overrides defaults",
-			file:      file,
+			file:      file + "active_project_cap = 5\n",
 			wantPort:  1001,
 			wantDir:   fileDir,
 			wantLevel: slog.LevelWarn,
+			wantCap:   5,
 		},
 		{
 			name:      "env overrides file",
@@ -136,12 +138,16 @@ func TestLoadPrecedence(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			wantCap := tt.wantCap
+			if wantCap == 0 {
+				wantCap = 3
+			}
 			wantDir := tt.wantDir
 			if wantDir == "" {
 				dataHome, _ := env("XDG_DATA_HOME")
 				wantDir = filepath.Join(dataHome, "waypoint")
 			}
-			want := Config{Port: tt.wantPort, DataDir: wantDir, LogLevel: tt.wantLevel, File: wantFile}
+			want := Config{Port: tt.wantPort, DataDir: wantDir, LogLevel: tt.wantLevel, ActiveProjectCap: wantCap, File: wantFile}
 			if cfg != want {
 				t.Errorf("got %+v, want %+v", cfg, want)
 			}
@@ -197,6 +203,8 @@ func TestLoadErrors(t *testing.T) {
 		{name: "file port wrong type", file: "port = 'abc'\n", wantErr: "config file"},
 		{name: "file empty data_dir", file: "data_dir = ''\n", wantErr: "data_dir"},
 		{name: "file bad log level", file: "log_level = 'loud'\n", wantErr: "log_level"},
+		{name: "file cap zero", file: "active_project_cap = 0\n", wantErr: "active_project_cap"},
+		{name: "file cap negative", file: "active_project_cap = -1\n", wantErr: "active_project_cap"},
 		{name: "env port too high", env: map[string]string{"WAYPOINT_PORT": "70000"}, wantErr: "WAYPOINT_PORT"},
 		{name: "env port not a number", env: map[string]string{"WAYPOINT_PORT": "abc"}, wantErr: "WAYPOINT_PORT"},
 		{name: "env bad log level", env: map[string]string{"WAYPOINT_LOG_LEVEL": "loud"}, wantErr: "WAYPOINT_LOG_LEVEL"},

@@ -47,11 +47,11 @@ Tasks:
 ### 1A. Domain and state
 - [x] **1.1** Domain types, enums, and validation in `internal/domain`.
 - [x] **1.2** Store layer: CRUD for projects, tasks, blockers, ideas, entries (insert-only), observations, and links. Tasks, blockers, and ideas can be deleted, cleaning up references (ADR 0002); projects can't.
-- [ ] **1.3** Project status rules, including the active-project cap.
+- [x] **1.3** Project status rules, including the active-project cap.
 
 ### 1B. Changeset system
 - [ ] **1.4** Change op types and payload validation (SPEC §6.2), including `delete_task`, `delete_blocker`, and `delete_idea`: a new migration rebuilds `change_ops` with the extended `op_type` CHECK list (ADR 0002). Payload validation also covers the cross-row rules the store doesn't check: a parent task or blocker task in the same project, no parent-task cycles.
-- [ ] **1.5** Transactional applier: per-op accept, reject, or edit; temp-ID (`$new:N`) resolution; full rollback on any failure; changeset status updates.
+- [ ] **1.5** Transactional applier: per-op accept, reject, or edit; temp-ID (`$new:N`) resolution; full rollback on any failure; changeset status updates. Enforces the project status rules from 1.3 (`domain.CheckProjectStatusChange` / `CheckNewProjectStatus` with `tx.CountActiveProjects` and `cfg.ActiveProjectCap`) inside the apply transaction; an `ActiveCapError` rejects the op.
 - [ ] **1.6** Manual edits routed through the applier as `source=manual` changesets.
 - [ ] **1.7** Unit tests covering every op type, temp IDs, partial apply, and rollback.
 
@@ -184,3 +184,5 @@ Ideas and tangents captured mid-work (via `/park`). Not scheduled. Review them a
 - [ ] Custom `/api` 405 handler drops the `Allow` header that chi's default sets (RFC 9110 requires it); build it when more routes exist (parked 2026-09-29; suggested stage: 1, with 1.14)
 - [ ] Add `tygo` (`go tool`), `make gen`, and a stale-output check in `make lint`; set the Go→TS mapping rules from ADR 0001 (`time.Time`, `int64` IDs, nullable/`omitempty` fields, enum output style); list `make gen` in AGENTS.md Commands; move the health response type into `apitypes`. Do this when the first DTOs land (parked 2026-09-29; suggested stage: 1, with 1.14)
 - [ ] Deleting a project. Blocked by entry immutability (entries reference projects); needs a decision on what happens to its entries, tasks, and ideas. Parking or finishing covers it for now (parked 2026-09-29; suggested stage: later)
+- [ ] Manage user-facing settings (caps and similar preferences) in the app, beyond the provider settings in 2.12, instead of only via `config.toml`/env; technical settings such as port can stay in `config.toml` (parked 2026-09-29; suggested stage: 3)
+- [ ] SPEC §6.2 has no op for editing a project or changing its status, so manual project edits (1.6) and the active-cap check have nothing to route through; decide the op shape (e.g. `update_project`) (parked 2026-09-29; suggested stage: 1, with 1.4)

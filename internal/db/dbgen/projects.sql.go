@@ -9,6 +9,18 @@ import (
 	"context"
 )
 
+const countProjectsByStatus = `-- name: CountProjectsByStatus :one
+SELECT COUNT(*) FROM projects
+WHERE status = ?
+`
+
+func (q *Queries) CountProjectsByStatus(ctx context.Context, status string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countProjectsByStatus, status)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createProject = `-- name: CreateProject :one
 INSERT INTO projects (title, why, definition_of_done, status, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?)

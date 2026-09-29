@@ -45,6 +45,7 @@ func run() int {
 		"db", cfg.DBPath(),
 		"addr", cfg.Addr(),
 		"log_level", cfg.LogLevel.String(),
+		"active_project_cap", cfg.ActiveProjectCap,
 	)
 
 	ctx := context.Background()

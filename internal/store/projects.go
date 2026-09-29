@@ -44,6 +44,17 @@ func (r reader) ListProjects(ctx context.Context) ([]domain.Project, error) {
 	return out, nil
 }
 
+// CountActiveProjects returns how many projects are active, for checking the
+// active-project cap. Call it on the Tx that makes the change so the count and
+// the write agree.
+func (r reader) CountActiveProjects(ctx context.Context) (int, error) {
+	n, err := r.q.CountProjectsByStatus(ctx, string(domain.ProjectActive))
+	if err != nil {
+		return 0, fmt.Errorf("count active projects: %w", err)
+	}
+	return int(n), nil
+}
+
 // CreateProject inserts p, ignoring its ID and timestamps.
 func (tx *Tx) CreateProject(ctx context.Context, p domain.Project) (domain.Project, error) {
 	if err := p.Validate(); err != nil {

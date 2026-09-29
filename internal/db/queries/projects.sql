@@ -16,3 +16,7 @@ UPDATE projects
 SET title = ?, why = ?, definition_of_done = ?, status = ?, updated_at = ?
 WHERE id = ?
 RETURNING *;
+
+-- name: CountProjectsByStatus :one
+SELECT COUNT(*) FROM projects
+WHERE status = ?;

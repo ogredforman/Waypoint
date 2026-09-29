@@ -46,6 +46,7 @@ variable, then `config.toml`, then the default. Run `waypoint -h` to list the fl
 | `-port` | `WAYPOINT_PORT` | `port` | `7420` |
 | `-data-dir` | `WAYPOINT_DATA_DIR` | `data_dir` | OS data folder (see below) |
 | `-log-level` | `WAYPOINT_LOG_LEVEL` | `log_level` | `info` |
+| n/a | n/a | `active_project_cap` | `3` (how many projects can be active at once) |
 
 | OS | Config folder | Data folder (holds `waypoint.db`) |
 |---|---|---|

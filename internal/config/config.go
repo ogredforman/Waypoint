@@ -12,6 +12,8 @@ import (
 	"strconv"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/ogredforman/waypoint/internal/domain"
 )
 
 // DefaultPort is the port the server listens on when none is configured.
@@ -24,6 +26,10 @@ type Config struct {
 	DataDir  string // absolute
 	LogLevel slog.Level
 	File     string // config file that was read; empty if none was found
+
+	// ActiveProjectCap limits how many projects can be active at once. It is
+	// set in config.toml only (no env var or flag).
+	ActiveProjectCap int
 }
 
 // Addr is the listen address. The server always binds to loopback.
@@ -41,6 +47,8 @@ type fileConfig struct {
 	Port     *int    `toml:"port"`
 	DataDir  *string `toml:"data_dir"`
 	LogLevel *string `toml:"log_level"`
+
+	ActiveProjectCap *int `toml:"active_project_cap"`
 }
 
 // Load resolves the configuration from args (without the program name), the
@@ -65,7 +73,7 @@ func Load(args []string, env LookupEnv, goos string, stderr io.Writer) (Config, 
 
 	// DataDir stays empty until a source sets it; the OS default is filled in
 	// last, so a missing $HOME only matters when nothing else names the folder.
-	cfg := Config{Port: DefaultPort, LogLevel: slog.LevelInfo}
+	cfg := Config{Port: DefaultPort, LogLevel: slog.LevelInfo, ActiveProjectCap: domain.DefaultActiveProjectCap}
 
 	// Config file: an explicitly named file must exist. The default one is
 	// optional, and skipped if the OS config dir can't be determined.
@@ -194,6 +202,12 @@ func applyFile(cfg *Config, path string) error {
 		if cfg.LogLevel, err = parseLevel(*fc.LogLevel); err != nil {
 			return fmt.Errorf("log_level: %w", err)
 		}
+	}
+	if fc.ActiveProjectCap != nil {
+		if *fc.ActiveProjectCap < 1 {
+			return fmt.Errorf("active_project_cap: must be at least 1, got %d", *fc.ActiveProjectCap)
+		}
+		cfg.ActiveProjectCap = *fc.ActiveProjectCap
 	}
 	return nil
 }
