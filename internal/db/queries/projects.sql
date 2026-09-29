@@ -10,3 +10,9 @@ WHERE id = ?;
 -- name: ListProjects :many
 SELECT * FROM projects
 ORDER BY created_at, id;
+
+-- name: UpdateProject :one
+UPDATE projects
+SET title = ?, why = ?, definition_of_done = ?, status = ?, updated_at = ?
+WHERE id = ?
+RETURNING *;

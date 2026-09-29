@@ -88,8 +88,13 @@ Ops are the only way extraction output mutates state. Each op payload is typed a
 - `park_idea`: {project_id?, title, body}
 - `create_project`: {title, why?} (always created as `parked`)
 - `add_dependency`: {task_id, blocked_by_task_id}
+- `delete_task`: {task_id}
+- `delete_blocker`: {blocker_id}
+- `delete_idea`: {idea_id}
 
 References to entities created earlier in the same changeset use temporary IDs (e.g. `"$new:1"`), which are resolved at apply time.
+
+Deleting removes the row for good ([ADR 0002](./adr/0002-deleting-tasks-blockers-ideas.md)); the softer option is a status (dropped, resolved, discarded). Deleting a task makes its subtasks top-level, removes its dependencies, keeps its blockers on the project without a task, clears it from briefings, and removes observation links to it. Deleting a blocker or idea removes the links to it. Observations and entries are never deleted. Projects can't be deleted, because entries reference them; they are parked or marked done instead. The applier records the deleted row in the op's `applied_payload`.
 
 ### 6.3 Relationships (overview)
 
@@ -157,7 +162,7 @@ Requirements are tagged by the stage in which they're first needed: **[P]** Prot
 - [L] Milestones.
 
 **Tasks**
-- [P] CRUD, status changes, and ordering within a project.
+- [P] CRUD, status changes, and ordering within a project. Deleting asks for confirmation.
 - [P] Show where each task came from (origin entry) and all linked observations.
 - [M] Split a task into subtasks via a change op.
 - [L] Dependencies UI, energy/size filters, and staleness prompts ("still want this?").
