@@ -26,7 +26,7 @@ Task IDs are `<stage>.<task>` (e.g. `1.5`). Tick tasks `[x]` as they're finished
 **Goal:** an empty but correctly wired app that builds and runs on all three OSes.
 
 Tasks:
-- [ ] **0.1** Initialize the Go module, repo layout (SPEC §10.2), and a `Makefile` with `dev`, `build`, `test`, `lint`, `sqlc` targets (the commands `AGENTS.md` refers to).
+- [x] **0.1** Initialize the Go module, repo layout (SPEC §10.2), and a `Makefile` with `dev`, `build`, `test`, `lint`, `sqlc` targets (the commands `AGENTS.md` refers to).
 - [ ] **0.2** Config loading (flags > env > `config.toml`); OS-appropriate data dir for the DB.
 - [ ] **0.3** SQLite via `modernc.org/sqlite` with WAL mode; goose migrations embedded and run at startup.
 - [ ] **0.4** Initial migration with the full core schema from SPEC §6.1 (milestones table included but unused).
@@ -178,3 +178,5 @@ Tasks:
 ## Parked
 
 Ideas and tangents captured mid-work (via `/park`). Not scheduled. Review them at the start of each stage.
+- [ ] `//go:embed` skips dotfiles, so `internal/web/dist/.gitkeep` alone won't let `go build` pass before the first frontend build; embed a placeholder `index.html` or use `all:dist` (parked 2026-09-29; suggested stage: 0, with 0.7)
+- [ ] SPEC §10.1 lists a `release` Makefile target that no task covers yet; add it alongside cross-compiling in CI (parked 2026-09-29; suggested stage: 0, with 0.9)
