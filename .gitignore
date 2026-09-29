@@ -9,7 +9,7 @@
 coverage.*
 
 # Built frontend. It's embedded into the binary at build time, not committed.
-# (Stage 0 keeps a placeholder file so `go build` works before the first frontend build.)
+# (.gitkeep stays so `go build` works before the first frontend build; the Vite build restores it.)
 /internal/web/dist/*
 !/internal/web/dist/.gitkeep
 

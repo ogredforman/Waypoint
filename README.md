@@ -22,14 +22,15 @@ Requirements for the hooks in `.claude/settings.json`: Go on your PATH, and `git
 
 ## Building
 
-Requirements: Go 1.26+ and GNU `make`. Node.js is needed once the frontend lands (PLAN 0.7).
+Requirements: Go 1.26+, GNU `make`, and Node.js 24+ (for the Svelte frontend in `web/`; run
+`npm --prefix web install` once before `make dev`).
 `staticcheck` is pinned as a tool dependency in `go.mod`, so it needs no separate install.
 How `sqlc` is provided gets decided in PLAN 0.5.
 
 | Target | What it does |
 |---|---|
-| `make dev` | Run the server locally |
-| `make build` | Build `bin/waypoint` (with the frontend embedded, once it exists) |
+| `make dev` | Run the Go server and the Vite dev server together; open http://localhost:5173 (Vite proxies `/api` to Go) |
+| `make build` | Build the frontend, then `bin/waypoint` with it embedded; the binary serves it at http://127.0.0.1:7420 |
 | `make test` | All Go and frontend tests |
 | `make lint` | `go vet`, `staticcheck`, `svelte-check` |
 | `make sqlc` | Regenerate query code after editing `internal/db/queries/` |

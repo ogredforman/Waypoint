@@ -14,9 +14,12 @@ import (
 type Deps struct {
 	DB     *sql.DB
 	Logger *slog.Logger
+	// Web serves everything outside /api (the embedded frontend). Nil means
+	// no frontend: those paths get chi's default 404.
+	Web http.Handler
 }
 
-// NewRouter returns the HTTP handler for the whole API.
+// NewRouter returns the HTTP handler for the API and, if set, the frontend.
 func NewRouter(d Deps) http.Handler {
 	return newMux(d)
 }
@@ -38,6 +41,9 @@ func newMux(d Deps) *chi.Mux {
 		})
 		r.Get("/health", handleHealth(d.DB, d.Logger))
 	})
+	if d.Web != nil {
+		r.Handle("/*", d.Web)
+	}
 	return r
 }
 

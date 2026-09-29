@@ -16,6 +16,7 @@ import (
 	"github.com/ogredforman/waypoint/internal/api"
 	"github.com/ogredforman/waypoint/internal/config"
 	"github.com/ogredforman/waypoint/internal/db"
+	"github.com/ogredforman/waypoint/internal/web"
 )
 
 func main() {
@@ -79,7 +80,7 @@ func run() int {
 		<-ctx.Done()
 		stop()
 	}()
-	router := api.NewRouter(api.Deps{DB: sqlDB, Logger: logger})
+	router := api.NewRouter(api.Deps{DB: sqlDB, Logger: logger, Web: web.NewHandler(web.Dist())})
 	if err := api.Serve(ctx, ln, router, logger); err != nil {
 		logger.Error("server stopped", "err", err)
 		return 1

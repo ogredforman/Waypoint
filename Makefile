@@ -13,17 +13,27 @@ export CGO_ENABLED := 0
 HAVE_WEB  := $(wildcard web/package.json)
 HAVE_SQLC := $(wildcard sqlc.yaml)
 
-.PHONY: dev build web test lint sqlc
+.PHONY: dev dev-api dev-web build web test lint sqlc
 
-## dev: run the Go server (the Vite dev server joins in PLAN 0.7)
+## dev: run the Go server and the Vite dev server (proxying /api to Go) side by side
 dev:
+	$(MAKE) -j2 dev-api dev-web
+
+dev-api:
 	go run ./cmd/waypoint
+
+dev-web:
+ifneq ($(HAVE_WEB),)
+	npm --prefix web run dev
+else
+	@echo Skipping the Vite dev server: web/ is not set up yet
+endif
 
 ## build: production binary with the frontend embedded
 build: web
 	go build -o $(BIN) ./cmd/waypoint
 
-## web: build the frontend into internal/web/dist (skipped until web/ exists)
+## web: build the frontend into internal/web/dist, where the Go binary embeds it
 web:
 ifneq ($(HAVE_WEB),)
 	npm --prefix web ci

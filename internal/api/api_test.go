@@ -198,3 +198,27 @@ func TestErrorShape(t *testing.T) {
 		})
 	}
 }
+
+func TestWebFallthrough(t *testing.T) {
+	logger, _ := jsonLogger()
+	web := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, "web:"+r.URL.Path)
+	})
+	h := NewRouter(Deps{DB: openDB(t), Logger: logger, Web: web})
+
+	for _, target := range []string{"/", "/projects/3", "/assets/index-abc.js"} {
+		rec := do(t, h, http.MethodGet, target)
+		if got, want := rec.Body.String(), "web:"+target; got != want {
+			t.Errorf("GET %s: body = %q, want %q", target, got, want)
+		}
+	}
+
+	// /api stays the API's: unknown endpoints get the JSON error, not the SPA.
+	rec := do(t, h, http.MethodGet, "/api/nope")
+	if rec.Code != http.StatusNotFound || rec.Header().Get("Content-Type") != "application/json" {
+		t.Errorf("GET /api/nope: status %d, Content-Type %q; want a JSON 404", rec.Code, rec.Header().Get("Content-Type"))
+	}
+	if rec := do(t, h, http.MethodGet, "/api/health"); rec.Code != http.StatusOK {
+		t.Errorf("GET /api/health: status = %d, want 200", rec.Code)
+	}
+}
