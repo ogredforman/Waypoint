@@ -2,6 +2,7 @@ package web
 
 import (
 	"io/fs"
+	"mime"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -77,6 +78,29 @@ func TestHandler(t *testing.T) {
 
 	if allow := do(h, "POST", "/").Header().Get("Allow"); allow != "GET, HEAD" {
 		t.Errorf("Allow = %q, want GET, HEAD", allow)
+	}
+}
+
+func TestHandlerIgnoresMimeOverrides(t *testing.T) {
+	// Simulate a Windows registry that overrides Go's built-in types, as on
+	// the GitHub Actions Windows runner. AddExtensionType is process-wide and
+	// can't be undone; that's fine because the handler no longer reads it for
+	// the extensions checked here, and no other test in this package does.
+	if err := mime.AddExtensionType(".js", "application/javascript"); err != nil {
+		t.Fatal(err)
+	}
+	if err := mime.AddExtensionType(".css", "text/plain"); err != nil {
+		t.Fatal(err)
+	}
+
+	h := NewHandler(builtFS())
+	for target, want := range map[string]string{
+		"/assets/index-abc.js":  "text/javascript",
+		"/assets/index-abc.css": "text/css",
+	} {
+		if ct := do(h, "GET", target).Header().Get("Content-Type"); !strings.HasPrefix(ct, want) {
+			t.Errorf("GET %s: Content-Type = %q, want prefix %q", target, ct, want)
+		}
 	}
 }
 

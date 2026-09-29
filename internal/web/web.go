@@ -24,6 +24,34 @@ func Dist() fs.FS {
 	return sub
 }
 
+// contentType pins the types of files a Vite build emits. Go's mime package
+// lets the Windows registry override its built-in table, so the same binary
+// can send .js as application/javascript on one machine and text/plain on
+// another; browsers refuse to run a module script served as text/plain.
+func contentType(ext string) (string, bool) {
+	switch ext {
+	case ".html":
+		return "text/html; charset=utf-8", true
+	case ".js", ".mjs":
+		return "text/javascript; charset=utf-8", true
+	case ".css":
+		return "text/css; charset=utf-8", true
+	case ".json", ".map":
+		return "application/json", true
+	case ".svg":
+		return "image/svg+xml", true
+	case ".png":
+		return "image/png", true
+	case ".ico":
+		return "image/x-icon", true
+	case ".webp":
+		return "image/webp", true
+	case ".woff2":
+		return "font/woff2", true
+	}
+	return "", false
+}
+
 // NewHandler serves the single-page app in fsys. Existing files are served
 // as-is; any other path without a file extension gets index.html so the
 // client-side router can handle it. A missing path with an extension (a
@@ -42,6 +70,9 @@ func NewHandler(fsys fs.FS) http.Handler {
 			if strings.HasPrefix(name, "assets/") {
 				// Vite puts a content hash in every asset file name.
 				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			}
+			if ct, ok := contentType(path.Ext(name)); ok {
+				w.Header().Set("Content-Type", ct) // FileServer keeps a type that's already set
 			}
 			files.ServeHTTP(w, r)
 			return
