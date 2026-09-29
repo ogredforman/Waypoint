@@ -34,4 +34,23 @@ How `sqlc` is provided gets decided in PLAN 0.5.
 | `make lint` | `go vet`, `staticcheck`, `svelte-check` |
 | `make sqlc` | Regenerate query code after editing `internal/db/queries/` |
 
-Configuration and provider setup instructions arrive with Stage 2.
+## Configuration
+
+Each setting comes from the first place that sets it: command-line flag, then `WAYPOINT_*` environment
+variable, then `config.toml`, then the default. Run `waypoint -h` to list the flags.
+
+| Flag | Env | `config.toml` | Default |
+|---|---|---|---|
+| `-config` | `WAYPOINT_CONFIG` | n/a | `config.toml` in the OS config folder (see below) |
+| `-port` | `WAYPOINT_PORT` | `port` | `7420` |
+| `-data-dir` | `WAYPOINT_DATA_DIR` | `data_dir` | OS data folder (see below) |
+| `-log-level` | `WAYPOINT_LOG_LEVEL` | `log_level` | `info` |
+
+| OS | Config folder | Data folder (holds `waypoint.db`) |
+|---|---|---|
+| Windows | `%APPDATA%\Waypoint` | `%LOCALAPPDATA%\Waypoint` |
+| macOS | `~/Library/Application Support/Waypoint` | `~/Library/Application Support/Waypoint` |
+| Linux | `$XDG_CONFIG_HOME/waypoint` or `~/.config/waypoint` | `$XDG_DATA_HOME/waypoint` or `~/.local/share/waypoint` |
+
+The server only listens on `127.0.0.1`. A relative `data_dir` in `config.toml` is relative to that file.
+Provider setup instructions arrive with Stage 2.

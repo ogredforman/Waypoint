@@ -2,11 +2,43 @@
 package main
 
 import (
+	"errors"
+	"flag"
+	"fmt"
 	"log/slog"
 	"os"
+	"runtime"
+
+	"github.com/ogredforman/waypoint/internal/config"
 )
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	logger.Info("waypoint starting; nothing is wired up yet (PLAN 0.2+)")
+	os.Exit(run())
+}
+
+func run() int {
+	cfg, err := config.Load(os.Args[1:], os.LookupEnv, runtime.GOOS, os.Stderr)
+	if errors.Is(err, flag.ErrHelp) {
+		return 0
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "waypoint:", err)
+		return 2
+	}
+
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: cfg.LogLevel}))
+
+	if err := config.EnsureDataDir(cfg); err != nil {
+		logger.Error("startup failed", "err", err)
+		return 1
+	}
+	logger.Info("config loaded",
+		"config_file", cfg.File,
+		"data_dir", cfg.DataDir,
+		"db", cfg.DBPath(),
+		"addr", cfg.Addr(),
+		"log_level", cfg.LogLevel.String(),
+	)
+	logger.Info("nothing else is wired up yet (PLAN 0.3+)")
+	return 0
 }
