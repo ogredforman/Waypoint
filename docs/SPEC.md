@@ -59,18 +59,18 @@ These are requirements, not suggestions. Agents should treat violations as bugs.
 | Entity | Purpose | Key fields |
 |---|---|---|
 | **Project** | A goal the user is pursuing | `title`, `why` (motivation), `definition_of_done`, `status` (active / paused / parked / done), timestamps |
-| **Milestone** | *Post-MVP.* An outcome-shaped chunk of a project | `project_id`, `title`, `description`, `status`, `order` |
-| **Task** | A concrete action the user does | `project_id`, `milestone_id?`, `parent_task_id?`, `title`, `notes`, `status` (todo / in_progress / done / dropped), `size` (xs–l), `energy` (low / medium / deep), `order`, `origin_entry_id?`, timestamps |
+| **Milestone** | *Post-MVP.* An outcome-shaped chunk of a project | `project_id`, `title`, `description`, `status` (open / done / dropped), `position` |
+| **Task** | A concrete action the user does | `project_id`, `milestone_id?`, `parent_task_id?`, `title`, `notes`, `status` (todo / in_progress / done / dropped), `size?` (xs / s / m / l), `energy?` (low / medium / deep), `position`, `origin_entry_id?`, timestamps |
 | **Task dependency** | One task blocks another | `task_id`, `blocked_by_task_id` |
-| **Entry** | A diary entry. Immutable. | `body` (markdown text), `project_id?` (user-chosen scope, or null for auto), `reply_to_question_id?`, `mood?`, `energy?`, `created_at` |
+| **Entry** | A diary entry. Immutable. | `body` (markdown text), `project_id?` (user-chosen scope, or null for auto), `reply_to_question_id?`, `created_at`. (Self-reported mood and energy are deferred to Stage 3; feelings are captured as `feeling` observations.) |
 | **Observation** | A typed fragment extracted from an entry | `entry_id`, `kind` (progress / blocker / idea / feeling / decision / question / note), `summary`, `span_start`, `span_end`, `extraction_run_id` |
 | **Observation link** | Links an observation to a project element (many-to-many) | `observation_id`, `target_type` (project / milestone / task / blocker / idea), `target_id`, `confidence` |
-| **Blocker** | Something preventing progress, with a lifecycle | `project_id`, `task_id?`, `description`, `status` (open / resolved), `origin_entry_id`, `resolved_entry_id?`, timestamps |
-| **Idea** | A parking-lot item: a new idea or project spark | `project_id?`, `title`, `body`, `status` (parked / promoted / discarded), `origin_entry_id` |
-| **Follow-up question** | A question the system asks after an entry | `entry_id`, `text`, `reason`, `status` (open / answered / dismissed), `answer_entry_id?` |
-| **Extraction run** | One AI (or mock) processing pass over an entry | `entry_id`, `provider`, `model`, `prompt_version`, `input_snapshot` (JSON), `raw_output` (JSON), `status`, `error?`, `latency_ms`, `created_at` |
-| **Changeset** | Changes proposed from one extraction run | `extraction_run_id`, `status` (pending / applied / partially_applied / rejected), `created_at`, `resolved_at?` |
-| **Change op** | A single proposed mutation inside a changeset | `changeset_id`, `op_type`, `payload` (JSON), `rationale`, `confidence`, `status` (pending / applied / rejected / edited), `applied_payload?` |
+| **Blocker** | Something preventing progress, with a lifecycle | `project_id`, `task_id?`, `description`, `status` (open / resolved), `origin_entry_id?`, `resolved_entry_id?`, timestamps |
+| **Idea** | A parking-lot item: a new idea or project spark | `project_id?`, `title`, `body`, `status` (parked / promoted / discarded), `origin_entry_id?` |
+| **Follow-up question** | A question the system asks after an entry | `entry_id`, `extraction_run_id`, `text`, `reason`, `status` (open / answered / dismissed), `answer_entry_id?` |
+| **Extraction run** | One AI (or mock) processing pass over an entry | `entry_id`, `provider`, `model`, `prompt_version`, `input_snapshot?` (JSON), `raw_output?` (JSON), `status` (pending / running / succeeded / failed; `running` resets to `pending` on restart), `error?`, `latency_ms?`, `created_at` |
+| **Changeset** | Changes proposed from one extraction run, or one manual edit | `source` (extraction / manual), `extraction_run_id?` (set exactly when `source` is extraction), `status` (pending / applied / partially_applied / rejected), `created_at`, `resolved_at?` |
+| **Change op** | A single proposed mutation inside a changeset | `changeset_id`, `position` (order within the changeset), `op_type`, `payload` (JSON), `rationale?`, `confidence?`, `status` (pending / applied / rejected / edited), `applied_payload?` |
 | **Briefing** | Cached "what's next" output per project | `project_id`, `next_task_id?`, `next_reason`, `recap`, `generated_at`, `source` (heuristic / llm) |
 
 ### 6.2 Change op types
@@ -97,7 +97,8 @@ Project 1─* Task (milestone optional)
 Task    *─* Task            (dependencies, parent/subtask)
 Project 1─* Blocker *─1 Task (optional)
 Entry   1─* Observation *─* {Project, Milestone, Task, Blocker, Idea}
-Entry   1─* ExtractionRun 1─1 Changeset 1─* ChangeOp
+Entry   1─* ExtractionRun 1─0..1 Changeset 1─* ChangeOp
+Changeset (source=manual, no run) 1─* ChangeOp
 Entry   1─* FollowUpQuestion ─(answer)→ Entry
 ```
 
@@ -137,7 +138,7 @@ For each active project, the briefing shows:
 - **Low-energy alternatives:** up to 2 small or low-energy tasks.
 
 Two implementations exist behind one interface:
-- *Heuristic*, used in the prototype and as a fallback: prefer in-progress tasks, then unblocked todo tasks by order, preferring smaller sizes.
+- *Heuristic*, used in the prototype and as a fallback: prefer in-progress tasks, then unblocked todo tasks by `position`, preferring smaller sizes.
 - *LLM*: selects and explains using the snapshot. It must return a task ID that exists; otherwise the heuristic is used.
 
 ### 7.4 Manual editing

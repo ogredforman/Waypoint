@@ -29,7 +29,7 @@ Tasks:
 - [x] **0.1** Initialize the Go module, repo layout (SPEC §10.2), and a `Makefile` with `dev`, `build`, `test`, `lint`, `sqlc` targets (the commands `AGENTS.md` refers to).
 - [x] **0.2** Config loading (flags > env > `config.toml`); OS-appropriate data dir for the DB.
 - [x] **0.3** SQLite via `modernc.org/sqlite` with WAL mode; goose migrations embedded and run at startup.
-- [ ] **0.4** Initial migration with the full core schema from SPEC §6.1 (milestones table included but unused).
+- [x] **0.4** Initial migration with the full core schema from SPEC §6.1 (milestones table included but unused).
 - [ ] **0.5** sqlc setup and first generated queries.
 - [ ] **0.6** chi server with `/api/health`, structured logging (`log/slog`), graceful shutdown, bound to `127.0.0.1:<port>`.
 - [ ] **0.7** Svelte + TS + Vite + Tailwind app in `/web`; production build embedded via `embed.FS`; SPA fallback routing; dev proxy for `/api`.
@@ -130,14 +130,14 @@ Tasks:
 **Goal:** fix what dogfooding revealed, then add the ADHD-support features from the spec. Priorities should come from the friction log, not from this list. Candidates:
 
 - Milestones (outcome layer above tasks).
-- Energy and size filters; the "low energy? try one of these" option in the briefing.
+- Energy and size filters; the "low energy? try one of these" option in the briefing. Needs a self-reported energy field on entries (removed from the Stage 0 schema; add it with a new migration) to match against `tasks.energy`.
 - Staleness prompts ("still want this?") for long-untouched tasks.
 - "Welcome back" recap after multi-day gaps.
 - Scope-creep warnings when a project's task count grows much faster than completions.
 - Task dependencies UI.
 - Auto-apply for high-confidence ops (opt-in, per op type).
 - Search across entries and observations.
-- Mood and energy trends (gentle, not metrics-heavy).
+- Mood and energy trends (gentle, not metrics-heavy). Decide first whether `feeling` observations already cover mood before adding an `entries.mood` column.
 
 **Exit criteria:** defined at the start of the stage from the dogfooding log.
 
@@ -181,3 +181,4 @@ Ideas and tangents captured mid-work (via `/park`). Not scheduled. Review them a
 - [ ] `//go:embed` skips dotfiles, so `internal/web/dist/.gitkeep` alone won't let `go build` pass before the first frontend build; embed a placeholder `index.html` or use `all:dist` (parked 2026-09-29; suggested stage: 0, with 0.7)
 - [ ] SPEC §10.1 lists a `release` Makefile target that no task covers yet; add it alongside cross-compiling in CI (parked 2026-09-29; suggested stage: 0, with 0.9)
 - [ ] Configurable bind host (e.g. `0.0.0.0` for Docker); only safe once auth exists, so the server stays on `127.0.0.1` for now (parked 2026-09-29; suggested stage: later)
+- [ ] Test that the Go enums in `internal/domain` match the SQL `CHECK (... IN ...)` lists in the migrations (parked 2026-09-29; suggested stage: 1, with 1.1)
