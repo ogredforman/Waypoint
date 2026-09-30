@@ -10,6 +10,7 @@ tool (
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/go-chi/chi/v5 v5.3.2
+	github.com/gzuidhof/tygo v0.2.21
 	github.com/pressly/goose/v3 v3.28.0
 	modernc.org/sqlite v1.60.1
 )

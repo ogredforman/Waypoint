@@ -22,3 +22,8 @@ SELECT changesets.* FROM changesets
 JOIN extraction_runs ON extraction_runs.id = changesets.extraction_run_id
 WHERE extraction_runs.entry_id = ?
 ORDER BY changesets.id;
+
+-- name: ListChangesetsByStatus :many
+SELECT * FROM changesets
+WHERE status = ?
+ORDER BY id;

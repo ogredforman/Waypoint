@@ -257,6 +257,86 @@ func TestListChangesetsByEntry(t *testing.T) {
 	}
 }
 
+func TestDismissAndAnswerQuestion(t *testing.T) {
+	s, sqlDB, c := newTestStore(t)
+	ctx := context.Background()
+	e := seedEntry(t, s, "body")
+	run := seedRun(t, sqlDB, e.ID)
+	var q1, q2 domain.FollowUpQuestion
+	inTx(t, s, func(tx *Tx) (err error) {
+		if q1, err = tx.CreateQuestion(ctx, domain.FollowUpQuestion{EntryID: e.ID, ExtractionRunID: run, Text: "One?", Status: domain.QuestionOpen}); err != nil {
+			return err
+		}
+		q2, err = tx.CreateQuestion(ctx, domain.FollowUpQuestion{EntryID: e.ID, ExtractionRunID: run, Text: "Two?", Status: domain.QuestionOpen})
+		return err
+	})
+	answer := seedEntry(t, s, "the answer")
+
+	c.t = t0.Add(time.Minute)
+	var dismissed, answered domain.FollowUpQuestion
+	inTx(t, s, func(tx *Tx) (err error) {
+		if dismissed, err = tx.DismissQuestion(ctx, q1.ID); err != nil {
+			return err
+		}
+		answered, err = tx.AnswerQuestion(ctx, q2.ID, answer.ID)
+		return err
+	})
+	if dismissed.Status != domain.QuestionDismissed || dismissed.AnswerEntryID != nil || !dismissed.UpdatedAt.Equal(c.t) {
+		t.Errorf("DismissQuestion = %+v", dismissed)
+	}
+	if answered.Status != domain.QuestionAnswered || answered.AnswerEntryID == nil || *answered.AnswerEntryID != answer.ID {
+		t.Errorf("AnswerQuestion = %+v", answered)
+	}
+	got, err := s.GetQuestion(ctx, q2.ID)
+	if err != nil || !reflect.DeepEqual(got, answered) {
+		t.Errorf("GetQuestion = %+v, %v; want %+v", got, err, answered)
+	}
+
+	// Neither works twice, and a missing question is not found.
+	for name, fn := range map[string]func(tx *Tx, id int64) error{
+		"dismiss": func(tx *Tx, id int64) error { _, err := tx.DismissQuestion(ctx, id); return err },
+		"answer":  func(tx *Tx, id int64) error { _, err := tx.AnswerQuestion(ctx, id, answer.ID); return err },
+	} {
+		for _, id := range []int64{q1.ID, q2.ID} {
+			err := s.InTx(ctx, func(tx *Tx) error { return fn(tx, id) })
+			var ve *domain.ValidationError
+			if !errors.As(err, &ve) {
+				t.Errorf("%s closed question %d = %v, want a validation error", name, id, err)
+			}
+		}
+		err := s.InTx(ctx, func(tx *Tx) error { return fn(tx, 999) })
+		if !errors.Is(err, ErrNotFound) {
+			t.Errorf("%s missing question = %v, want ErrNotFound", name, err)
+		}
+	}
+	if _, err := s.GetQuestion(ctx, 999); !errors.Is(err, ErrNotFound) {
+		t.Errorf("GetQuestion missing = %v, want ErrNotFound", err)
+	}
+}
+
+func TestListChangesetsByStatus(t *testing.T) {
+	s, _, _ := newTestStore(t)
+	ctx := context.Background()
+	var ids []int64
+	inTx(t, s, func(tx *Tx) error {
+		for _, status := range []domain.ChangesetStatus{domain.ChangesetPending, domain.ChangesetApplied, domain.ChangesetPending} {
+			created, _, err := tx.CreateChangeset(ctx, domain.Changeset{Source: domain.SourceManual, Status: status}, nil)
+			if err != nil {
+				return err
+			}
+			ids = append(ids, created.ID)
+		}
+		return nil
+	})
+	got, err := s.ListChangesetsByStatus(ctx, domain.ChangesetPending)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].ID != ids[0] || got[1].ID != ids[2] {
+		t.Errorf("pending changesets = %+v, want %d and %d", got, ids[0], ids[2])
+	}
+}
+
 func TestInReadTxDoesNotBlockWriters(t *testing.T) {
 	s, _, _ := newTestStore(t)
 	ctx := context.Background()

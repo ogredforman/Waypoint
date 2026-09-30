@@ -215,6 +215,56 @@ func TestCheckRefs(t *testing.T) {
 	}
 }
 
+func TestCheckRefsIdeaStatus(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	ideas := map[domain.IdeaStatus]int64{}
+	err := f.s.InTx(ctx, func(tx *store.Tx) error {
+		for _, st := range domain.IdeaStatuses() {
+			i, err := tx.CreateIdea(ctx, domain.Idea{Title: "i", Status: st})
+			if err != nil {
+				return err
+			}
+			ideas[st] = i.ID
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	set := func(from, to domain.IdeaStatus) UpdateIdea {
+		return UpdateIdea{IdeaID: ID(ideas[from]), Status: &to}
+	}
+	title := "renamed"
+	for _, tt := range []struct {
+		name string
+		p    UpdateIdea
+		want []string
+	}{
+		{"promote parked", set(domain.IdeaParked, domain.IdeaPromoted), nil},
+		{"discard parked", set(domain.IdeaParked, domain.IdeaDiscarded), nil},
+		{"park discarded", set(domain.IdeaDiscarded, domain.IdeaParked), nil},
+		{"promote discarded", set(domain.IdeaDiscarded, domain.IdeaPromoted), []string{"status"}},
+		{"promote again", set(domain.IdeaPromoted, domain.IdeaPromoted), []string{"status"}},
+		{"unpromote", set(domain.IdeaPromoted, domain.IdeaParked), []string{"status"}},
+		{"rename promoted", UpdateIdea{IdeaID: ID(ideas[domain.IdeaPromoted]), Title: &title}, nil},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var err error
+			rerr := f.s.InTx(ctx, func(tx *store.Tx) error {
+				err = CheckRefs(ctx, tx, tt.p, nil)
+				return nil
+			})
+			if rerr != nil {
+				t.Fatal(rerr)
+			}
+			if got := fields(t, err); !slices.Equal(got, tt.want) {
+				t.Errorf("problem fields %v, want %v (%v)", got, tt.want, err)
+			}
+		})
+	}
+}
+
 // TestCheckRefsSeesEarlierOps checks that CheckRefs reads through the apply
 // transaction, so rows written by earlier ops count.
 func TestCheckRefsSeesEarlierOps(t *testing.T) {

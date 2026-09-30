@@ -339,10 +339,12 @@ GET    /api/projects                  POST /api/projects
 GET    /api/projects/{id}             PATCH /api/projects/{id}
 GET    /api/projects/{id}/tasks       POST /api/projects/{id}/tasks
 PATCH  /api/tasks/{id}                GET  /api/tasks/{id} (incl. linked observations + origin)
-GET    /api/projects/{id}/blockers    PATCH /api/blockers/{id}
-GET    /api/ideas                     PATCH /api/ideas/{id}   POST /api/ideas/{id}/promote
-GET    /api/entries?project_id=&before=   POST /api/entries
-GET    /api/entries/{id}              (incl. observations, questions, changeset)
+DELETE /api/tasks/{id}
+GET    /api/projects/{id}/blockers    PATCH /api/blockers/{id}   DELETE /api/blockers/{id}
+GET    /api/ideas?status=&project_id= PATCH /api/ideas/{id}      DELETE /api/ideas/{id}
+POST   /api/ideas/{id}/promote        body: { to: task|project, project_id? }
+GET    /api/entries?project_id=&before=&limit=   POST /api/entries
+GET    /api/entries/{id}              (incl. observations, questions, changesets)
 POST   /api/entries/{id}/reprocess
 GET    /api/changesets?status=pending
 POST   /api/changesets/{id}/apply     body: { ops: [{id, decision: accept|reject|edit, payload?}] }
@@ -352,6 +354,14 @@ GET    /api/settings                  PATCH /api/settings
 GET    /api/export
 GET    /api/events                    (SSE: entry.processed, changeset.ready, briefing.updated, run.failed)
 ```
+
+Request and response bodies are the DTOs in `internal/api/apitypes`, with TypeScript types generated from them (ADR 0001). Notes:
+
+- **Edits are manual changesets.** Every POST, PATCH, and DELETE on projects, tasks, blockers, and ideas becomes one `source=manual` changeset (§7.4). PATCH bodies follow the op payloads of §6.2 without the ID, which comes from the path: absent fields stay as they are, and `null` clears a nullable field. A task's `status` in a PATCH or create becomes a `set_task_status` op. A blocker's `status` can only be set to `resolved` (`resolve_blocker`). An idea's status can't be set to `promoted` by PATCH: promoting creates the task or parked project and marks the idea promoted in one changeset. A project created with `status: active` or a definition of done gets an `update_project` after its `create_project`.
+- **Entries.** `POST /api/entries` answers 202 once the entry and its pending run are stored; SSE reports the outcome. An entry with `reply_to_question_id` marks that question answered in the same transaction; replying to a question that is no longer open is rejected. `GET /api/entries?project_id=` lists the entries *about* the project: those scoped to it and unscoped ones with an observation linked to it or to its tasks or blockers. Pages are newest first; `next_before` in the response is the `before` for the next page.
+- **Spans.** Observation spans in API responses are UTF-16 code unit offsets, converted from the stored UTF-8 byte offsets (§10.3), so the UI can slice the entry body directly.
+- **Settings.** `GET /api/settings` reports the settings in effect from `config.toml`. `PATCH /api/settings` and `GET /api/export` come later.
+- **Errors** use one shape: `{"error": {"code", "message", "problems?"}}`. Codes: `bad_request` (400: malformed JSON or query), `not_found` (404), `method_not_allowed` (405, with `Allow`), `invalid` (422: validation failures and unknown fields, with per-field `problems`), `active_cap` (409), `not_pending` (409: the changeset was already resolved), `run_in_progress` (409: the entry is being processed), `internal` (500).
 
 ## 11. UI surfaces
 

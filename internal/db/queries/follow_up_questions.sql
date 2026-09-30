@@ -14,3 +14,21 @@ ORDER BY id;
 UPDATE follow_up_questions
 SET status = 'dismissed', updated_at = ?
 WHERE entry_id = ? AND status = 'open';
+
+-- name: GetFollowUpQuestion :one
+SELECT * FROM follow_up_questions
+WHERE id = ?;
+
+-- name: DismissFollowUpQuestion :one
+-- Only an open question can be dismissed; no row means it wasn't open.
+UPDATE follow_up_questions
+SET status = 'dismissed', updated_at = ?
+WHERE id = ? AND status = 'open'
+RETURNING *;
+
+-- name: AnswerFollowUpQuestion :one
+-- Only an open question can be answered; no row means it wasn't open.
+UPDATE follow_up_questions
+SET status = 'answered', answer_entry_id = ?, updated_at = ?
+WHERE id = ? AND status = 'open'
+RETURNING *;

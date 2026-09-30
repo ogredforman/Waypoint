@@ -66,3 +66,30 @@ generated TS file is never edited by hand.
   and the commit message gives the one-line reason. Until then, `/api/health` is a temporary
   exception to "never hand-duplicated": in 1.14 its response type moves into `apitypes`, and
   `web/src/lib/health.ts` switches to the generated type.
+
+## Implementation notes (PLAN 1.14)
+
+How the consequences above were settled when the first DTOs landed:
+
+- **Generator:** `internal/api/apitypes/gen` runs tygo as a library, not as a `go tool`. That keeps
+  the tygo config in Go next to the enum list, and lets `-check` generate into a temp dir and compare
+  with the committed files. Comparing against the working tree (like `sqlc diff`) instead of
+  `git diff` means uncommitted but current output doesn't fail lint. `make gen` writes the files;
+  `make lint` runs `gen -check`.
+- **Enums:** they stay in `internal/domain`. tygo only emits a union for consts named after their type
+  (`TaskStatusTodo`), and the domain's are not (`TaskTodo`), so the generator writes
+  `web/src/lib/api/enums.gen.ts` itself from the domain's value lists (`domain.TaskStatuses()` and so
+  on): `export const taskStatusValues = [...] as const` and `export type TaskStatus = ...`. DTOs use
+  the domain enum types directly, and `types.gen.ts` imports them as `domain.TaskStatus`.
+- **Mappings:** `time.Time` → `string` (RFC 3339). `int64` → `number`. The generator fails if tygo
+  falls back to `any` for an unmapped type.
+- **Nullable fields:** tygo makes every pointer field optional (`field?: T`), but `encoding/json`
+  always sends a pointer without `omitempty`, as `null` when unset. Such fields are tagged
+  `tstype:"T | null,required"`; a test in `apitypes` enforces it. Pointer fields with `omitempty`
+  are request fields the client may leave out, so they stay optional. A request field where `null`
+  means "clear it" is tagged `tstype:"T | null"` and becomes `field?: T | null`.
+- **Raw JSON:** `json.RawMessage` (op payloads) is tagged `tstype:"{ [key: string]: unknown }"`.
+  Tag values can't contain commas, so `Record<K, V>`, `Extract`, and `Exclude` can't be used in tags.
+- **Request DTOs for PATCH routes** only type the frontend. The handlers read PATCH bodies as raw
+  fields so that "absent" and `null` stay distinct, and pass them to the op payload decoder. A test
+  checks that each request DTO lists the same fields as its op payload.

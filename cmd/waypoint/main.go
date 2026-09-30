@@ -15,7 +15,9 @@ import (
 	"time"
 
 	"github.com/ogredforman/waypoint/internal/api"
+	"github.com/ogredforman/waypoint/internal/api/apitypes"
 	"github.com/ogredforman/waypoint/internal/briefing"
+	"github.com/ogredforman/waypoint/internal/changeset"
 	"github.com/ogredforman/waypoint/internal/config"
 	"github.com/ogredforman/waypoint/internal/db"
 	"github.com/ogredforman/waypoint/internal/extract/mock"
@@ -92,10 +94,10 @@ func run() int {
 	hub := api.NewHub(logger)
 	st := store.New(sqlDB, time.Now)
 	snapshots := pipeline.NewSnapshotBuilder(st, time.Now, cfg.SnapshotRecentEntries)
-	// The changeset applier is wired with the routes that use it (PLAN
-	// 1.14); it takes briefings as its changeset.AfterApply.
 	briefings := briefing.NewService(st, briefing.Heuristic{}, time.Now, hub, logger)
-	worker := pipeline.NewWorker(st, snapshots, mock.New(cfg.MockLatency), hub, briefings, logger)
+	applier := changeset.NewApplier(st, cfg.ActiveProjectCap, briefings)
+	extractor := mock.New(cfg.MockLatency)
+	worker := pipeline.NewWorker(st, snapshots, extractor, hub, briefings, logger)
 	workerDone := make(chan struct{})
 	go func() {
 		defer close(workerDone)
@@ -104,7 +106,22 @@ func run() int {
 		}
 	}()
 
-	router := api.NewRouter(api.Deps{DB: sqlDB, Logger: logger, Web: web.NewHandler(web.Dist()), Hub: hub})
+	router := api.NewRouter(api.Deps{
+		DB:        sqlDB,
+		Logger:    logger,
+		Web:       web.NewHandler(web.Dist()),
+		Hub:       hub,
+		Store:     st,
+		Applier:   applier,
+		Worker:    worker,
+		Briefings: briefings,
+		Settings: apitypes.Settings{
+			Provider:              extractor.Name(),
+			ActiveProjectCap:      cfg.ActiveProjectCap,
+			SnapshotRecentEntries: cfg.SnapshotRecentEntries,
+			MockLatencyMS:         cfg.MockLatency.Milliseconds(),
+		},
+	})
 	err = api.Serve(ctx, ln, router, logger, hub.Close)
 	stop() // stop the worker too if the server failed on its own
 	<-workerDone

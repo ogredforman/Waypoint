@@ -111,6 +111,44 @@ func (q *Queries) ListChangesetsByEntry(ctx context.Context, entryID int64) ([]C
 	return items, nil
 }
 
+const listChangesetsByStatus = `-- name: ListChangesetsByStatus :many
+SELECT id, source, extraction_run_id, parent_changeset_id, status, created_at, updated_at, resolved_at FROM changesets
+WHERE status = ?
+ORDER BY id
+`
+
+func (q *Queries) ListChangesetsByStatus(ctx context.Context, status string) ([]Changeset, error) {
+	rows, err := q.db.QueryContext(ctx, listChangesetsByStatus, status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Changeset{}
+	for rows.Next() {
+		var i Changeset
+		if err := rows.Scan(
+			&i.ID,
+			&i.Source,
+			&i.ExtractionRunID,
+			&i.ParentChangesetID,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ResolvedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const resolveChangeset = `-- name: ResolveChangeset :one
 UPDATE changesets
 SET status = ?, resolved_at = ?, updated_at = ?

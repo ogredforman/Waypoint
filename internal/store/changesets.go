@@ -207,3 +207,17 @@ func (tx *Tx) MoveChangeOp(ctx context.Context, id, toChangesetID int64, payload
 	}
 	return changeOpFromRow(row), nil
 }
+
+// ListChangesetsByStatus returns the changesets with the given status, oldest
+// first.
+func (r reader) ListChangesetsByStatus(ctx context.Context, status domain.ChangesetStatus) ([]domain.Changeset, error) {
+	rows, err := r.q.ListChangesetsByStatus(ctx, string(status))
+	if err != nil {
+		return nil, fmt.Errorf("list %s changesets: %w", status, err)
+	}
+	out := make([]domain.Changeset, len(rows))
+	for i, row := range rows {
+		out[i] = changesetFromRow(row)
+	}
+	return out, nil
+}

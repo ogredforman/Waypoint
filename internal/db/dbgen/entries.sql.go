@@ -144,6 +144,61 @@ func (q *Queries) ListEntriesBeforeByProject(ctx context.Context, arg ListEntrie
 	return items, nil
 }
 
+const listEntriesBeforeForProject = `-- name: ListEntriesBeforeForProject :many
+SELECT e.id, e.body, e.project_id, e.reply_to_question_id, e.created_at FROM entries AS e
+WHERE e.id < ?1 AND (
+      e.project_id = ?2
+   OR (e.project_id IS NULL AND EXISTS (
+        SELECT 1 FROM observations AS o
+        JOIN observation_links AS l ON l.observation_id = o.id
+        WHERE o.entry_id = e.id AND (
+              (l.target_type = 'project' AND l.target_id = ?2)
+           OR (l.target_type = 'task' AND l.target_id IN (SELECT t.id FROM tasks AS t WHERE t.project_id = ?2))
+           OR (l.target_type = 'blocker' AND l.target_id IN (SELECT b.id FROM blockers AS b WHERE b.project_id = ?2))
+        )
+   ))
+)
+ORDER BY e.created_at DESC, e.id DESC
+LIMIT ?3
+`
+
+type ListEntriesBeforeForProjectParams struct {
+	BeforeID  int64
+	ProjectID *int64
+	Limit     int64
+}
+
+// Entries about a project (as in ListRecentEntriesForProject) written before
+// the given one, newest first.
+func (q *Queries) ListEntriesBeforeForProject(ctx context.Context, arg ListEntriesBeforeForProjectParams) ([]Entry, error) {
+	rows, err := q.db.QueryContext(ctx, listEntriesBeforeForProject, arg.BeforeID, arg.ProjectID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Entry{}
+	for rows.Next() {
+		var i Entry
+		if err := rows.Scan(
+			&i.ID,
+			&i.Body,
+			&i.ProjectID,
+			&i.ReplyToQuestionID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRecentEntries = `-- name: ListRecentEntries :many
 SELECT id, body, project_id, reply_to_question_id, created_at FROM entries
 ORDER BY created_at DESC, id DESC

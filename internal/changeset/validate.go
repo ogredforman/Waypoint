@@ -152,6 +152,7 @@ func CheckRefs(ctx context.Context, r Reader, p Payload, ids TempIDs) error {
 		ids:      map[string]int64{},
 		tasks:    map[string]domain.Task{},
 		blockers: map[string]domain.Blocker{},
+		ideas:    map[string]domain.Idea{},
 	}
 	for _, fr := range p.refs() {
 		if err := k.load(ctx, fr, ids); err != nil {
@@ -171,6 +172,7 @@ type refChecker struct {
 	ids      map[string]int64
 	tasks    map[string]domain.Task
 	blockers map[string]domain.Blocker
+	ideas    map[string]domain.Idea
 }
 
 func (k *refChecker) load(ctx context.Context, fr fieldRef, temp TempIDs) error {
@@ -198,7 +200,10 @@ func (k *refChecker) load(ctx context.Context, fr fieldRef, temp TempIDs) error 
 			k.blockers[fr.field] = b
 		}
 	case domain.TargetIdea:
-		_, err = k.r.GetIdea(ctx, id)
+		var i domain.Idea
+		if i, err = k.r.GetIdea(ctx, id); err == nil {
+			k.ideas[fr.field] = i
+		}
 	default:
 		return fmt.Errorf("check %s: unexpected ref kind %q", fr.field, fr.kind)
 	}
@@ -216,7 +221,7 @@ func (k *refChecker) load(ctx context.Context, fr fieldRef, temp TempIDs) error 
 // rules checks the cross-row rules. Each only runs when the rows it needs
 // loaded; a missing row is already reported.
 func (k *refChecker) rules(ctx context.Context, p Payload) error {
-	switch p.(type) {
+	switch p := p.(type) {
 	case CreateTask:
 		k.sameProject("parent_task_id", "parent task", "project_id")
 	case CreateBlocker:
@@ -236,6 +241,17 @@ func (k *refChecker) rules(ctx context.Context, p Payload) error {
 			k.c.add("blocked_by_task_id", "a task can't block itself")
 		case t.ProjectID != dep.ProjectID:
 			k.c.add("blocked_by_task_id", "task %d is in another project", dep.ID)
+		}
+	case UpdateIdea:
+		// Promoting happens once: a second promotion, say from a double
+		// click, would create the task or project again.
+		i, ok := k.ideas["idea_id"]
+		switch {
+		case !ok || p.Status == nil:
+		case i.Status == domain.IdeaPromoted:
+			k.c.add("status", "the idea was already promoted")
+		case *p.Status == domain.IdeaPromoted && i.Status != domain.IdeaParked:
+			k.c.add("status", "only a parked idea can be promoted")
 		}
 	case UpdateTask:
 		t, okT := k.tasks["task_id"]

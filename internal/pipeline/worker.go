@@ -95,17 +95,28 @@ func NewWorker(s *store.Store, snapshots *SnapshotBuilder, extractor extract.Ext
 }
 
 // SaveEntry stores e and a pending run for it in one transaction, so an entry
-// is never left without a run, and wakes the worker. It returns as soon as
-// both are stored; extraction happens in the background.
+// is never left without a run, and wakes the worker. If e replies to a
+// follow-up question, the question is marked answered in the same
+// transaction. It returns as soon as everything is stored; extraction happens
+// in the background. A project or question that doesn't exist, or a question
+// that is no longer open, is a *domain.ValidationError.
 func (w *Worker) SaveEntry(ctx context.Context, e domain.Entry) (domain.Entry, domain.ExtractionRun, error) {
 	var (
 		entry domain.Entry
 		run   domain.ExtractionRun
 	)
 	err := w.store.InTx(ctx, func(tx *store.Tx) error {
+		if err := checkEntryRefs(ctx, tx, e); err != nil {
+			return err
+		}
 		var err error
 		if entry, err = tx.CreateEntry(ctx, e); err != nil {
 			return err
+		}
+		if e.ReplyToQuestionID != nil {
+			if _, err := tx.AnswerQuestion(ctx, *e.ReplyToQuestionID, entry.ID); err != nil {
+				return err
+			}
 		}
 		run, err = tx.CreateExtractionRun(ctx, w.newRun(entry.ID))
 		return err
@@ -115,6 +126,35 @@ func (w *Worker) SaveEntry(ctx context.Context, e domain.Entry) (domain.Entry, d
 	}
 	w.Wake()
 	return entry, run, nil
+}
+
+// checkEntryRefs checks that the project and question e points at exist and
+// that the question is still open, so a bad reference is the caller's
+// mistake rather than a foreign key failure.
+func checkEntryRefs(ctx context.Context, tx *store.Tx, e domain.Entry) error {
+	var problems []domain.FieldError
+	if e.ProjectID != nil {
+		if _, err := tx.GetProject(ctx, *e.ProjectID); errors.Is(err, store.ErrNotFound) {
+			problems = append(problems, domain.FieldError{Field: "project_id", Problem: "no such project"})
+		} else if err != nil {
+			return err
+		}
+	}
+	if e.ReplyToQuestionID != nil {
+		q, err := tx.GetQuestion(ctx, *e.ReplyToQuestionID)
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			problems = append(problems, domain.FieldError{Field: "reply_to_question_id", Problem: "no such question"})
+		case err != nil:
+			return err
+		case q.Status != domain.QuestionOpen:
+			problems = append(problems, domain.FieldError{Field: "reply_to_question_id", Problem: "the question is no longer open"})
+		}
+	}
+	if len(problems) > 0 {
+		return &domain.ValidationError{Entity: "entry", Problems: problems}
+	}
+	return nil
 }
 
 // Reprocess queues a new run for entry entryID and wakes the worker. In the

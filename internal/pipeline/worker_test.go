@@ -181,6 +181,53 @@ func TestSaveEntryCreatesPendingRun(t *testing.T) {
 	}
 }
 
+func TestSaveEntryAnswersQuestion(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	w := f.worker(mock.New(0), nil)
+	asked, run := f.save(w, "feel: stuck", nil)
+	var q domain.FollowUpQuestion
+	if err := f.s.InTx(ctx, func(tx *store.Tx) (err error) {
+		q, err = tx.CreateQuestion(ctx, domain.FollowUpQuestion{
+			EntryID: asked.ID, ExtractionRunID: run.ID, Text: "What's in the way?", Status: domain.QuestionOpen,
+		})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	reply, _, err := w.SaveEntry(ctx, domain.Entry{Body: "the parts", ReplyToQuestionID: &q.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := f.s.GetQuestion(ctx, q.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != domain.QuestionAnswered || got.AnswerEntryID == nil || *got.AnswerEntryID != reply.ID {
+		t.Errorf("question after reply = %+v, want answered by entry %d", got, reply.ID)
+	}
+
+	// Replying again, to a missing question, or in a missing project stores
+	// nothing.
+	missing := int64(999)
+	for name, e := range map[string]domain.Entry{
+		"closed question":  {Body: "again", ReplyToQuestionID: &q.ID},
+		"missing question": {Body: "again", ReplyToQuestionID: &missing},
+		"missing project":  {Body: "again", ProjectID: &missing},
+	} {
+		_, _, err := w.SaveEntry(ctx, e)
+		var ve *domain.ValidationError
+		if !errors.As(err, &ve) {
+			t.Errorf("%s: SaveEntry = %v, want a validation error", name, err)
+		}
+	}
+	entries, err := f.s.ListRecentEntries(ctx, 10)
+	if err != nil || len(entries) != 2 {
+		t.Errorf("entries = %d, %v; want only the 2 saved", len(entries), err)
+	}
+}
+
 func TestProcessStoresResult(t *testing.T) {
 	f := newFixture(t)
 	p := f.project("Build Waypoint", domain.ProjectActive)

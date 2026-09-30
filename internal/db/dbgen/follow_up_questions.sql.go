@@ -9,6 +9,37 @@ import (
 	"context"
 )
 
+const answerFollowUpQuestion = `-- name: AnswerFollowUpQuestion :one
+UPDATE follow_up_questions
+SET status = 'answered', answer_entry_id = ?, updated_at = ?
+WHERE id = ? AND status = 'open'
+RETURNING id, entry_id, extraction_run_id, text, reason, status, answer_entry_id, created_at, updated_at
+`
+
+type AnswerFollowUpQuestionParams struct {
+	AnswerEntryID *int64
+	UpdatedAt     int64
+	ID            int64
+}
+
+// Only an open question can be answered; no row means it wasn't open.
+func (q *Queries) AnswerFollowUpQuestion(ctx context.Context, arg AnswerFollowUpQuestionParams) (FollowUpQuestion, error) {
+	row := q.db.QueryRowContext(ctx, answerFollowUpQuestion, arg.AnswerEntryID, arg.UpdatedAt, arg.ID)
+	var i FollowUpQuestion
+	err := row.Scan(
+		&i.ID,
+		&i.EntryID,
+		&i.ExtractionRunID,
+		&i.Text,
+		&i.Reason,
+		&i.Status,
+		&i.AnswerEntryID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createFollowUpQuestion = `-- name: CreateFollowUpQuestion :one
 INSERT INTO follow_up_questions (
     entry_id, extraction_run_id, text, reason, status, answer_entry_id, created_at, updated_at
@@ -54,6 +85,36 @@ func (q *Queries) CreateFollowUpQuestion(ctx context.Context, arg CreateFollowUp
 	return i, err
 }
 
+const dismissFollowUpQuestion = `-- name: DismissFollowUpQuestion :one
+UPDATE follow_up_questions
+SET status = 'dismissed', updated_at = ?
+WHERE id = ? AND status = 'open'
+RETURNING id, entry_id, extraction_run_id, text, reason, status, answer_entry_id, created_at, updated_at
+`
+
+type DismissFollowUpQuestionParams struct {
+	UpdatedAt int64
+	ID        int64
+}
+
+// Only an open question can be dismissed; no row means it wasn't open.
+func (q *Queries) DismissFollowUpQuestion(ctx context.Context, arg DismissFollowUpQuestionParams) (FollowUpQuestion, error) {
+	row := q.db.QueryRowContext(ctx, dismissFollowUpQuestion, arg.UpdatedAt, arg.ID)
+	var i FollowUpQuestion
+	err := row.Scan(
+		&i.ID,
+		&i.EntryID,
+		&i.ExtractionRunID,
+		&i.Text,
+		&i.Reason,
+		&i.Status,
+		&i.AnswerEntryID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const dismissOpenFollowUpQuestionsByEntry = `-- name: DismissOpenFollowUpQuestionsByEntry :execrows
 UPDATE follow_up_questions
 SET status = 'dismissed', updated_at = ?
@@ -71,6 +132,28 @@ func (q *Queries) DismissOpenFollowUpQuestionsByEntry(ctx context.Context, arg D
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const getFollowUpQuestion = `-- name: GetFollowUpQuestion :one
+SELECT id, entry_id, extraction_run_id, text, reason, status, answer_entry_id, created_at, updated_at FROM follow_up_questions
+WHERE id = ?
+`
+
+func (q *Queries) GetFollowUpQuestion(ctx context.Context, id int64) (FollowUpQuestion, error) {
+	row := q.db.QueryRowContext(ctx, getFollowUpQuestion, id)
+	var i FollowUpQuestion
+	err := row.Scan(
+		&i.ID,
+		&i.EntryID,
+		&i.ExtractionRunID,
+		&i.Text,
+		&i.Reason,
+		&i.Status,
+		&i.AnswerEntryID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const listFollowUpQuestionsByEntry = `-- name: ListFollowUpQuestionsByEntry :many

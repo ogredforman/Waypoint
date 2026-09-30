@@ -13,7 +13,7 @@ export CGO_ENABLED := 0
 HAVE_WEB  := $(wildcard web/package.json)
 HAVE_SQLC := $(wildcard sqlc.yaml)
 
-.PHONY: dev dev-api dev-web build web test lint sqlc
+.PHONY: dev dev-api dev-web build web test lint sqlc gen
 
 ## dev: run the Go server and the Vite dev server (proxying /api to Go) side by side
 dev:
@@ -49,13 +49,14 @@ ifneq ($(HAVE_WEB),)
 	npm --prefix web test
 endif
 
-## lint: go vet, staticcheck, sqlc diff (generated code is current), svelte-check
+## lint: go vet, staticcheck, generated code is current (sqlc diff, gen -check), svelte-check
 lint:
 	go vet ./...
 	go tool staticcheck ./...
 ifneq ($(HAVE_SQLC),)
 	go tool sqlc diff
 endif
+	go run ./internal/api/apitypes/gen -check
 ifneq ($(HAVE_WEB),)
 	npm --prefix web run check
 endif
@@ -67,3 +68,8 @@ ifneq ($(HAVE_SQLC),)
 else
 	@echo Nothing to generate: no sqlc.yaml yet, see PLAN 0.5
 endif
+
+## gen: regenerate the frontend's API types (web/src/lib/api/*.gen.ts) after editing
+## internal/api/apitypes or the enums in internal/domain (ADR 0001)
+gen:
+	go run ./internal/api/apitypes/gen

@@ -114,6 +114,24 @@ func (r reader) ListEntriesBeforeByProject(ctx context.Context, projectID, befor
 	return entriesFromRows(rows), nil
 }
 
+// ListEntriesBeforeForProject returns up to limit entries about the project
+// (as in ListRecentEntriesForProject) written before the entry beforeID,
+// newest first.
+func (r reader) ListEntriesBeforeForProject(ctx context.Context, projectID, beforeID int64, limit int) ([]domain.Entry, error) {
+	if err := checkLimit(limit); err != nil {
+		return nil, fmt.Errorf("list entries about project %d before %d: %w", projectID, beforeID, err)
+	}
+	rows, err := r.q.ListEntriesBeforeForProject(ctx, dbgen.ListEntriesBeforeForProjectParams{
+		BeforeID:  beforeID,
+		ProjectID: &projectID,
+		Limit:     int64(limit),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list entries about project %d before %d: %w", projectID, beforeID, err)
+	}
+	return entriesFromRows(rows), nil
+}
+
 // CreateEntry inserts e, ignoring its ID and CreatedAt.
 func (tx *Tx) CreateEntry(ctx context.Context, e domain.Entry) (domain.Entry, error) {
 	if err := e.Validate(); err != nil {

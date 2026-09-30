@@ -10,8 +10,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"slices"
 	"testing"
 
+	"github.com/ogredforman/waypoint/internal/api/apitypes"
 	"github.com/ogredforman/waypoint/internal/db"
 )
 
@@ -67,7 +69,7 @@ func TestHealth(t *testing.T) {
 	if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
 		t.Errorf("Content-Type = %q, want application/json", ct)
 	}
-	var body healthResponse
+	var body apitypes.Health
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
@@ -141,27 +143,62 @@ func TestRequestLogging(t *testing.T) {
 func TestPanicRecovery(t *testing.T) {
 	logger, buf := jsonLogger()
 	r := newMux(Deps{DB: openDB(t), Logger: logger})
-	r.Get("/api/boom", func(http.ResponseWriter, *http.Request) { panic("boom") })
+	// A panic value may be built from request data, so only its type is
+	// logged; a runtime error's message is the runtime's own.
+	r.Get("/api/boom", func(http.ResponseWriter, *http.Request) { panic("diary words") })
+	r.Get("/api/index", func(_ http.ResponseWriter, r *http.Request) {
+		var none []byte
+		_ = none[len(r.URL.Path)]
+	})
 
-	rec := do(t, r, http.MethodGet, "/api/boom")
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want 500", rec.Code)
-	}
-
-	var sawPanic, sawRequest bool
-	for _, line := range logLines(t, buf) {
-		switch line["msg"] {
-		case "handler panic":
-			sawPanic = line["level"] == "ERROR" && line["panic"] == "boom"
-		case "request":
-			sawRequest = line["status"] == float64(500)
+	for target, want := range map[string]string{
+		"/api/boom":  "string",
+		"/api/index": "runtime error: index out of range [10] with length 0",
+	} {
+		buf.Reset()
+		rec := do(t, r, http.MethodGet, target)
+		if rec.Code != http.StatusInternalServerError {
+			t.Fatalf("GET %s: status = %d, want 500", target, rec.Code)
+		}
+		var sawPanic, sawRequest bool
+		for _, line := range logLines(t, buf) {
+			switch line["msg"] {
+			case "handler panic":
+				sawPanic = line["level"] == "ERROR" && line["panic"] == want
+			case "request":
+				sawRequest = line["status"] == float64(500)
+			}
+		}
+		if !sawPanic {
+			t.Errorf("GET %s: no ERROR log line with panic %q", target, want)
+		}
+		if !sawRequest {
+			t.Errorf("GET %s: request log line does not record status 500", target)
 		}
 	}
-	if !sawPanic {
-		t.Error("no ERROR log line for the panic")
+	do(t, r, http.MethodGet, "/api/boom")
+	if bytes.Contains(buf.Bytes(), []byte("diary")) {
+		t.Error("panic value leaked into logs")
 	}
-	if !sawRequest {
-		t.Error("request log line does not record status 500")
+}
+
+func TestMethodNotAllowedSetsAllow(t *testing.T) {
+	logger, _ := jsonLogger()
+	r := newMux(Deps{DB: openDB(t), Logger: logger})
+	r.Post("/api/things/{id}", func(http.ResponseWriter, *http.Request) {})
+	r.Patch("/api/things/{id}", func(http.ResponseWriter, *http.Request) {})
+
+	for target, want := range map[string][]string{
+		"/api/health":   {http.MethodGet},
+		"/api/things/3": {http.MethodPost, http.MethodPatch},
+	} {
+		rec := do(t, r, http.MethodDelete, target)
+		if rec.Code != http.StatusMethodNotAllowed {
+			t.Errorf("DELETE %s: status = %d, want 405", target, rec.Code)
+		}
+		if got := rec.Header().Values("Allow"); !slices.Equal(got, want) {
+			t.Errorf("DELETE %s: Allow = %v, want %v", target, got, want)
+		}
 	}
 }
 
@@ -188,7 +225,7 @@ func TestErrorShape(t *testing.T) {
 			if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
 				t.Errorf("Content-Type = %q, want application/json", ct)
 			}
-			var body errorBody
+			var body apitypes.ErrorBody
 			if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 				t.Fatalf("body %q: %v", rec.Body.String(), err)
 			}

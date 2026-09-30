@@ -158,4 +158,22 @@ func TestListRecentEntriesForProject(t *testing.T) {
 	if _, err := s.ListRecentEntriesForProject(ctx, p.ID, 0); err == nil {
 		t.Error("limit 0 accepted")
 	}
+
+	got, err = s.ListEntriesBeforeForProject(ctx, p.ID, viaTask.ID, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(ids(got), want[2:]) {
+		t.Errorf("entries before %d = %v, want %v", viaTask.ID, ids(got), want[2:])
+	}
+	got, err = s.ListEntriesBeforeForProject(ctx, p.ID, viaBlocker.ID+100, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(ids(got), want[:1]) {
+		t.Errorf("entries before a later ID with limit 1 = %v, want %v", ids(got), want[:1])
+	}
+	if _, err := s.ListEntriesBeforeForProject(ctx, p.ID, viaTask.ID, 0); err == nil {
+		t.Error("limit 0 accepted before an entry")
+	}
 }

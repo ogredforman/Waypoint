@@ -6,11 +6,9 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
-)
 
-type healthResponse struct {
-	Status string `json:"status"` // "ok" or "unavailable"
-}
+	"github.com/ogredforman/waypoint/internal/api/apitypes"
+)
 
 // handleHealth reports whether the server can reach its database. A 503 uses
 // the status body, not the error shape: it's a status report, not a failed
@@ -21,9 +19,9 @@ func handleHealth(sqlDB *sql.DB, logger *slog.Logger) http.HandlerFunc {
 		defer cancel()
 		if err := sqlDB.PingContext(ctx); err != nil {
 			logger.LogAttrs(r.Context(), slog.LevelWarn, "health: db ping failed", slog.Any("err", err))
-			writeJSON(w, http.StatusServiceUnavailable, healthResponse{Status: "unavailable"})
+			writeJSON(w, http.StatusServiceUnavailable, apitypes.Health{Status: "unavailable"})
 			return
 		}
-		writeJSON(w, http.StatusOK, healthResponse{Status: "ok"})
+		writeJSON(w, http.StatusOK, apitypes.Health{Status: "ok"})
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ogredforman/waypoint/internal/api/apitypes"
 	"github.com/ogredforman/waypoint/internal/pipeline"
 )
 
@@ -284,7 +285,7 @@ func TestEventsCloseEndsStreams(t *testing.T) {
 	if resp.StatusCode != http.StatusServiceUnavailable {
 		t.Errorf("status after Close = %d, want 503", resp.StatusCode)
 	}
-	var body errorBody
+	var body apitypes.ErrorBody
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		t.Fatal(err)
 	}
