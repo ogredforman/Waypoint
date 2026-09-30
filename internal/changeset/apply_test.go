@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -644,6 +645,7 @@ func TestApplyDecisionProblems(t *testing.T) {
 		{"uses undecided", map[int64]Decision{2: {Action: Accept}}, []string{"decisions[2]"}},
 		{"uses rejected", map[int64]Decision{1: {Action: Reject}, 2: {Action: Accept}}, []string{"decisions[2]"}},
 		{"undecided uses rejected", map[int64]Decision{1: {Action: Reject}}, []string{"decisions[2]"}},
+		{"edit adds ref to undecided", map[int64]Decision{3: {Action: Edit, Payload: json.RawMessage(`{"task_id":"$new:2","status":"done"}`)}}, []string{"decisions[3]"}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := a.Apply(ctx, cs, tt.decisions)
@@ -675,5 +677,281 @@ func TestApplyNotPending(t *testing.T) {
 	}
 	if _, err := a.Apply(ctx, 999, acceptAll(1)); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("missing changeset: got %v, want ErrNotFound", err)
+	}
+}
+
+// dbSnapshot dumps every row of every table, so a test can check that a
+// failed apply left nothing behind.
+func dbSnapshot(t *testing.T, f fixture) string {
+	t.Helper()
+	ctx := context.Background()
+	var tables []string
+	rows, err := f.db.QueryContext(ctx, `SELECT name FROM sqlite_master
+		WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'goose_%' ORDER BY name`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			t.Fatal(err)
+		}
+		tables = append(tables, name)
+	}
+	if err := rows.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	var b strings.Builder
+	for _, table := range tables {
+		rows, err := f.db.QueryContext(ctx, `SELECT * FROM `+table+` ORDER BY rowid`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cols, err := rows.Columns()
+		if err != nil {
+			t.Fatal(err)
+		}
+		fmt.Fprintf(&b, "%s %v\n", table, cols)
+		for rows.Next() {
+			vals := make([]any, len(cols))
+			ptrs := make([]any, len(cols))
+			for i := range vals {
+				ptrs[i] = &vals[i]
+			}
+			if err := rows.Scan(ptrs...); err != nil {
+				t.Fatal(err)
+			}
+			for i, v := range vals {
+				if s, ok := v.([]byte); ok {
+					vals[i] = string(s)
+				}
+			}
+			fmt.Fprintln(&b, vals...)
+		}
+		if err := rows.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return b.String()
+}
+
+// everyOpType is one changeset with an op of every type. Ops use temp IDs
+// wherever a ref can take one, including the nullable refs.
+func everyOpType(f fixture) []domain.ChangeOp {
+	return []domain.ChangeOp{
+		op(1, domain.OpCreateProject, `{"title":"Garden"}`),
+		op(2, domain.OpUpdateProject, `{"project_id":"$new:1","status":"active","why":"food"}`),
+		op(3, domain.OpCreateTask, `{"project_id":"$new:1","title":"Dig"}`),
+		op(4, domain.OpCreateTask, `{"project_id":"$new:1","title":"Plant","parent_task_id":"$new:3"}`),
+		op(5, domain.OpCreateTask, `{"project_id":"$new:1","title":"Water"}`),
+		op(6, domain.OpUpdateTask, `{"task_id":"$new:5","parent_task_id":"$new:3","size":"s"}`),
+		op(7, domain.OpSetTaskStatus, `{"task_id":"$new:4","status":"in_progress"}`),
+		op(8, domain.OpSplitTask, `{"task_id":"$new:3","subtasks":[{"title":"Find spade"}]}`),
+		op(9, domain.OpAddDependency, `{"task_id":"$new:5","blocked_by_task_id":"$new:4"}`),
+		op(10, domain.OpCreateBlocker, `{"project_id":"$new:1","description":"No seeds"}`),
+		op(11, domain.OpUpdateBlocker, `{"blocker_id":"$new:10","task_id":"$new:4"}`),
+		op(12, domain.OpResolveBlocker, `{"blocker_id":"$new:10"}`),
+		op(13, domain.OpParkIdea, `{"project_id":"$new:1","title":"Greenhouse"}`),
+		op(14, domain.OpUpdateIdea, jsonf(`{"idea_id":%d,"project_id":"$new:1"}`, f.iA)),
+		op(15, domain.OpDeleteTask, jsonf(`{"task_id":%d}`, f.a4)),
+		op(16, domain.OpDeleteBlocker, jsonf(`{"blocker_id":%d}`, f.bB)),
+		op(17, domain.OpDeleteIdea, `{"idea_id":"$new:13"}`),
+	}
+}
+
+func TestApplyEveryOpType(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	ops := everyOpType(f)
+	var positions []int64
+	for _, o := range ops {
+		positions = append(positions, o.Position)
+	}
+	for _, want := range domain.OpTypes() {
+		if !slices.ContainsFunc(ops, func(o domain.ChangeOp) bool { return o.OpType == want }) {
+			t.Fatalf("no %s op; add one to everyOpType", want)
+		}
+	}
+
+	cs := propose(t, f, nil, ops...)
+	res, err := NewApplier(f.s, 3).Apply(ctx, cs, acceptAll(positions...))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Changeset.Status != domain.ChangesetApplied || res.SplitOff != nil {
+		t.Fatalf("result %+v, want applied with nothing split off", res)
+	}
+	if got := opStatuses(t, f, cs); !slices.Equal(got, slices.Repeat([]domain.ChangeOpStatus{domain.OpApplied}, len(ops))) {
+		t.Errorf("op statuses %v", got)
+	}
+
+	garden := must(f.s.GetProject(ctx, res.Created[1]))(t)
+	if garden.Status != domain.ProjectActive || garden.Why != "food" {
+		t.Errorf("project %+v", garden)
+	}
+	dig, plant, water := res.Created[3], res.Created[4], res.Created[5]
+	if tk := must(f.s.GetTask(ctx, plant))(t); tk.ProjectID != garden.ID || tk.ParentTaskID == nil || *tk.ParentTaskID != dig || tk.Status != domain.TaskInProgress {
+		t.Errorf("plant %+v", tk)
+	}
+	if tk := must(f.s.GetTask(ctx, water))(t); tk.ParentTaskID == nil || *tk.ParentTaskID != dig || tk.Size == nil || *tk.Size != domain.SizeS {
+		t.Errorf("water %+v", tk)
+	}
+	var subtasks []string
+	for _, tk := range must(f.s.ListTasksByProject(ctx, garden.ID))(t) {
+		if tk.ParentTaskID != nil && *tk.ParentTaskID == dig {
+			subtasks = append(subtasks, tk.Title)
+		}
+	}
+	if slices.Sort(subtasks); !slices.Equal(subtasks, []string{"Find spade", "Plant", "Water"}) {
+		t.Errorf("subtasks of dig %v", subtasks)
+	}
+	var deps int
+	if err := f.db.QueryRowContext(ctx, `SELECT count(*) FROM task_dependencies WHERE task_id = ? AND blocked_by_task_id = ?`,
+		water, plant).Scan(&deps); err != nil || deps != 1 {
+		t.Errorf("dependencies %d, %v; want 1", deps, err)
+	}
+	if b := must(f.s.GetBlocker(ctx, res.Created[10]))(t); b.TaskID == nil || *b.TaskID != plant || b.Status != domain.BlockerResolved {
+		t.Errorf("blocker %+v", b)
+	}
+	if i := must(f.s.GetIdea(ctx, f.iA))(t); i.ProjectID == nil || *i.ProjectID != garden.ID {
+		t.Errorf("idea %+v", i)
+	}
+	if _, err := f.s.GetTask(ctx, f.a4); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("task a4: %v, want deleted", err)
+	}
+	if _, err := f.s.GetBlocker(ctx, f.bB); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("blocker bB: %v, want deleted", err)
+	}
+	if _, err := f.s.GetIdea(ctx, res.Created[13]); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("parked idea: %v, want deleted", err)
+	}
+}
+
+// TestApplyRollsBackEveryOpType fails the last op of a changeset holding
+// every op type and checks that the database is left exactly as it was.
+func TestApplyRollsBackEveryOpType(t *testing.T) {
+	ctx := context.Background()
+	for _, tt := range []struct {
+		name       string
+		extraction bool
+		cap        int // 2 holds op 2 (Garden becoming active) back on an extraction changeset
+	}{
+		{"manual with an edit", false, 3},
+		{"extraction with an op held by the cap", true, 2},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			// prepare proposes every op type, plus failing op 18 if fail is
+			// set, and returns it with decisions accepting all but op 3, which
+			// is edited.
+			prepare := func(f fixture, fail bool) (int64, map[int64]Decision) {
+				var runID *int64
+				if tt.extraction {
+					_, id := newRun(t, f)
+					runID = &id
+				}
+				ops := everyOpType(f)
+				if fail {
+					ops = append(ops, op(18, domain.OpSetTaskStatus, `{"task_id":999,"status":"done"}`))
+				}
+				cs := propose(t, f, runID, ops...)
+				decisions := map[int64]Decision{}
+				for _, o := range ops {
+					decisions[o.Position] = Decision{Action: Accept}
+				}
+				decisions[3] = Decision{Action: Edit, Payload: json.RawMessage(`{"project_id":"$new:1","title":"Dig deep"}`)}
+				return cs, decisions
+			}
+
+			// Without the failing op, the apply goes through, holding op 2
+			// back on an extraction changeset.
+			ok := newFixture(t)
+			cs, decisions := prepare(ok, false)
+			res, err := NewApplier(ok.s, tt.cap).Apply(ctx, cs, decisions)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var wantHeld []int64
+			if tt.extraction {
+				wantHeld = []int64{2}
+			}
+			if !slices.Equal(res.HeldByCap, wantHeld) {
+				t.Fatalf("held by cap %v, want %v", res.HeldByCap, wantHeld)
+			}
+
+			f := newFixture(t)
+			cs, decisions = prepare(f, true)
+			before := dbSnapshot(t, f)
+			_, err = NewApplier(f.s, tt.cap).Apply(ctx, cs, decisions)
+			var oe *OpError
+			if !errors.As(err, &oe) || oe.Position != 18 {
+				t.Fatalf("got %v, want an OpError at 18", err)
+			}
+			if after := dbSnapshot(t, f); after != before {
+				t.Errorf("database changed despite the rollback:\nbefore:\n%s\nafter:\n%s", before, after)
+			}
+		})
+	}
+}
+
+// TestApplySplitOffRewritesEveryRefKind leaves ops undecided that use rows
+// created by accepted ops, through required, optional, and nullable refs, and
+// checks that the split-off ops point at the real rows and still apply.
+func TestApplySplitOffRewritesEveryRefKind(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	cs := propose(t, f, nil,
+		op(1, domain.OpCreateProject, `{"title":"Garden"}`),
+		op(2, domain.OpCreateTask, `{"project_id":"$new:1","title":"Dig"}`),
+		op(3, domain.OpCreateTask, `{"project_id":"$new:1","title":"Water"}`),
+		op(4, domain.OpUpdateTask, `{"task_id":"$new:3","parent_task_id":"$new:2"}`),
+		op(5, domain.OpCreateBlocker, `{"project_id":"$new:1","task_id":"$new:2","description":"d"}`),
+		op(6, domain.OpUpdateBlocker, `{"blocker_id":"$new:5","task_id":"$new:3"}`),
+		op(7, domain.OpParkIdea, `{"project_id":"$new:1","title":"i"}`),
+		op(8, domain.OpUpdateIdea, jsonf(`{"idea_id":%d,"project_id":"$new:1"}`, f.iA)),
+		op(9, domain.OpAddDependency, `{"task_id":"$new:3","blocked_by_task_id":"$new:2"}`),
+	)
+	a := NewApplier(f.s, 3)
+	res, err := a.Apply(ctx, cs, acceptAll(1, 2, 3))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.SplitOff == nil {
+		t.Fatal("no split-off changeset")
+	}
+	garden, dig, water := res.Created[1], res.Created[2], res.Created[3]
+
+	moved := must(f.s.ListChangeOps(ctx, res.SplitOff.ID))(t)
+	payloads, err := ValidateOps(moved)
+	if err != nil {
+		t.Fatalf("split-off ops don't validate: %v", err)
+	}
+	want := []Payload{
+		UpdateTask{TaskID: ID(water), ParentTaskID: To(ID(dig))},
+		CreateBlocker{ProjectID: ID(garden), TaskID: ptr(ID(dig)), Description: "d"},
+		UpdateBlocker{BlockerID: Temp(5), TaskID: To(ID(water))}, // op 5 moved too, so its temp ref stays
+		ParkIdea{ProjectID: ptr(ID(garden)), Title: "i"},
+		UpdateIdea{IdeaID: ID(f.iA), ProjectID: To(ID(garden))},
+		AddDependency{TaskID: ID(water), BlockedByTaskID: ID(dig)},
+	}
+	if !reflect.DeepEqual(payloads, want) {
+		t.Errorf("split-off payloads\n%+v\nwant\n%+v", payloads, want)
+	}
+
+	res2, err := a.Apply(ctx, res.SplitOff.ID, acceptAll(4, 5, 6, 7, 8, 9))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tk := must(f.s.GetTask(ctx, water))(t); tk.ParentTaskID == nil || *tk.ParentTaskID != dig {
+		t.Errorf("water %+v, want under dig", tk)
+	}
+	if b := must(f.s.GetBlocker(ctx, res2.Created[5]))(t); b.ProjectID != garden || b.TaskID == nil || *b.TaskID != water {
+		t.Errorf("blocker %+v, want on water", b)
+	}
+	if i := must(f.s.GetIdea(ctx, res2.Created[7]))(t); i.ProjectID == nil || *i.ProjectID != garden {
+		t.Errorf("idea %+v", i)
+	}
+	if i := must(f.s.GetIdea(ctx, f.iA))(t); i.ProjectID == nil || *i.ProjectID != garden {
+		t.Errorf("idea iA %+v", i)
 	}
 }
