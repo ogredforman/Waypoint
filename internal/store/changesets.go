@@ -78,6 +78,20 @@ func (r reader) ListChangeOps(ctx context.Context, changesetID int64) ([]domain.
 	return out, nil
 }
 
+// ListChangesetsByEntry returns the extraction changesets of the entry, from
+// all of its runs and including split-offs, oldest first.
+func (r reader) ListChangesetsByEntry(ctx context.Context, entryID int64) ([]domain.Changeset, error) {
+	rows, err := r.q.ListChangesetsByEntry(ctx, entryID)
+	if err != nil {
+		return nil, fmt.Errorf("list changesets of entry %d: %w", entryID, err)
+	}
+	out := make([]domain.Changeset, len(rows))
+	for i, row := range rows {
+		out[i] = changesetFromRow(row)
+	}
+	return out, nil
+}
+
 // ChangesetEntryID returns the entry an extraction changeset came from, or
 // nil for a manual one.
 func (r reader) ChangesetEntryID(ctx context.Context, cs domain.Changeset) (*int64, error) {

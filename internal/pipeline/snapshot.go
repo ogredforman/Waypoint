@@ -33,7 +33,8 @@ func NewSnapshotBuilder(s *store.Store, now func() time.Time, recentEntries int)
 //     e's project, or of any project if e has none. Each carries the
 //     summaries of its latest run's observations, not its body.
 //
-// All reads happen in one transaction, so the snapshot is consistent.
+// All reads happen in one read-only transaction, so the snapshot is
+// consistent without holding up writers.
 func (b *SnapshotBuilder) Build(ctx context.Context, e domain.Entry) (extract.StateSnapshot, error) {
 	snap := extract.StateSnapshot{
 		TakenAt:       b.now().UTC(),
@@ -41,7 +42,7 @@ func (b *SnapshotBuilder) Build(ctx context.Context, e domain.Entry) (extract.St
 		Ideas:         []extract.SnapshotIdea{},
 		RecentEntries: []extract.SnapshotEntry{},
 	}
-	err := b.store.InTx(ctx, func(tx *store.Tx) error {
+	err := b.store.InReadTx(ctx, func(tx *store.ReadTx) error {
 		if err := addProjects(ctx, tx, e, &snap); err != nil {
 			return err
 		}
@@ -56,7 +57,7 @@ func (b *SnapshotBuilder) Build(ctx context.Context, e domain.Entry) (extract.St
 	return snap, nil
 }
 
-func addProjects(ctx context.Context, tx *store.Tx, e domain.Entry, snap *extract.StateSnapshot) error {
+func addProjects(ctx context.Context, tx *store.ReadTx, e domain.Entry, snap *extract.StateSnapshot) error {
 	projects, err := tx.ListProjects(ctx)
 	if err != nil {
 		return err
@@ -111,7 +112,7 @@ func addProjects(ctx context.Context, tx *store.Tx, e domain.Entry, snap *extrac
 	return nil
 }
 
-func addIdeas(ctx context.Context, tx *store.Tx, snap *extract.StateSnapshot) error {
+func addIdeas(ctx context.Context, tx *store.ReadTx, snap *extract.StateSnapshot) error {
 	ideas, err := tx.ListIdeasByStatus(ctx, domain.IdeaParked)
 	if err != nil {
 		return err
@@ -122,7 +123,7 @@ func addIdeas(ctx context.Context, tx *store.Tx, snap *extract.StateSnapshot) er
 	return nil
 }
 
-func (b *SnapshotBuilder) addRecentEntries(ctx context.Context, tx *store.Tx, e domain.Entry, snap *extract.StateSnapshot) error {
+func (b *SnapshotBuilder) addRecentEntries(ctx context.Context, tx *store.ReadTx, e domain.Entry, snap *extract.StateSnapshot) error {
 	if b.recentEntries <= 0 {
 		return nil
 	}

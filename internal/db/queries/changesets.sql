@@ -14,3 +14,11 @@ UPDATE changesets
 SET status = ?, resolved_at = ?, updated_at = ?
 WHERE id = ?
 RETURNING *;
+
+-- name: ListChangesetsByEntry :many
+-- The extraction changesets of an entry, from all of its runs, split-offs
+-- included.
+SELECT changesets.* FROM changesets
+JOIN extraction_runs ON extraction_runs.id = changesets.extraction_run_id
+WHERE extraction_runs.entry_id = ?
+ORDER BY changesets.id;

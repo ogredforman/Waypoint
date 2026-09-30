@@ -96,7 +96,8 @@ func seedEntry(t *testing.T, s *Store, body string) domain.Entry {
 	return e
 }
 
-// seedRun inserts an extraction run directly; the store doesn't write runs yet.
+// seedRun inserts a succeeded extraction run directly; the store only creates
+// pending ones.
 func seedRun(t *testing.T, sqlDB *sql.DB, entryID int64) int64 {
 	t.Helper()
 	res, err := sqlDB.ExecContext(context.Background(),

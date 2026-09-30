@@ -9,6 +9,166 @@ import (
 	"context"
 )
 
+const claimNextExtractionRun = `-- name: ClaimNextExtractionRun :one
+UPDATE extraction_runs
+SET status = 'running', updated_at = ?1
+WHERE id = (
+    SELECT id FROM extraction_runs
+    WHERE status = 'pending'
+    ORDER BY id
+    LIMIT 1
+)
+RETURNING id, entry_id, provider, model, prompt_version, input_snapshot, raw_output, status, error, latency_ms, created_at, updated_at
+`
+
+// Marks the oldest pending run running and returns it.
+func (q *Queries) ClaimNextExtractionRun(ctx context.Context, updatedAt int64) (ExtractionRun, error) {
+	row := q.db.QueryRowContext(ctx, claimNextExtractionRun, updatedAt)
+	var i ExtractionRun
+	err := row.Scan(
+		&i.ID,
+		&i.EntryID,
+		&i.Provider,
+		&i.Model,
+		&i.PromptVersion,
+		&i.InputSnapshot,
+		&i.RawOutput,
+		&i.Status,
+		&i.Error,
+		&i.LatencyMs,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const countActiveExtractionRunsByEntry = `-- name: CountActiveExtractionRunsByEntry :one
+SELECT count(*) FROM extraction_runs
+WHERE entry_id = ? AND status IN ('pending', 'running')
+`
+
+func (q *Queries) CountActiveExtractionRunsByEntry(ctx context.Context, entryID int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countActiveExtractionRunsByEntry, entryID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const createExtractionRun = `-- name: CreateExtractionRun :one
+
+INSERT INTO extraction_runs (entry_id, provider, model, prompt_version, status, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)
+RETURNING id, entry_id, provider, model, prompt_version, input_snapshot, raw_output, status, error, latency_ms, created_at, updated_at
+`
+
+type CreateExtractionRunParams struct {
+	EntryID       int64
+	Provider      string
+	Model         string
+	PromptVersion string
+	Status        string
+	CreatedAt     int64
+	UpdatedAt     int64
+}
+
+// Extraction runs double as the worker's job queue: pending runs wait to be
+// claimed, running ones are being processed.
+func (q *Queries) CreateExtractionRun(ctx context.Context, arg CreateExtractionRunParams) (ExtractionRun, error) {
+	row := q.db.QueryRowContext(ctx, createExtractionRun,
+		arg.EntryID,
+		arg.Provider,
+		arg.Model,
+		arg.PromptVersion,
+		arg.Status,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	var i ExtractionRun
+	err := row.Scan(
+		&i.ID,
+		&i.EntryID,
+		&i.Provider,
+		&i.Model,
+		&i.PromptVersion,
+		&i.InputSnapshot,
+		&i.RawOutput,
+		&i.Status,
+		&i.Error,
+		&i.LatencyMs,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const finishExtractionRun = `-- name: FinishExtractionRun :one
+UPDATE extraction_runs
+SET status = ?, raw_output = ?, error = ?, latency_ms = ?, updated_at = ?
+WHERE id = ? AND status = 'running'
+RETURNING id, entry_id, provider, model, prompt_version, input_snapshot, raw_output, status, error, latency_ms, created_at, updated_at
+`
+
+type FinishExtractionRunParams struct {
+	Status    string
+	RawOutput *string
+	Error     *string
+	LatencyMs *int64
+	UpdatedAt int64
+	ID        int64
+}
+
+func (q *Queries) FinishExtractionRun(ctx context.Context, arg FinishExtractionRunParams) (ExtractionRun, error) {
+	row := q.db.QueryRowContext(ctx, finishExtractionRun,
+		arg.Status,
+		arg.RawOutput,
+		arg.Error,
+		arg.LatencyMs,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	var i ExtractionRun
+	err := row.Scan(
+		&i.ID,
+		&i.EntryID,
+		&i.Provider,
+		&i.Model,
+		&i.PromptVersion,
+		&i.InputSnapshot,
+		&i.RawOutput,
+		&i.Status,
+		&i.Error,
+		&i.LatencyMs,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getExtractionRun = `-- name: GetExtractionRun :one
+SELECT id, entry_id, provider, model, prompt_version, input_snapshot, raw_output, status, error, latency_ms, created_at, updated_at FROM extraction_runs
+WHERE id = ?
+`
+
+func (q *Queries) GetExtractionRun(ctx context.Context, id int64) (ExtractionRun, error) {
+	row := q.db.QueryRowContext(ctx, getExtractionRun, id)
+	var i ExtractionRun
+	err := row.Scan(
+		&i.ID,
+		&i.EntryID,
+		&i.Provider,
+		&i.Model,
+		&i.PromptVersion,
+		&i.InputSnapshot,
+		&i.RawOutput,
+		&i.Status,
+		&i.Error,
+		&i.LatencyMs,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getExtractionRunEntryID = `-- name: GetExtractionRunEntryID :one
 SELECT entry_id FROM extraction_runs
 WHERE id = ?
@@ -19,4 +179,94 @@ func (q *Queries) GetExtractionRunEntryID(ctx context.Context, id int64) (int64,
 	var entry_id int64
 	err := row.Scan(&entry_id)
 	return entry_id, err
+}
+
+const listExtractionRunsByEntry = `-- name: ListExtractionRunsByEntry :many
+SELECT id, entry_id, provider, model, prompt_version, input_snapshot, raw_output, status, error, latency_ms, created_at, updated_at FROM extraction_runs
+WHERE entry_id = ?
+ORDER BY id
+`
+
+func (q *Queries) ListExtractionRunsByEntry(ctx context.Context, entryID int64) ([]ExtractionRun, error) {
+	rows, err := q.db.QueryContext(ctx, listExtractionRunsByEntry, entryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ExtractionRun{}
+	for rows.Next() {
+		var i ExtractionRun
+		if err := rows.Scan(
+			&i.ID,
+			&i.EntryID,
+			&i.Provider,
+			&i.Model,
+			&i.PromptVersion,
+			&i.InputSnapshot,
+			&i.RawOutput,
+			&i.Status,
+			&i.Error,
+			&i.LatencyMs,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const resetRunningExtractionRuns = `-- name: ResetRunningExtractionRuns :execrows
+UPDATE extraction_runs
+SET status = 'pending', updated_at = ?
+WHERE status = 'running'
+`
+
+// At startup no run is really running: the process that ran them is gone.
+func (q *Queries) ResetRunningExtractionRuns(ctx context.Context, updatedAt int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, resetRunningExtractionRuns, updatedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const setExtractionRunSnapshot = `-- name: SetExtractionRunSnapshot :one
+UPDATE extraction_runs
+SET input_snapshot = ?, updated_at = ?
+WHERE id = ?
+RETURNING id, entry_id, provider, model, prompt_version, input_snapshot, raw_output, status, error, latency_ms, created_at, updated_at
+`
+
+type SetExtractionRunSnapshotParams struct {
+	InputSnapshot *string
+	UpdatedAt     int64
+	ID            int64
+}
+
+func (q *Queries) SetExtractionRunSnapshot(ctx context.Context, arg SetExtractionRunSnapshotParams) (ExtractionRun, error) {
+	row := q.db.QueryRowContext(ctx, setExtractionRunSnapshot, arg.InputSnapshot, arg.UpdatedAt, arg.ID)
+	var i ExtractionRun
+	err := row.Scan(
+		&i.ID,
+		&i.EntryID,
+		&i.Provider,
+		&i.Model,
+		&i.PromptVersion,
+		&i.InputSnapshot,
+		&i.RawOutput,
+		&i.Status,
+		&i.Error,
+		&i.LatencyMs,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

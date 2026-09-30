@@ -12,10 +12,14 @@ import (
 	"os/signal"
 	"runtime"
 	"syscall"
+	"time"
 
 	"github.com/ogredforman/waypoint/internal/api"
 	"github.com/ogredforman/waypoint/internal/config"
 	"github.com/ogredforman/waypoint/internal/db"
+	"github.com/ogredforman/waypoint/internal/extract/mock"
+	"github.com/ogredforman/waypoint/internal/pipeline"
+	"github.com/ogredforman/waypoint/internal/store"
 	"github.com/ogredforman/waypoint/internal/web"
 )
 
@@ -83,8 +87,25 @@ func run() int {
 		<-ctx.Done()
 		stop()
 	}()
+
+	// The SSE hub (PLAN 1.12) becomes the worker's notifier; until then
+	// events are dropped.
+	st := store.New(sqlDB, time.Now)
+	snapshots := pipeline.NewSnapshotBuilder(st, time.Now, cfg.SnapshotRecentEntries)
+	worker := pipeline.NewWorker(st, snapshots, mock.New(cfg.MockLatency), nil, logger)
+	workerDone := make(chan struct{})
+	go func() {
+		defer close(workerDone)
+		if err := worker.Run(ctx); err != nil {
+			logger.Error("extraction worker stopped", "err", err)
+		}
+	}()
+
 	router := api.NewRouter(api.Deps{DB: sqlDB, Logger: logger, Web: web.NewHandler(web.Dist())})
-	if err := api.Serve(ctx, ln, router, logger); err != nil {
+	err = api.Serve(ctx, ln, router, logger)
+	stop() // stop the worker too if the server failed on its own
+	<-workerDone
+	if err != nil {
 		logger.Error("server stopped", "err", err)
 		return 1
 	}

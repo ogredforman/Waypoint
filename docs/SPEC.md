@@ -134,10 +134,12 @@ Entry   1─* FollowUpQuestion ─(answer)→ Entry
    - `observations[]`: kind, summary, text span, links[] with confidence
    - `ops[]`: proposed change ops with rationale and confidence
    - `questions[]`: at most 2 follow-up questions, each with a reason
-5. **Record.** Store the extraction run (including raw output), observations, the changeset, and questions.
-6. **Notify.** Push a server-sent event (`changeset.ready`) to the UI.
+5. **Record.** Store the extraction run (including raw output), observations, the changeset, and questions, in one transaction. A result with no ops gets no changeset, since an empty one could never be resolved. If extraction or validation fails, the run is marked failed with its error and nothing else is stored.
+6. **Notify.** Push a server-sent event (`entry.processed`, plus `changeset.ready` when there is a changeset, or `run.failed`) to the UI.
 7. **Review.** The user accepts, rejects, or edits each op, or accepts all, then applies. What was decided is applied inside a single DB transaction and the changeset is resolved. Ops left undecided, and ops of an extraction changeset held back by the active-project cap, move to a new pending changeset split off the original ([ADR 0003](./adr/0003-splitting-changesets.md)). An op can't be applied while an op it depends on (by temporary ID) is undecided or rejected.
 8. **Refresh briefing.** Recompute the briefing for affected projects.
+
+Extraction runs are the worker's queue: saving an entry creates it and a `pending` run in one transaction, and a background worker processes runs one at a time. A run left `running` by a stopped process goes back to `pending` at startup. **Reprocessing** an entry queues a new run; it is refused while the entry has a pending or running run. In the same transaction it rejects the entry's pending changesets (split-offs included) and dismisses its open questions, so the old and new proposals can't both be applied. The UI warns about this before reprocessing. Observations from earlier runs are kept.
 
 **Auditability without full event sourcing:** entries are immutable and every state mutation happens through a recorded change op (including manual edits, recorded as a changeset with `source=manual`). That keeps a complete history of *why* state is the way it is. Replaying state from entries is a possible future capability, not a current requirement.
 

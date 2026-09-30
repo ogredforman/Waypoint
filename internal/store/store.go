@@ -64,6 +64,27 @@ func (s *Store) InTx(ctx context.Context, fn func(*Tx) error) error {
 	return nil
 }
 
+// ReadTx is one read-only transaction. It is only valid inside the InReadTx
+// callback that received it.
+type ReadTx struct {
+	reader
+}
+
+// InReadTx runs fn in a read-only transaction, so its reads see one
+// consistent state. Unlike InTx it doesn't take the write lock, so it doesn't
+// hold up writers. The transaction is always rolled back; there is nothing to
+// commit.
+func (s *Store) InReadTx(ctx context.Context, fn func(*ReadTx) error) error {
+	// ReadOnly makes the driver issue a plain (deferred) BEGIN instead of the
+	// DSN's BEGIN IMMEDIATE.
+	sqlTx, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return fmt.Errorf("begin read tx: %w", err)
+	}
+	defer func() { _ = sqlTx.Rollback() }()
+	return fn(&ReadTx{reader: reader{q: s.q.WithTx(sqlTx)}})
+}
+
 // nowMS is the transaction's current time in unix milliseconds.
 func (tx *Tx) nowMS() int64 { return tx.now().UnixMilli() }
 

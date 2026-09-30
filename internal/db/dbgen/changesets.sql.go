@@ -70,6 +70,47 @@ func (q *Queries) GetChangeset(ctx context.Context, id int64) (Changeset, error)
 	return i, err
 }
 
+const listChangesetsByEntry = `-- name: ListChangesetsByEntry :many
+SELECT changesets.id, changesets.source, changesets.extraction_run_id, changesets.parent_changeset_id, changesets.status, changesets.created_at, changesets.updated_at, changesets.resolved_at FROM changesets
+JOIN extraction_runs ON extraction_runs.id = changesets.extraction_run_id
+WHERE extraction_runs.entry_id = ?
+ORDER BY changesets.id
+`
+
+// The extraction changesets of an entry, from all of its runs, split-offs
+// included.
+func (q *Queries) ListChangesetsByEntry(ctx context.Context, entryID int64) ([]Changeset, error) {
+	rows, err := q.db.QueryContext(ctx, listChangesetsByEntry, entryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Changeset{}
+	for rows.Next() {
+		var i Changeset
+		if err := rows.Scan(
+			&i.ID,
+			&i.Source,
+			&i.ExtractionRunID,
+			&i.ParentChangesetID,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ResolvedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const resolveChangeset = `-- name: ResolveChangeset :one
 UPDATE changesets
 SET status = ?, resolved_at = ?, updated_at = ?
