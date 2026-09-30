@@ -1,1 +1,69 @@
 @import "tailwindcss";
+
+/*
+  Design tokens. Components use these names (bg-surface, text-ink-muted, shadow-glow, ...), never
+  raw palette colours, so another theme can later swap the values without touching markup.
+  lib/theme.test.ts checks that the text/background pairs meet WCAG AA.
+*/
+@theme {
+  /* Surfaces, darkest to lightest. */
+  --color-canvas: #0f0b1a;
+  --color-surface: #171226;
+  --color-raised: #211a35;
+  --color-line: #342a4f;
+
+  /* Text. */
+  --color-ink: #ece8f5;
+  --color-ink-muted: #a9a0c2;
+  --color-ink-faint: #7d7399; /* decoration and disabled text only; below AA on purpose */
+
+  /* Accent: accent is for text and focus on dark surfaces; accent-strong and accent-deep are fills under on-accent text. */
+  --color-accent: #b9a3ff;
+  --color-accent-strong: #7c3aed;
+  --color-accent-deep: #5b21b6;
+  --color-on-accent: #ffffff;
+
+  /* Status dots. Calm by design: there is no red (SPEC §5). */
+  --color-ok: #34d399;
+  --color-caution: #fbbf24;
+
+  --text-title: 1.5rem;
+  --text-title--line-height: 2rem;
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1.25rem;
+
+  --spacing-gutter: 1.5rem;
+
+  --radius-control: 0.5rem;
+  --radius-card: 0.75rem;
+
+  /* Glows draw attention, never alarm. */
+  --shadow-glow: 0 0 0 1px rgb(185 163 255 / 0.25), 0 0 28px -6px rgb(124 58 237 / 0.55);
+  --shadow-focus: 0 0 0 3px rgb(185 163 255 / 0.25), 0 0 18px -4px rgb(124 58 237 / 0.6);
+  --shadow-edge: -16px 0 40px -24px rgb(124 58 237 / 0.5);
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    accent-color: var(--color-accent-strong);
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    background-image: radial-gradient(ellipse 80% 50% at 0% 0%, rgb(124 58 237 / 0.12), transparent 70%);
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  /* Set on <html> while the diary panel is being dragged. */
+  .resizing,
+  .resizing * {
+    cursor: col-resize !important;
+    user-select: none;
+  }
+}

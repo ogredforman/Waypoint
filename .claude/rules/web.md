@@ -18,6 +18,6 @@ paths:
   - No "overdue", streak counters, red failure badges, or shaming copy anywhere.
   - Empty states encourage starting small ("Write what you're thinking about").
   - Follow-up questions are always dismissible.
-- Keep components small. Page components live in `web/src/routes` (or `pages`), reusable ones in `web/src/lib/components`.
+- Keep components small. Page components live in `web/src/screens`, reusable ones in `web/src/components` (shared UI primitives in `web/src/components/ui`).
 - Styling is Tailwind utility classes. Use the shared color tokens; don't introduce one-off colors.
 - Accessibility basics: every input has a label, every interactive element is keyboard reachable.

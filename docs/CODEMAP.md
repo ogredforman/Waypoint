@@ -77,7 +77,17 @@ Svelte 5 runes + TS + Tailwind, Vitest. `main.ts` → `App.svelte`. `lib/api/cli
 typed API client (the only place that calls `fetch`), with generated `types.gen.ts`/`enums.gen.ts`.
 `lib/router.ts` + `lib/navigation.svelte.ts`: client-side routing. `screens/`: page components
 (`Now`, `Diary`, `Projects`, `Project`, `Task`, `ParkingLot`, `NotFound`). `components/`: reusable
-pieces. Tests sit next to the code as `*.test.ts`. `npm --prefix web test`, `npm --prefix web run check`.
+pieces. Tests sit next to the code as `*.test.ts`.
+
+- Layout (ADR 0004): `App.svelte` mounts `DiaryPanel` (lg and up) or `DiaryOverlay` (below lg), never
+  both, and neither on `/diary`. Both wrap `DiaryContent`, which `screens/Diary` also shows full-page.
+  `lib/diaryPanel.ts`: panel width limits, drag/key resizing, `localStorage` prefs.
+- Theme: named tokens in `app.css` `@theme` (`canvas`/`surface`/`raised`/`line`, `ink`/`ink-muted`/
+  `ink-faint`, `accent`/`accent-strong`/`accent-deep`/`on-accent`, `shadow-glow`/`focus`/`edge`,
+  `text-title`, `px-gutter`, `rounded-card`). Use these, not raw Tailwind colours.
+  `lib/theme.test.ts` checks AA contrast for the text pairs.
+- `components/ui/`: `Button` (`primary`/`secondary`/`quiet`), `Input`, `Textarea` (`bind:value`),
+  `Card` (`glow` for the one thing to notice), `Panel` (row container). `npm --prefix web test`, `npm --prefix web run check`.
 
 ## Test fixtures (reuse these; don't write new setup)
 

@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import DiaryOverlay from './components/DiaryOverlay.svelte'
+  import DiaryPanel from './components/DiaryPanel.svelte'
   import { fetchHealth, type Health } from './lib/health'
   import { current, startRouting } from './lib/navigation.svelte'
   import { pageTitle, paths, sectionOf, type Section } from './lib/router'
@@ -23,6 +25,11 @@
 
   let health = $state<Health | 'checking'>('checking')
 
+  // Only one diary is mounted at a time: the side panel from Tailwind's lg breakpoint up, the
+  // floating button and overlay below it (ADR 0004).
+  const wideQuery = window.matchMedia('(min-width: 64rem)')
+  let wide = $state(wideQuery.matches)
+
   const healthLabels: Record<Health | 'checking', string> = {
     checking: 'Checking the server…',
     ok: 'Server is running',
@@ -36,14 +43,26 @@
 
   onMount(() => {
     fetchHealth().then((h) => (health = h))
-    return startRouting()
+    const onWidth = () => (wide = wideQuery.matches)
+    wideQuery.addEventListener('change', onWidth)
+    const stopRouting = startRouting()
+    return () => {
+      wideQuery.removeEventListener('change', onWidth)
+      stopRouting()
+    }
   })
 </script>
 
-<div class="flex min-h-screen flex-col text-stone-800">
-  <header class="border-b border-stone-200">
-    <div class="mx-auto flex max-w-3xl flex-wrap items-center gap-x-8 gap-y-2 px-6 py-4">
-      <a href={paths.now} class="text-lg font-semibold tracking-tight text-stone-900">Waypoint</a>
+<!--
+  Layout (ADR 0004): header over a row of the main pane and, on wide windows, the diary panel.
+  Each scrolls on its own. /diary shows the diary full-page instead, so it has no panel beside it.
+-->
+<div class="flex h-dvh flex-col">
+  <header class="shrink-0 border-b border-line bg-surface/60 backdrop-blur">
+    <div class="flex flex-wrap items-center gap-x-8 gap-y-2 px-gutter py-3">
+      <a href={paths.now} class="text-lg font-semibold tracking-tight text-ink">
+        Way<span class="text-accent">point</span>
+      </a>
       <nav aria-label="Main">
         <ul class="flex gap-1">
           {#each nav as item (item.section)}
@@ -51,8 +70,8 @@
               <a
                 href={item.href}
                 class={[
-                  'rounded-md px-3 py-1.5 text-sm',
-                  section === item.section ? 'bg-stone-200 text-stone-900' : 'text-stone-600 hover:text-stone-900',
+                  'rounded-control px-3 py-1.5 text-sm transition',
+                  section === item.section ? 'bg-raised text-ink shadow-glow' : 'text-ink-muted hover:text-ink',
                 ]}
                 aria-current={section === item.section ? 'page' : undefined}
               >
@@ -65,34 +84,48 @@
     </div>
   </header>
 
-  <main class="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
-    {#if route.name === 'now'}
-      <Now />
-    {:else if route.name === 'diary'}
-      <Diary />
-    {:else if route.name === 'projects'}
-      <Projects />
-    {:else if route.name === 'project'}
-      {#key route.id}<Project id={route.id} />{/key}
-    {:else if route.name === 'task'}
-      {#key route.id}<Task id={route.id} />{/key}
-    {:else if route.name === 'parkingLot'}
-      <ParkingLot />
-    {:else}
-      <NotFound />
-    {/if}
-  </main>
+  <div class="flex min-h-0 flex-1">
+    <div class="flex min-w-0 flex-1 flex-col overflow-y-auto">
+      <main class="mx-auto w-full max-w-3xl flex-1 px-gutter py-8">
+        {#if route.name === 'now'}
+          <Now />
+        {:else if route.name === 'diary'}
+          <Diary />
+        {:else if route.name === 'projects'}
+          <Projects />
+        {:else if route.name === 'project'}
+          {#key route.id}<Project id={route.id} />{/key}
+        {:else if route.name === 'task'}
+          {#key route.id}<Task id={route.id} />{/key}
+        {:else if route.name === 'parkingLot'}
+          <ParkingLot />
+        {:else}
+          <NotFound />
+        {/if}
+      </main>
 
-  <footer class="mx-auto w-full max-w-3xl px-6 py-4">
-    <p class="flex items-center gap-2 text-xs text-stone-500" data-health={health}>
-      <span
-        class="inline-block size-2 rounded-full"
-        class:bg-stone-300={health === 'checking'}
-        class:bg-emerald-500={health === 'ok'}
-        class:bg-amber-400={health === 'unavailable' || health === 'unreachable'}
-        aria-hidden="true"
-      ></span>
-      {healthLabels[health]}
-    </p>
-  </footer>
+      <footer class="mx-auto w-full max-w-3xl px-gutter py-4">
+        <p class="flex items-center gap-2 text-xs text-ink-muted" data-health={health}>
+          <span
+            class={[
+              'inline-block size-2 rounded-full',
+              health === 'checking' && 'bg-line',
+              health === 'ok' && 'bg-ok',
+              (health === 'unavailable' || health === 'unreachable') && 'bg-caution',
+            ]}
+            aria-hidden="true"
+          ></span>
+          {healthLabels[health]}
+        </p>
+      </footer>
+    </div>
+
+    {#if wide && route.name !== 'diary'}
+      <DiaryPanel />
+    {/if}
+  </div>
 </div>
+
+{#if !wide && route.name !== 'diary'}
+  <DiaryOverlay />
+{/if}

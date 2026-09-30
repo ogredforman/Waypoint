@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import NewProjectForm from '../components/NewProjectForm.svelte'
+  import Button from '../components/ui/Button.svelte'
+  import Panel from '../components/ui/Panel.svelte'
   import { ApiError, getJSON } from '../lib/api/client'
   import type { Project, Settings } from '../lib/api/types.gen'
   import { countActive, groupByStatus } from '../lib/projects'
@@ -44,24 +46,22 @@
 
 <section class="space-y-6">
   <div class="flex items-center justify-between gap-4">
-    <h1 class="text-2xl font-semibold tracking-tight">Projects</h1>
+    <h1 class="text-title font-semibold tracking-tight">Projects</h1>
     {#if projects && projects.length > 0 && !formOpen}
-      <button type="button" class="rounded-md bg-stone-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-700" onclick={() => (formOpen = true)}>
-        New project
-      </button>
+      <Button onclick={() => (formOpen = true)}>New project</Button>
     {/if}
   </div>
 
   {#if loadError}
-    <p class="text-stone-600">
+    <p class="text-ink-muted">
       {loadError}
-      <button type="button" class="ml-1 text-stone-900 underline underline-offset-2" onclick={load}>Try again</button>
+      <button type="button" class="ml-1 text-accent underline underline-offset-2" onclick={load}>Try again</button>
     </p>
   {:else if projects === null}
-    <p class="text-stone-500">Loading…</p>
+    <p class="text-ink-muted">Loading…</p>
   {:else}
     {#if projects.length === 0}
-      <p class="text-stone-600">No projects yet. Start with one thing you'd like to move forward; it can be small.</p>
+      <p class="text-ink-muted">No projects yet. Start with one thing you'd like to move forward; it can be small.</p>
     {/if}
 
     {#if formOpen || projects.length === 0}
@@ -70,19 +70,21 @@
 
     {#each groups as group (group.status)}
       <div>
-        <h2 class="text-sm font-medium tracking-wide text-stone-500 uppercase">{group.label}</h2>
-        <ul class="mt-2 divide-y divide-stone-200 rounded-lg border border-stone-200 bg-white">
-          {#each group.projects as p (p.id)}
-            <li>
-              <a href={paths.project(p.id)} class="block px-4 py-3 hover:bg-stone-50">
-                <span class="font-medium text-stone-900">{p.title}</span>
-                {#if p.why}
-                  <span class="mt-0.5 line-clamp-1 block text-sm text-stone-600">{p.why}</span>
-                {/if}
-              </a>
-            </li>
-          {/each}
-        </ul>
+        <h2 class="text-label font-medium tracking-wide text-ink-muted uppercase">{group.label}</h2>
+        <Panel class="mt-2">
+          <ul class="divide-y divide-line">
+            {#each group.projects as p (p.id)}
+              <li>
+                <a href={paths.project(p.id)} class="block px-4 py-3 transition hover:bg-raised">
+                  <span class="font-medium text-ink">{p.title}</span>
+                  {#if p.why}
+                    <span class="mt-0.5 line-clamp-1 block text-sm text-ink-muted">{p.why}</span>
+                  {/if}
+                </a>
+              </li>
+            {/each}
+          </ul>
+        </Panel>
       </div>
     {/each}
   {/if}

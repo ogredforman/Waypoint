@@ -2,6 +2,10 @@
   import { ApiError, postJSON } from '../lib/api/client'
   import type { Project } from '../lib/api/types.gen'
   import { atCap, capMessage, newProjectRequest } from '../lib/projects'
+  import Button from './ui/Button.svelte'
+  import Card from './ui/Card.svelte'
+  import Input from './ui/Input.svelte'
+  import Textarea from './ui/Textarea.svelte'
 
   let {
     activeCount,
@@ -64,69 +68,65 @@
     }
   }
 
-  const inputClass =
-    'mt-1 w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-stone-900 focus:border-stone-500 focus:outline-none'
 </script>
 
-<form class="space-y-4 rounded-lg border border-stone-200 bg-stone-50 p-4" onsubmit={submit} novalidate>
-  <div>
-    <label for="project-title" class="text-sm font-medium text-stone-700">Title</label>
-    <!-- svelte-ignore a11y_autofocus -->
-    <input
-      id="project-title"
-      class={inputClass}
-      bind:value={title}
-      autofocus
-      autocomplete="off"
-      aria-invalid={problems.title ? 'true' : undefined}
-      aria-describedby={problems.title ? 'project-title-problem' : undefined}
-    />
-    {#if problems.title}
-      <p id="project-title-problem" class="mt-1 text-sm text-amber-800">{problems.title}</p>
-    {/if}
-  </div>
-
-  <div>
-    <label for="project-why" class="text-sm font-medium text-stone-700">Why it matters <span class="font-normal text-stone-500">(optional)</span></label>
-    <textarea id="project-why" class={inputClass} rows="2" bind:value={why}></textarea>
-    {#if problems.why}<p class="mt-1 text-sm text-amber-800">{problems.why}</p>{/if}
-  </div>
-
-  <div>
-    <label for="project-dod" class="text-sm font-medium text-stone-700">
-      What "done" looks like <span class="font-normal text-stone-500">(optional)</span>
-    </label>
-    <textarea id="project-dod" class={inputClass} rows="2" bind:value={definitionOfDone}></textarea>
-    {#if problems.definition_of_done}<p class="mt-1 text-sm text-amber-800">{problems.definition_of_done}</p>{/if}
-  </div>
-
-  <fieldset>
-    <legend class="text-sm font-medium text-stone-700">Start</legend>
-    <div class="mt-1 space-y-1">
-      <label class="flex items-center gap-2 text-stone-800">
-        <input type="radio" name="project-start" value={false} bind:group={startActive} />
-        Park it for now
-      </label>
-      <label class="flex items-center gap-2" class:text-stone-800={!full} class:text-stone-400={full}>
-        <input type="radio" name="project-start" value={true} bind:group={startActive} disabled={full} />
-        Make it active and start working on it
-      </label>
+<Card>
+  <form class="space-y-4" onsubmit={submit} novalidate>
+    <div>
+      <label for="project-title" class="text-sm font-medium text-ink">Title</label>
+      <Input
+        id="project-title"
+        bind:value={title}
+        autofocus
+        autocomplete="off"
+        aria-invalid={problems.title ? 'true' : undefined}
+        aria-describedby={problems.title ? 'project-title-problem' : undefined}
+      />
+      {#if problems.title}
+        <p id="project-title-problem" class="mt-1 text-sm text-accent">{problems.title}</p>
+      {/if}
     </div>
-    {#if full && !notice && cap !== null}
-      <p class="mt-2 text-sm text-stone-600">{capMessage(activeCount, cap)}</p>
-    {/if}
-  </fieldset>
 
-  {#if notice}
-    <p class="text-sm text-amber-800" role="status">{notice}</p>
-  {/if}
+    <div>
+      <label for="project-why" class="text-sm font-medium text-ink">Why it matters <span class="font-normal text-ink-muted">(optional)</span></label>
+      <Textarea id="project-why" rows={2} bind:value={why} />
+      {#if problems.why}<p class="mt-1 text-sm text-accent">{problems.why}</p>{/if}
+    </div>
 
-  <div class="flex gap-2">
-    <button type="submit" class="rounded-md bg-stone-800 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700 disabled:opacity-60" disabled={saving}>
-      {saving ? 'Creating…' : 'Create project'}
-    </button>
-    {#if oncancel}
-      <button type="button" class="rounded-md px-4 py-2 text-sm text-stone-600 hover:text-stone-900" onclick={oncancel}>Cancel</button>
+    <div>
+      <label for="project-dod" class="text-sm font-medium text-ink">
+        What "done" looks like <span class="font-normal text-ink-muted">(optional)</span>
+      </label>
+      <Textarea id="project-dod" rows={2} bind:value={definitionOfDone} />
+      {#if problems.definition_of_done}<p class="mt-1 text-sm text-accent">{problems.definition_of_done}</p>{/if}
+    </div>
+
+    <fieldset>
+      <legend class="text-sm font-medium text-ink">Start</legend>
+      <div class="mt-1 space-y-1">
+        <label class="flex items-center gap-2 text-ink">
+          <input type="radio" name="project-start" value={false} bind:group={startActive} />
+          Park it for now
+        </label>
+        <label class={['flex items-center gap-2', full ? 'text-ink-faint' : 'text-ink']}>
+          <input type="radio" name="project-start" value={true} bind:group={startActive} disabled={full} />
+          Make it active and start working on it
+        </label>
+      </div>
+      {#if full && !notice && cap !== null}
+        <p class="mt-2 text-sm text-ink-muted">{capMessage(activeCount, cap)}</p>
+      {/if}
+    </fieldset>
+
+    {#if notice}
+      <p class="text-sm text-accent" role="status">{notice}</p>
     {/if}
-  </div>
-</form>
+
+    <div class="flex gap-2">
+      <Button type="submit" disabled={saving}>{saving ? 'Creating…' : 'Create project'}</Button>
+      {#if oncancel}
+        <Button variant="quiet" onclick={oncancel}>Cancel</Button>
+      {/if}
+    </div>
+  </form>
+</Card>
