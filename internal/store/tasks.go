@@ -47,6 +47,25 @@ func (r reader) ListTasksByProject(ctx context.Context, projectID int64) ([]doma
 	return out, nil
 }
 
+// ListTaskDependenciesByProject returns the dependencies of the project's
+// tasks, oldest first.
+func (r reader) ListTaskDependenciesByProject(ctx context.Context, projectID int64) ([]domain.TaskDependency, error) {
+	rows, err := r.q.ListTaskDependenciesByProject(ctx, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("list task dependencies of project %d: %w", projectID, err)
+	}
+	out := make([]domain.TaskDependency, len(rows))
+	for i, row := range rows {
+		out[i] = domain.TaskDependency{
+			ID:              row.ID,
+			TaskID:          row.TaskID,
+			BlockedByTaskID: row.BlockedByTaskID,
+			CreatedAt:       fromMS(row.CreatedAt),
+		}
+	}
+	return out, nil
+}
+
 // CreateTask inserts t at the end of its project, ignoring its ID, Position,
 // and timestamps.
 func (tx *Tx) CreateTask(ctx context.Context, t domain.Task) (domain.Task, error) {

@@ -326,3 +326,36 @@ func TestProblemsDontEchoText(t *testing.T) {
 		}
 	}
 }
+
+func TestLatestRun(t *testing.T) {
+	obs := func(ids ...int64) []Observation {
+		out := []Observation{}
+		for i, run := range ids {
+			out = append(out, Observation{ID: int64(i + 1), ExtractionRunID: run})
+		}
+		return out
+	}
+	ids := func(os []Observation) []int64 {
+		out := []int64{}
+		for _, o := range os {
+			out = append(out, o.ID)
+		}
+		return out
+	}
+	tests := []struct {
+		name string
+		in   []Observation
+		want []int64
+	}{
+		{"none", nil, []int64{}},
+		{"one run", obs(3, 3), []int64{1, 2}},
+		{"latest run only, in order", obs(2, 5, 2, 5), []int64{2, 4}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ids(LatestRun(tt.in)); !slices.Equal(got, tt.want) {
+				t.Errorf("LatestRun = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

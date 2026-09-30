@@ -91,7 +91,7 @@ func (f fixture) worker(x extract.Extractor, n Notifier) *Worker {
 
 func (f fixture) workerWithLog(x extract.Extractor, n Notifier, log io.Writer) *Worker {
 	logger := slog.New(slog.NewTextHandler(log, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	return NewWorker(f.s, NewSnapshotBuilder(f.s, f.c.now, 5), x, n, logger)
+	return NewWorker(f.s, NewSnapshotBuilder(f.s, f.c.now, 5), x, n, nil, logger)
 }
 
 // processNext claims and processes one pending run, as Run's loop does.
@@ -524,7 +524,7 @@ func TestReprocessLeavesResolvedChangesetsAlone(t *testing.T) {
 
 	// Accept the first op only: the second splits off into a pending child.
 	cs := f.stored(e.ID).changesets[0]
-	res, err := changeset.NewApplier(f.s, domain.DefaultActiveProjectCap).
+	res, err := changeset.NewApplier(f.s, domain.DefaultActiveProjectCap, nil).
 		Apply(ctx, cs.ID, map[int64]changeset.Decision{1: {Action: changeset.Accept}})
 	if err != nil {
 		t.Fatal(err)
@@ -557,7 +557,7 @@ func TestProcessSkipsLinksToRowsDeletedDuringExtraction(t *testing.T) {
 		}}},
 		// The task is in the snapshot, then deleted before the result is stored.
 		during: func() {
-			_, err := changeset.NewApplier(f.s, domain.DefaultActiveProjectCap).
+			_, err := changeset.NewApplier(f.s, domain.DefaultActiveProjectCap, nil).
 				ApplyManual(context.Background(), &changeset.DeleteTask{TaskID: changeset.ID(task.ID)})
 			if err != nil {
 				t.Error(err)
@@ -623,5 +623,46 @@ func TestProcessRecoversFromExtractorPanic(t *testing.T) {
 
 	if run.Status != domain.RunFailed || run.Error == nil || *run.Error != "extract: extractor panicked" {
 		t.Errorf("run = %+v, want failed with a panic error", run)
+	}
+}
+
+// processed records the entries an AfterRun was told about, and whether its
+// context could be cancelled.
+type processed struct {
+	ids         []int64
+	cancellable bool
+}
+
+func (p *processed) EntryProcessed(ctx context.Context, e domain.Entry) {
+	p.ids = append(p.ids, e.ID)
+	p.cancellable = p.cancellable || ctx.Done() != nil
+}
+
+func TestProcessCallsAfterRunOnSuccessOnly(t *testing.T) {
+	f := newFixture(t)
+	var after processed
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ok := NewWorker(f.s, NewSnapshotBuilder(f.s, f.c.now, 5), mock.New(0), nil, &after, logger)
+	e, _ := f.save(ok, "feel: fine", nil)
+	run, err := ok.claim(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ok.process(ctx, run)
+	if !slices.Equal(after.ids, []int64{e.ID}) {
+		t.Errorf("AfterRun got %v, want [%d]", after.ids, e.ID)
+	}
+	if after.cancellable {
+		t.Error("AfterRun's context can be cancelled")
+	}
+
+	after.ids = nil
+	failing := NewWorker(f.s, NewSnapshotBuilder(f.s, f.c.now, 5), &fakeExtractor{err: errors.New("down")}, nil, &after, logger)
+	f.save(failing, "feel: fine", nil)
+	processNext(t, failing)
+	if len(after.ids) != 0 {
+		t.Errorf("AfterRun called for a failed run: %v", after.ids)
 	}
 }

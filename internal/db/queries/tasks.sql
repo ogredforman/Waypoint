@@ -49,3 +49,11 @@ RETURNING *;
 INSERT INTO task_dependencies (task_id, blocked_by_task_id, created_at)
 VALUES (?, ?, ?)
 ON CONFLICT (task_id, blocked_by_task_id) DO NOTHING;
+
+-- name: ListTaskDependenciesByProject :many
+-- Dependencies whose dependent task is in the project. Both tasks are in the
+-- same project (SPEC 6.2).
+SELECT d.id, d.task_id, d.blocked_by_task_id, d.created_at FROM task_dependencies AS d
+JOIN tasks AS t ON t.id = d.task_id
+WHERE t.project_id = ?
+ORDER BY d.id;

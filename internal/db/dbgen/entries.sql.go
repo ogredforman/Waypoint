@@ -219,3 +219,56 @@ func (q *Queries) ListRecentEntriesByProject(ctx context.Context, arg ListRecent
 	}
 	return items, nil
 }
+
+const listRecentEntriesForProject = `-- name: ListRecentEntriesForProject :many
+SELECT e.id, e.body, e.project_id, e.reply_to_question_id, e.created_at FROM entries AS e
+WHERE e.project_id = ?1
+   OR (e.project_id IS NULL AND EXISTS (
+        SELECT 1 FROM observations AS o
+        JOIN observation_links AS l ON l.observation_id = o.id
+        WHERE o.entry_id = e.id AND (
+              (l.target_type = 'project' AND l.target_id = ?1)
+           OR (l.target_type = 'task' AND l.target_id IN (SELECT t.id FROM tasks AS t WHERE t.project_id = ?1))
+           OR (l.target_type = 'blocker' AND l.target_id IN (SELECT b.id FROM blockers AS b WHERE b.project_id = ?1))
+        )
+   ))
+ORDER BY e.created_at DESC, e.id DESC
+LIMIT ?2
+`
+
+type ListRecentEntriesForProjectParams struct {
+	ProjectID *int64
+	Limit     int64
+}
+
+// Entries about a project, newest first: those scoped to it, and unscoped
+// ones with an observation linked to the project or to one of its tasks or
+// blockers.
+func (q *Queries) ListRecentEntriesForProject(ctx context.Context, arg ListRecentEntriesForProjectParams) ([]Entry, error) {
+	rows, err := q.db.QueryContext(ctx, listRecentEntriesForProject, arg.ProjectID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Entry{}
+	for rows.Next() {
+		var i Entry
+		if err := rows.Scan(
+			&i.ID,
+			&i.Body,
+			&i.ProjectID,
+			&i.ReplyToQuestionID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

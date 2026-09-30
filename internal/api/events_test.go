@@ -172,7 +172,7 @@ func TestEventsNotifyFansOutInOrder(t *testing.T) {
 	hub.Notify(pipeline.Event{Type: pipeline.EventEntryProcessed, EntryID: 1, RunID: 2})
 	hub.Notify(pipeline.Event{Type: pipeline.EventChangesetReady, EntryID: 1, RunID: 2, ChangesetID: 3})
 	hub.Notify(pipeline.Event{Type: pipeline.EventRunFailed, EntryID: 4, RunID: 5})
-	hub.Publish("briefing.updated", map[string]int64{"project_id": 6})
+	hub.BriefingUpdated(6)
 
 	want := []frame{
 		{event: "entry.processed", data: `{"entry_id":1,"run_id":2}`},

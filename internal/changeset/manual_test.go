@@ -22,7 +22,7 @@ func changesetCount(t *testing.T, f fixture) int {
 func TestApplyManual(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture(t)
-	res, err := NewApplier(f.s, 3).ApplyManual(ctx,
+	res, err := NewApplier(f.s, 3, nil).ApplyManual(ctx,
 		UpdateTask{TaskID: ID(f.a4), Title: ptr("Write the intro"), Size: To(domain.SizeS)},
 		SetTaskStatus{TaskID: ID(f.a4), Status: domain.TaskInProgress},
 		CreateTask{ProjectID: ID(f.projA), Title: "Outline"},
@@ -67,7 +67,7 @@ func TestApplyManual(t *testing.T) {
 func TestApplyManualCreatesActiveProject(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture(t)
-	res, err := NewApplier(f.s, 3).ApplyManual(ctx,
+	res, err := NewApplier(f.s, 3, nil).ApplyManual(ctx,
 		CreateProject{Title: "Garden"},
 		UpdateProject{ProjectID: Temp(1), Status: ptr(domain.ProjectActive)},
 	)
@@ -82,7 +82,7 @@ func TestApplyManualCreatesActiveProject(t *testing.T) {
 func TestApplyManualDeleteRecordsRow(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture(t)
-	res, err := NewApplier(f.s, 3).ApplyManual(ctx, DeleteTask{TaskID: ID(f.a4)})
+	res, err := NewApplier(f.s, 3, nil).ApplyManual(ctx, DeleteTask{TaskID: ID(f.a4)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +152,7 @@ func TestApplyManualStoresNothingOnFailure(t *testing.T) {
 			if f.projA != 1 {
 				t.Fatalf("project A has ID %d, want 1", f.projA)
 			}
-			_, err := NewApplier(f.s, tt.cap).ApplyManual(ctx, tt.ops...)
+			_, err := NewApplier(f.s, tt.cap, nil).ApplyManual(ctx, tt.ops...)
 			if err == nil {
 				t.Fatal("got no error")
 			}

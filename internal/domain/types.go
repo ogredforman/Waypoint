@@ -78,6 +78,24 @@ type Observation struct {
 	CreatedAt       time.Time
 }
 
+// LatestRun returns the observations from the newest run that produced any,
+// in their order. A reprocessed entry has observations from several runs;
+// only the latest describes it. A run with no observations, such as a failed
+// one, doesn't hide an earlier run's.
+func LatestRun(obs []Observation) []Observation {
+	var latest int64
+	for _, o := range obs {
+		latest = max(latest, o.ExtractionRunID)
+	}
+	out := []Observation{}
+	for _, o := range obs {
+		if o.ExtractionRunID == latest {
+			out = append(out, o)
+		}
+	}
+	return out
+}
+
 // ObservationLink ties an observation to a project element. TargetID points
 // into the table named by TargetType.
 type ObservationLink struct {

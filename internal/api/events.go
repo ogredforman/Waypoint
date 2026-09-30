@@ -23,6 +23,9 @@ const (
 	defaultKeepalive = 25 * time.Second
 )
 
+// eventBriefingUpdated is the SSE event name for a regenerated briefing.
+const eventBriefingUpdated = "briefing.updated"
+
 // Hub fans server events out to every connected /api/events stream (SPEC
 // §10.5). Publishing never blocks: a client whose buffer is full is
 // disconnected instead. Events carry IDs only, never entry text.
@@ -89,6 +92,12 @@ func (h *Hub) Notify(e pipeline.Event) {
 	default:
 		h.logger.Warn("sse: unknown worker event", "event", string(e.Type))
 	}
+}
+
+// BriefingUpdated publishes a "briefing.updated" event. It makes the hub a
+// briefing.Notifier.
+func (h *Hub) BriefingUpdated(projectID int64) {
+	h.Publish(eventBriefingUpdated, apitypes.BriefingUpdatedEvent{ProjectID: projectID})
 }
 
 // Close ends every open stream and refuses new ones. The server calls it

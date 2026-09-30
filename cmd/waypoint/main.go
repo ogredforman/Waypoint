@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ogredforman/waypoint/internal/api"
+	"github.com/ogredforman/waypoint/internal/briefing"
 	"github.com/ogredforman/waypoint/internal/config"
 	"github.com/ogredforman/waypoint/internal/db"
 	"github.com/ogredforman/waypoint/internal/extract/mock"
@@ -91,7 +92,10 @@ func run() int {
 	hub := api.NewHub(logger)
 	st := store.New(sqlDB, time.Now)
 	snapshots := pipeline.NewSnapshotBuilder(st, time.Now, cfg.SnapshotRecentEntries)
-	worker := pipeline.NewWorker(st, snapshots, mock.New(cfg.MockLatency), hub, logger)
+	// The changeset applier is wired with the routes that use it (PLAN
+	// 1.14); it takes briefings as its changeset.AfterApply.
+	briefings := briefing.NewService(st, briefing.Heuristic{}, time.Now, hub, logger)
+	worker := pipeline.NewWorker(st, snapshots, mock.New(cfg.MockLatency), hub, briefings, logger)
 	workerDone := make(chan struct{})
 	go func() {
 		defer close(workerDone)

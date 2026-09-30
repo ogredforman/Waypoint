@@ -169,6 +169,43 @@ func (q *Queries) GetTask(ctx context.Context, id int64) (Task, error) {
 	return i, err
 }
 
+const listTaskDependenciesByProject = `-- name: ListTaskDependenciesByProject :many
+SELECT d.id, d.task_id, d.blocked_by_task_id, d.created_at FROM task_dependencies AS d
+JOIN tasks AS t ON t.id = d.task_id
+WHERE t.project_id = ?
+ORDER BY d.id
+`
+
+// Dependencies whose dependent task is in the project. Both tasks are in the
+// same project (SPEC 6.2).
+func (q *Queries) ListTaskDependenciesByProject(ctx context.Context, projectID int64) ([]TaskDependency, error) {
+	rows, err := q.db.QueryContext(ctx, listTaskDependenciesByProject, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []TaskDependency{}
+	for rows.Next() {
+		var i TaskDependency
+		if err := rows.Scan(
+			&i.ID,
+			&i.TaskID,
+			&i.BlockedByTaskID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTasksByProject = `-- name: ListTasksByProject :many
 SELECT id, project_id, milestone_id, parent_task_id, title, notes, status, size, energy, position, origin_entry_id, created_at, updated_at FROM tasks
 WHERE project_id = ?

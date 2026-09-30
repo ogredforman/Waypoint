@@ -48,6 +48,13 @@ type NotifierFunc func(Event)
 
 func (f NotifierFunc) Notify(e Event) { f(e) }
 
+// AfterRun is told about each entry whose extraction run succeeded, after its
+// results are committed, such as to refresh briefings. It runs on the worker
+// goroutine, so the next run waits for it. Its context is never cancelled.
+type AfterRun interface {
+	EntryProcessed(ctx context.Context, e domain.Entry)
+}
+
 // ErrRunInProgress is returned when reprocessing an entry that already has a
 // pending or running run.
 var ErrRunInProgress = errors.New("entry already has a run in progress")
@@ -65,13 +72,14 @@ type Worker struct {
 	snapshots *SnapshotBuilder
 	extractor extract.Extractor
 	notifier  Notifier
+	after     AfterRun
 	logger    *slog.Logger
 	wake      chan struct{}
 }
 
 // NewWorker returns a worker that runs extractor over entries. A nil notifier
-// drops events.
-func NewWorker(s *store.Store, snapshots *SnapshotBuilder, extractor extract.Extractor, notifier Notifier, logger *slog.Logger) *Worker {
+// drops events; after may be nil.
+func NewWorker(s *store.Store, snapshots *SnapshotBuilder, extractor extract.Extractor, notifier Notifier, after AfterRun, logger *slog.Logger) *Worker {
 	if notifier == nil {
 		notifier = NotifierFunc(func(Event) {})
 	}
@@ -80,6 +88,7 @@ func NewWorker(s *store.Store, snapshots *SnapshotBuilder, extractor extract.Ext
 		snapshots: snapshots,
 		extractor: extractor,
 		notifier:  notifier,
+		after:     after,
 		logger:    logger,
 		wake:      make(chan struct{}, 1),
 	}
@@ -285,6 +294,11 @@ func (w *Worker) process(ctx context.Context, run domain.ExtractionRun) {
 	w.notifier.Notify(Event{Type: EventEntryProcessed, EntryID: run.EntryID, RunID: run.ID})
 	if csID != 0 {
 		w.notifier.Notify(Event{Type: EventChangesetReady, EntryID: run.EntryID, RunID: run.ID, ChangesetID: csID})
+	}
+	if w.after != nil {
+		// The run is committed: finish what follows it even if shutdown
+		// has started.
+		w.after.EntryProcessed(context.WithoutCancel(ctx), entry)
 	}
 }
 

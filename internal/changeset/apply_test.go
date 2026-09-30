@@ -110,7 +110,7 @@ func TestApplyTempIDs(t *testing.T) {
 		op(6, domain.OpAddDependency, `{"task_id":"$new:3","blocked_by_task_id":"$new:2"}`),
 	)
 
-	res, err := NewApplier(f.s, 3).Apply(ctx, cs, acceptAll(1, 2, 3, 4, 5, 6))
+	res, err := NewApplier(f.s, 3, nil).Apply(ctx, cs, acceptAll(1, 2, 3, 4, 5, 6))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,7 +202,7 @@ func TestApplyOps(t *testing.T) {
 		}, func(t *testing.T, f fixture) {
 			// The fixture has none; apply a second time to check it's a no-op.
 			cs := propose(t, f, nil, op(1, domain.OpAddDependency, jsonf(`{"task_id":%d,"blocked_by_task_id":%d}`, f.a4, f.a1)))
-			if _, err := NewApplier(f.s, 3).Apply(ctx, cs, acceptAll(1)); err != nil {
+			if _, err := NewApplier(f.s, 3, nil).Apply(ctx, cs, acceptAll(1)); err != nil {
 				t.Fatal(err)
 			}
 			var n int
@@ -267,7 +267,7 @@ func TestApplyOps(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newFixture(t)
 			cs := propose(t, f, nil, tt.op(f))
-			res, err := NewApplier(f.s, 3).Apply(ctx, cs, acceptAll(1))
+			res, err := NewApplier(f.s, 3, nil).Apply(ctx, cs, acceptAll(1))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -302,7 +302,7 @@ func TestApplyExtractionSetsEntries(t *testing.T) {
 		op(4, domain.OpParkIdea, `{"title":"i"}`),
 		op(5, domain.OpResolveBlocker, jsonf(`{"blocker_id":%d}`, f.bA)),
 	)
-	res, err := NewApplier(f.s, 3).Apply(ctx, cs, acceptAll(1, 2, 3, 4, 5))
+	res, err := NewApplier(f.s, 3, nil).Apply(ctx, cs, acceptAll(1, 2, 3, 4, 5))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -332,7 +332,7 @@ func TestApplyRejectAndEdit(t *testing.T) {
 		op(3, domain.OpParkIdea, `{"title":"maybe"}`),
 	)
 	edited := json.RawMessage(jsonf(`{"project_id":%d,"title":"edited"}`, f.projA))
-	res, err := NewApplier(f.s, 3).Apply(ctx, cs, map[int64]Decision{
+	res, err := NewApplier(f.s, 3, nil).Apply(ctx, cs, map[int64]Decision{
 		1: {Action: Edit, Payload: edited},
 		2: {Action: Accept},
 		3: {Action: Reject},
@@ -362,7 +362,7 @@ func TestApplyAllRejected(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture(t)
 	cs := propose(t, f, nil, op(1, domain.OpDeleteTask, jsonf(`{"task_id":%d}`, f.a1)))
-	res, err := NewApplier(f.s, 3).Apply(ctx, cs, map[int64]Decision{1: {Action: Reject}})
+	res, err := NewApplier(f.s, 3, nil).Apply(ctx, cs, map[int64]Decision{1: {Action: Reject}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -383,7 +383,7 @@ func TestApplySplitsOffUndecided(t *testing.T) {
 		op(4, domain.OpSetTaskStatus, `{"task_id":"$new:3","status":"in_progress"}`),
 		op(5, domain.OpSetTaskStatus, jsonf(`{"task_id":%d,"status":"done"}`, f.a1)),
 	)
-	a := NewApplier(f.s, 3)
+	a := NewApplier(f.s, 3, nil)
 	res, err := a.Apply(ctx, cs, map[int64]Decision{1: {Action: Accept}, 2: {Action: Accept}, 5: {Action: Accept}})
 	if err != nil {
 		t.Fatal(err)
@@ -468,7 +468,7 @@ func TestApplySplitStatus(t *testing.T) {
 				op(2, domain.OpSetTaskStatus, jsonf(`{"task_id":%d,"status":"done"}`, f.a2)),
 				op(3, domain.OpSetTaskStatus, jsonf(`{"task_id":%d,"status":"done"}`, f.a3)),
 			)
-			res, err := NewApplier(f.s, 3).Apply(ctx, cs, tt.decisions)
+			res, err := NewApplier(f.s, 3, nil).Apply(ctx, cs, tt.decisions)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -506,7 +506,7 @@ func TestApplyActiveCap(t *testing.T) {
 	t.Run("extraction holds the op back", func(t *testing.T) {
 		f, projC := setup(t)
 		_, runID := newRun(t, f)
-		a := NewApplier(f.s, 2)
+		a := NewApplier(f.s, 2, nil)
 		cs := propose(t, f, &runID, activate(projC), op(2, domain.OpCreateTask, jsonf(`{"project_id":%d,"title":"x"}`, f.projA)))
 		res, err := a.Apply(ctx, cs, acceptAll(1, 2))
 		if err != nil {
@@ -553,7 +553,7 @@ func TestApplyActiveCap(t *testing.T) {
 			op(1, domain.OpCreateProject, `{"title":"Garden"}`),
 			op(2, domain.OpUpdateProject, `{"project_id":"$new:1","status":"active"}`),
 		)
-		res, err := NewApplier(f.s, 2).Apply(ctx, cs, map[int64]Decision{
+		res, err := NewApplier(f.s, 2, nil).Apply(ctx, cs, map[int64]Decision{
 			1: {Action: Accept},
 			2: {Action: Edit, Payload: json.RawMessage(`{"project_id":"$new:1","status":"active","why":"food"}`)},
 		})
@@ -573,7 +573,7 @@ func TestApplyActiveCap(t *testing.T) {
 	t.Run("manual fails", func(t *testing.T) {
 		f, projC := setup(t)
 		cs := propose(t, f, nil, activate(projC), op(2, domain.OpCreateTask, jsonf(`{"project_id":%d,"title":"x"}`, f.projA)))
-		_, err := NewApplier(f.s, 2).Apply(ctx, cs, acceptAll(1, 2))
+		_, err := NewApplier(f.s, 2, nil).Apply(ctx, cs, acceptAll(1, 2))
 		var ce *domain.ActiveCapError
 		if !errors.As(err, &ce) || ce.Cap != 2 || ce.Active != 2 {
 			t.Fatalf("got %v, want ActiveCapError 2 of 2", err)
@@ -589,7 +589,7 @@ func TestApplyActiveCap(t *testing.T) {
 	t.Run("staying active passes", func(t *testing.T) {
 		f, _ := setup(t)
 		cs := propose(t, f, nil, op(1, domain.OpUpdateProject, jsonf(`{"project_id":%d,"status":"active","title":"A!"}`, f.projA)))
-		if _, err := NewApplier(f.s, 1).Apply(ctx, cs, acceptAll(1)); err != nil {
+		if _, err := NewApplier(f.s, 1, nil).Apply(ctx, cs, acceptAll(1)); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -603,7 +603,7 @@ func TestApplyRollsBack(t *testing.T) {
 		op(2, domain.OpDeleteTask, jsonf(`{"task_id":%d}`, f.a1)),
 		op(3, domain.OpSetTaskStatus, `{"task_id":999,"status":"done"}`),
 	)
-	_, err := NewApplier(f.s, 3).Apply(ctx, cs, acceptAll(1, 2, 3))
+	_, err := NewApplier(f.s, 3, nil).Apply(ctx, cs, acceptAll(1, 2, 3))
 	var oe *OpError
 	if !errors.As(err, &oe) || oe.Position != 3 || oe.OpType != domain.OpSetTaskStatus {
 		t.Fatalf("got %v, want an OpError at 3", err)
@@ -630,7 +630,7 @@ func TestApplyDecisionProblems(t *testing.T) {
 		op(2, domain.OpCreateTask, `{"project_id":"$new:1","title":"x"}`),
 		op(3, domain.OpSetTaskStatus, jsonf(`{"task_id":%d,"status":"done"}`, f.a1)),
 	)
-	a := NewApplier(f.s, 3)
+	a := NewApplier(f.s, 3, nil)
 	for _, tt := range []struct {
 		name      string
 		decisions map[int64]Decision
@@ -667,7 +667,7 @@ func TestApplyDecisionProblems(t *testing.T) {
 func TestApplyNotPending(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture(t)
-	a := NewApplier(f.s, 3)
+	a := NewApplier(f.s, 3, nil)
 	cs := propose(t, f, nil, op(1, domain.OpParkIdea, `{"title":"i"}`))
 	if _, err := a.Apply(ctx, cs, acceptAll(1)); err != nil {
 		t.Fatal(err)
@@ -775,7 +775,7 @@ func TestApplyEveryOpType(t *testing.T) {
 	}
 
 	cs := propose(t, f, nil, ops...)
-	res, err := NewApplier(f.s, 3).Apply(ctx, cs, acceptAll(positions...))
+	res, err := NewApplier(f.s, 3, nil).Apply(ctx, cs, acceptAll(positions...))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -867,7 +867,7 @@ func TestApplyRollsBackEveryOpType(t *testing.T) {
 			// back on an extraction changeset.
 			ok := newFixture(t)
 			cs, decisions := prepare(ok, false)
-			res, err := NewApplier(ok.s, tt.cap).Apply(ctx, cs, decisions)
+			res, err := NewApplier(ok.s, tt.cap, nil).Apply(ctx, cs, decisions)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -882,7 +882,7 @@ func TestApplyRollsBackEveryOpType(t *testing.T) {
 			f := newFixture(t)
 			cs, decisions = prepare(f, true)
 			before := dbSnapshot(t, f)
-			_, err = NewApplier(f.s, tt.cap).Apply(ctx, cs, decisions)
+			_, err = NewApplier(f.s, tt.cap, nil).Apply(ctx, cs, decisions)
 			var oe *OpError
 			if !errors.As(err, &oe) || oe.Position != 18 {
 				t.Fatalf("got %v, want an OpError at 18", err)
@@ -911,7 +911,7 @@ func TestApplySplitOffRewritesEveryRefKind(t *testing.T) {
 		op(8, domain.OpUpdateIdea, jsonf(`{"idea_id":%d,"project_id":"$new:1"}`, f.iA)),
 		op(9, domain.OpAddDependency, `{"task_id":"$new:3","blocked_by_task_id":"$new:2"}`),
 	)
-	a := NewApplier(f.s, 3)
+	a := NewApplier(f.s, 3, nil)
 	res, err := a.Apply(ctx, cs, acceptAll(1, 2, 3))
 	if err != nil {
 		t.Fatal(err)

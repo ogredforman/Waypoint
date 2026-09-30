@@ -1,0 +1,59 @@
+package briefing
+
+import (
+	"context"
+	"time"
+
+	"github.com/ogredforman/waypoint/internal/domain"
+)
+
+// Briefer decides a project's next action and writes its recap. Brief returns
+// the briefing's ProjectID, NextTaskID, NextReason, Recap, and Source; the
+// Service stamps the rest. A NextTaskID must be one of st's open tasks.
+type Briefer interface {
+	Brief(ctx context.Context, st State) (domain.Briefing, error)
+}
+
+// State is what a Briefer sees of one project.
+type State struct {
+	Project domain.Project
+	// Tasks are all the project's tasks, open or not, in position order.
+	Tasks []domain.Task
+	// Dependencies are those of the project's tasks.
+	Dependencies []domain.TaskDependency
+	// Blockers are the project's open blockers, oldest first.
+	Blockers []domain.Blocker
+	// RecentEntries are the latest entries about the project, newest first.
+	RecentEntries []RecentEntry
+}
+
+// RecentEntry is an entry as the summaries of its latest run's observations,
+// not its body.
+type RecentEntry struct {
+	ID        int64
+	CreatedAt time.Time
+	Summaries []string
+}
+
+// View is a project's briefing as the "Now" screen shows it: the cached
+// judgment, plus the parts that are plain facts about current state and so
+// are read fresh each time.
+type View struct {
+	Briefing domain.Briefing
+	// Next is the task Briefing.NextTaskID names, or nil if there is none.
+	Next *domain.Task
+	// Excerpt is the most recent entry text about Next, or nil if none.
+	Excerpt *Excerpt
+	// Blockers are the project's open blockers, oldest first.
+	Blockers []domain.Blocker
+	// Alternatives are up to 2 small or low-energy tasks that can be started
+	// now, other than Next.
+	Alternatives []domain.Task
+}
+
+// Excerpt is the part of an entry an observation covers.
+type Excerpt struct {
+	EntryID   int64
+	CreatedAt time.Time
+	Text      string
+}

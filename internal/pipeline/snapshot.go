@@ -153,20 +153,12 @@ func (b *SnapshotBuilder) addRecentEntries(ctx context.Context, tx *store.ReadTx
 	return nil
 }
 
-// latestRunSummaries returns the summaries of the observations from the
-// newest run that produced any, in their order. A reprocessed entry has
-// observations from several runs; only the latest describes it. A run with no
-// observations, such as a failed one, doesn't hide an earlier run's.
+// latestRunSummaries returns the summaries of the entry's latest run's
+// observations (domain.LatestRun), in their order.
 func latestRunSummaries(obs []domain.Observation) []string {
-	var latest int64
-	for _, o := range obs {
-		latest = max(latest, o.ExtractionRunID)
-	}
 	out := []string{}
-	for _, o := range obs {
-		if o.ExtractionRunID == latest {
-			out = append(out, o.Summary)
-		}
+	for _, o := range domain.LatestRun(obs) {
+		out = append(out, o.Summary)
 	}
 	return out
 }

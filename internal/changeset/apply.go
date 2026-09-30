@@ -40,6 +40,10 @@ type Result struct {
 	// HeldByCap lists the positions of the ops moved to SplitOff because the
 	// active-project cap is reached.
 	HeldByCap []int64
+	// Projects lists, in ascending order, the projects whose own row, tasks,
+	// or blockers an applied op changed: those whose briefing may be stale.
+	// Ideas don't count, since a briefing doesn't show them.
+	Projects []int64
 }
 
 // ErrNotPending is returned when applying a changeset that was already
@@ -61,17 +65,34 @@ func (e *OpError) Error() string {
 
 func (e *OpError) Unwrap() error { return e.Err }
 
+// AfterApply is told about every changeset applied, after its transaction
+// commits, such as to refresh the briefings of res.Projects. Applied runs on
+// the caller's goroutine, so it should be quick; it has no way to fail the
+// apply, which is already committed. Its context is never cancelled, so a
+// caller that goes away right after the commit doesn't cut it short.
+type AfterApply interface {
+	Applied(ctx context.Context, res Result)
+}
+
 // Applier applies changesets. It is the only writer of projects, tasks,
 // blockers, and ideas.
 type Applier struct {
 	store     *store.Store
 	activeCap int
+	after     AfterApply
 }
 
 // NewApplier returns an Applier over s that enforces activeCap on projects
-// becoming active.
-func NewApplier(s *store.Store, activeCap int) *Applier {
-	return &Applier{store: s, activeCap: activeCap}
+// becoming active and tells after about each apply. after may be nil.
+func NewApplier(s *store.Store, activeCap int, after AfterApply) *Applier {
+	return &Applier{store: s, activeCap: activeCap, after: after}
+}
+
+// applied tells the AfterApply hook, if any, about res.
+func (a *Applier) applied(ctx context.Context, res Result) {
+	if a.after != nil {
+		a.after.Applied(context.WithoutCancel(ctx), res)
+	}
 }
 
 // Apply applies pending changeset id in one transaction, following the user's
@@ -104,6 +125,7 @@ func (a *Applier) Apply(ctx context.Context, id int64, decisions map[int64]Decis
 	if err != nil {
 		return Result{}, err
 	}
+	a.applied(ctx, res)
 	return res, nil
 }
 
@@ -128,7 +150,7 @@ func (a *Applier) apply(ctx context.Context, tx *store.Tx, id int64, decisions m
 		return Result{}, fmt.Errorf("apply changeset %d: %w", id, err)
 	}
 
-	w := writer{tx: tx, entryID: entryID, activeCap: a.activeCap, ids: TempIDs{}}
+	w := writer{tx: tx, entryID: entryID, activeCap: a.activeCap, ids: TempIDs{}, projects: map[int64]bool{}}
 	res := Result{Created: w.ids}
 	var carried []int // indexes into ops, in position order
 	var applied, rejected int
@@ -219,6 +241,10 @@ func (a *Applier) apply(ctx context.Context, tx *store.Tx, id int64, decisions m
 		}
 		res.SplitOff = &child
 	}
+	for id := range w.projects {
+		res.Projects = append(res.Projects, id)
+	}
+	slices.Sort(res.Projects)
 	return res, nil
 }
 
@@ -366,6 +392,8 @@ type writer struct {
 	entryID   *int64 // the entry an extraction changeset came from; nil for manual
 	activeCap int
 	ids       TempIDs
+	// projects collects the projects applied ops changed (Result.Projects).
+	projects map[int64]bool
 }
 
 // id resolves r. CheckRefs has already checked that it resolves.
@@ -399,7 +427,11 @@ func (w writer) apply(ctx context.Context, pos int64, p Payload) (deleted any, e
 			OriginEntryID: w.entryID,
 		})
 		w.ids[pos] = t.ID
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
+		w.projects[t.ProjectID] = true
+		return nil, nil
 
 	case UpdateTask:
 		t, err := tx.GetTask(ctx, w.id(p.TaskID))
@@ -424,8 +456,11 @@ func (w writer) apply(ctx context.Context, pos int64, p Payload) (deleted any, e
 		if p.Position != nil {
 			t.Position = *p.Position
 		}
-		_, err = tx.UpdateTask(ctx, t)
-		return nil, err
+		if _, err = tx.UpdateTask(ctx, t); err != nil {
+			return nil, err
+		}
+		w.projects[t.ProjectID] = true
+		return nil, nil
 
 	case SetTaskStatus:
 		t, err := tx.GetTask(ctx, w.id(p.TaskID))
@@ -433,8 +468,11 @@ func (w writer) apply(ctx context.Context, pos int64, p Payload) (deleted any, e
 			return nil, err
 		}
 		t.Status = p.Status
-		_, err = tx.UpdateTask(ctx, t)
-		return nil, err
+		if _, err = tx.UpdateTask(ctx, t); err != nil {
+			return nil, err
+		}
+		w.projects[t.ProjectID] = true
+		return nil, nil
 
 	case SplitTask:
 		parent, err := tx.GetTask(ctx, w.id(p.TaskID))
@@ -456,16 +494,26 @@ func (w writer) apply(ctx context.Context, pos int64, p Payload) (deleted any, e
 				return nil, err
 			}
 		}
+		w.projects[parent.ProjectID] = true
 		return nil, nil
 
 	case AddDependency:
-		return nil, tx.AddTaskDependency(ctx, w.id(p.TaskID), w.id(p.BlockedByTaskID))
+		t, err := tx.GetTask(ctx, w.id(p.TaskID))
+		if err != nil {
+			return nil, err
+		}
+		if err := tx.AddTaskDependency(ctx, t.ID, w.id(p.BlockedByTaskID)); err != nil {
+			return nil, err
+		}
+		w.projects[t.ProjectID] = true
+		return nil, nil
 
 	case DeleteTask:
 		t, err := tx.DeleteTask(ctx, w.id(p.TaskID))
 		if err != nil {
 			return nil, err
 		}
+		w.projects[t.ProjectID] = true
 		return deletedTaskOf(t), nil
 
 	case CreateBlocker:
@@ -477,7 +525,11 @@ func (w writer) apply(ctx context.Context, pos int64, p Payload) (deleted any, e
 			OriginEntryID: w.entryID,
 		})
 		w.ids[pos] = b.ID
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
+		w.projects[b.ProjectID] = true
+		return nil, nil
 
 	case UpdateBlocker:
 		b, err := tx.GetBlocker(ctx, w.id(p.BlockerID))
@@ -490,8 +542,11 @@ func (w writer) apply(ctx context.Context, pos int64, p Payload) (deleted any, e
 		if p.TaskID.Set {
 			b.TaskID = w.optID(p.TaskID.Value)
 		}
-		_, err = tx.UpdateBlocker(ctx, b)
-		return nil, err
+		if _, err = tx.UpdateBlocker(ctx, b); err != nil {
+			return nil, err
+		}
+		w.projects[b.ProjectID] = true
+		return nil, nil
 
 	case ResolveBlocker:
 		b, err := tx.GetBlocker(ctx, w.id(p.BlockerID))
@@ -502,14 +557,18 @@ func (w writer) apply(ctx context.Context, pos int64, p Payload) (deleted any, e
 		if w.entryID != nil {
 			b.ResolvedEntryID = w.entryID
 		}
-		_, err = tx.UpdateBlocker(ctx, b)
-		return nil, err
+		if _, err = tx.UpdateBlocker(ctx, b); err != nil {
+			return nil, err
+		}
+		w.projects[b.ProjectID] = true
+		return nil, nil
 
 	case DeleteBlocker:
 		b, err := tx.DeleteBlocker(ctx, w.id(p.BlockerID))
 		if err != nil {
 			return nil, err
 		}
+		w.projects[b.ProjectID] = true
 		return deletedBlockerOf(b), nil
 
 	case ParkIdea:
@@ -559,7 +618,11 @@ func (w writer) apply(ctx context.Context, pos int64, p Payload) (deleted any, e
 			Status: domain.ProjectParked,
 		})
 		w.ids[pos] = pr.ID
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
+		w.projects[pr.ID] = true
+		return nil, nil
 
 	case UpdateProject:
 		pr, err := tx.GetProject(ctx, w.id(p.ProjectID))
@@ -585,8 +648,11 @@ func (w writer) apply(ctx context.Context, pos int64, p Payload) (deleted any, e
 		if p.DefinitionOfDone != nil {
 			pr.DefinitionOfDone = *p.DefinitionOfDone
 		}
-		_, err = tx.UpdateProject(ctx, pr)
-		return nil, err
+		if _, err = tx.UpdateProject(ctx, pr); err != nil {
+			return nil, err
+		}
+		w.projects[pr.ID] = true
+		return nil, nil
 	}
 	return nil, fmt.Errorf("apply: unexpected payload %T", p)
 }

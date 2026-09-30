@@ -55,5 +55,6 @@ func (a *Applier) ApplyManual(ctx context.Context, ops ...Payload) (Result, erro
 	if err != nil {
 		return Result{}, err
 	}
+	a.applied(ctx, res)
 	return res, nil
 }

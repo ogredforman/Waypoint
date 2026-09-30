@@ -25,3 +25,79 @@ func (q *Queries) ClearBriefingNextTask(ctx context.Context, arg ClearBriefingNe
 	_, err := q.db.ExecContext(ctx, clearBriefingNextTask, arg.UpdatedAt, arg.NextTaskID)
 	return err
 }
+
+const getBriefingByProject = `-- name: GetBriefingByProject :one
+SELECT id, project_id, next_task_id, next_reason, recap, source, generated_at, created_at, updated_at FROM briefings
+WHERE project_id = ?
+`
+
+func (q *Queries) GetBriefingByProject(ctx context.Context, projectID int64) (Briefing, error) {
+	row := q.db.QueryRowContext(ctx, getBriefingByProject, projectID)
+	var i Briefing
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.NextTaskID,
+		&i.NextReason,
+		&i.Recap,
+		&i.Source,
+		&i.GeneratedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertBriefing = `-- name: UpsertBriefing :one
+INSERT INTO briefings (
+    project_id, next_task_id, next_reason, recap, source, generated_at, created_at, updated_at
+)
+VALUES (
+    ?1, ?2, ?3, ?4,
+    ?5, ?6, ?7, ?7
+)
+ON CONFLICT (project_id) DO UPDATE
+SET next_task_id = excluded.next_task_id,
+    next_reason = excluded.next_reason,
+    recap = excluded.recap,
+    source = excluded.source,
+    generated_at = excluded.generated_at,
+    updated_at = excluded.updated_at
+RETURNING id, project_id, next_task_id, next_reason, recap, source, generated_at, created_at, updated_at
+`
+
+type UpsertBriefingParams struct {
+	ProjectID   int64
+	NextTaskID  *int64
+	NextReason  string
+	Recap       string
+	Source      string
+	GeneratedAt int64
+	Now         int64
+}
+
+// A project has at most one briefing; a refresh replaces it.
+func (q *Queries) UpsertBriefing(ctx context.Context, arg UpsertBriefingParams) (Briefing, error) {
+	row := q.db.QueryRowContext(ctx, upsertBriefing,
+		arg.ProjectID,
+		arg.NextTaskID,
+		arg.NextReason,
+		arg.Recap,
+		arg.Source,
+		arg.GeneratedAt,
+		arg.Now,
+	)
+	var i Briefing
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.NextTaskID,
+		&i.NextReason,
+		&i.Recap,
+		&i.Source,
+		&i.GeneratedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}

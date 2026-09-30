@@ -63,7 +63,7 @@ Tasks:
 - [x] **1.12** SSE hub and `/api/events`.
 
 ### 1D. Briefing
-- [ ] **1.13** Heuristic `Briefer` (SPEC §7.3). Recompute on changeset apply and task edit.
+- [x] **1.13** Heuristic `Briefer` (SPEC §7.3). Recompute on changeset apply and task edit.
 
 ### 1E. API
 - [ ] **1.14** Endpoints from SPEC §10.5, except settings UI editing and export (config file only for now). DTOs live in `internal/api/apitypes` with generated TS types (ADR 0001).
@@ -189,3 +189,5 @@ Ideas and tangents captured mid-work (via `/park`). Not scheduled. Review them a
 - [ ] Observation spans are UTF-8 byte offsets (SPEC §10.3); JavaScript indexes strings in UTF-16 units, so the API must convert spans (or send pre-split text segments) before the UI highlights them, or highlights shift after accents and emoji (parked 2026-09-29; suggested stage: 1, with 1.14/1.18)
 - [ ] `POST /api/entries/{id}/reprocess` route over `pipeline.Worker.Reprocess` (built in 1.11); 409 while the entry has a pending or running run. Goes in with the other entry routes and DTOs (parked 2026-09-30; suggested stage: 1, with 1.14)
 - [ ] Reprocess UI: before reprocessing, warn that the entry's pending changesets will be rejected and its open questions dismissed, showing how many ops are affected; confirm to continue (parked 2026-09-30; suggested stage: 1, with 1.18)
+- [ ] Wire `changeset.NewApplier(st, cfg.ActiveProjectCap, briefings)` in `main.go` with the changeset and edit routes, so applies refresh briefings; `GET /api/projects/{id}/briefing` maps `briefing.Service.Get`'s `View` to a DTO, and the refresh route calls `Service.Refresh` (built in 1.13) (parked 2026-09-30; suggested stage: 1, with 1.14)
+- [ ] The heuristic's entry excerpt is read fresh (newest observation linked to the next task). If the LLM briefer should choose the excerpt itself, it needs somewhere to store it, such as a nullable `excerpt_observation_id` on `briefings`. Also: `briefing.Service` refreshes synchronously after each apply and holds a mutex across the Briefer call, which is fine for the heuristic but would put a model call on the apply request path; the LLM briefer should refresh in the background (parked 2026-09-30; suggested stage: 2, with the LLM briefer)

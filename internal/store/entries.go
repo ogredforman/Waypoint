@@ -64,6 +64,23 @@ func (r reader) ListRecentEntriesByProject(ctx context.Context, projectID int64,
 	return entriesFromRows(rows), nil
 }
 
+// ListRecentEntriesForProject returns up to limit entries about the project,
+// newest first: those scoped to it, and unscoped ones with an observation
+// linked to the project or to one of its tasks or blockers.
+func (r reader) ListRecentEntriesForProject(ctx context.Context, projectID int64, limit int) ([]domain.Entry, error) {
+	if err := checkLimit(limit); err != nil {
+		return nil, fmt.Errorf("list entries about project %d: %w", projectID, err)
+	}
+	rows, err := r.q.ListRecentEntriesForProject(ctx, dbgen.ListRecentEntriesForProjectParams{
+		ProjectID: &projectID,
+		Limit:     int64(limit),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list entries about project %d: %w", projectID, err)
+	}
+	return entriesFromRows(rows), nil
+}
+
 // ListEntriesBefore returns up to limit entries written before the entry
 // beforeID, newest first.
 func (r reader) ListEntriesBefore(ctx context.Context, beforeID int64, limit int) ([]domain.Entry, error) {

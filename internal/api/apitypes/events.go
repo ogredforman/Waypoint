@@ -25,3 +25,9 @@ type RunFailedEvent struct {
 	EntryID int64 `json:"entry_id"`
 	RunID   int64 `json:"run_id"`
 }
+
+// BriefingUpdatedEvent is the data of a "briefing.updated" event: a
+// project's briefing was regenerated.
+type BriefingUpdatedEvent struct {
+	ProjectID int64 `json:"project_id"`
+}
