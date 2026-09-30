@@ -82,6 +82,11 @@ pieces. Tests sit next to the code as `*.test.ts`.
 - Layout (ADR 0004): `App.svelte` mounts `DiaryPanel` (lg and up) or `DiaryOverlay` (below lg), never
   both, and neither on `/diary`. Both wrap `DiaryContent`, which `screens/Diary` also shows full-page.
   `lib/diaryPanel.ts`: panel width limits, drag/key resizing, `localStorage` prefs.
+- Diary input: `components/DiaryInput.svelte` (in `DiaryContent`); `lib/diary.ts` (submit shortcut,
+  default project scope from the route, `entryRequest`); `lib/diaryDraft.svelte.ts` (shared draft that
+  outlives the panel/overlay).
+- Now: `screens/Now.svelte` loads active projects' briefings into `components/BriefingCard.svelte`.
+  `lib/projects.ts`: grouping, `activeProjects`, cap helpers.
 - Theme: named tokens in `app.css` `@theme` (`canvas`/`surface`/`raised`/`line`, `ink`/`ink-muted`/
   `ink-faint`, `accent`/`accent-strong`/`accent-deep`/`on-accent`, `shadow-glow`/`focus`/`edge`,
   `text-title`, `px-gutter`, `rounded-card`). Use these, not raw Tailwind colours.

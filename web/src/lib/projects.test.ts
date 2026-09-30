@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ProjectStatus } from './api/enums.gen'
 import type { Project } from './api/types.gen'
-import { atCap, capMessage, countActive, groupByStatus, newProjectRequest } from './projects'
+import { activeProjects, atCap, capMessage, countActive, groupByStatus, newProjectRequest } from './projects'
 
 function project(id: number, status: ProjectStatus): Project {
   return { id, title: `P${id}`, why: '', definition_of_done: '', status, created_at: '', updated_at: '' }
@@ -54,5 +54,11 @@ describe('newProjectRequest', () => {
       definition_of_done: 'Beds planted',
       status: 'active',
     })
+  })
+})
+
+describe('activeProjects', () => {
+  it('keeps only active projects, in order', () => {
+    expect(activeProjects([project(1, 'active'), project(2, 'parked'), project(3, 'active')]).map((p) => p.id)).toEqual([1, 3])
   })
 })

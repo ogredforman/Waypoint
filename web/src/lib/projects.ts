@@ -56,3 +56,8 @@ export function newProjectRequest(form: NewProjectForm): CreateProjectRequest {
   if (form.startActive) req.status = 'active'
   return req
 }
+
+// activeProjects are the projects the Now screen briefs, in their list order.
+export function activeProjects(projects: Project[]): Project[] {
+  return projects.filter((p) => p.status === 'active')
+}
