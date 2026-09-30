@@ -365,8 +365,8 @@ Request and response bodies are the DTOs in `internal/api/apitypes`, with TypeSc
 
 ## 11. UI surfaces
 
-1. **Now** (home): a briefing card per active project, with the diary input directly below it. This is the screen the user lives on.
-2. **Diary**: a timeline of entries with observation highlights. Clicking a highlight jumps to the linked task or blocker. Pending changesets appear inline beneath the entry that produced them.
+1. **Now** (home): a briefing card per active project. This is the screen the user lives on.
+2. **Diary**: the diary input above a timeline of entries with observation highlights. Clicking a highlight opens the linked task or blocker in the main pane. Pending changesets appear inline beneath the entry that produced them. The diary is not a separate screen but a collapsible, resizable panel on the right, available beside every other screen; its width and open state persist. `/diary` shows the same content full-page, for long reviews and links. On narrow windows the panel is replaced by a floating button in the bottom-right corner that opens the diary as an overlay (ADR 0004).
 3. **Project**: header (why, definition of done), task list grouped by status, blockers, ideas for this project, and recent entries.
 4. **Task detail**: fields, origin entry, and a chronological list of every linked observation ("everything I've thought about this").
 5. **Parking lot**: ideas and parked projects.

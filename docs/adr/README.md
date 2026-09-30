@@ -13,3 +13,4 @@ old one's status is changed to `Superseded by NNNN`.
 | [0001](./0001-api-types.md) | API type sharing between Go and the frontend | Accepted |
 | [0002](./0002-deleting-tasks-blockers-ideas.md) | Deleting tasks, blockers, and ideas | Accepted |
 | [0003](./0003-splitting-changesets.md) | Splitting a changeset when it is applied | Accepted |
+| [0004](./0004-diary-panel-layout.md) | The diary as a panel beside every screen | Accepted |
