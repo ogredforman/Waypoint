@@ -129,7 +129,7 @@ Entry   1─* FollowUpQuestion ─(answer)→ Entry
 
 1. **Write.** The user submits an entry, optionally scoped to a project (default: "auto").
 2. **Persist.** The entry is stored immediately and the UI returns. Processing is asynchronous.
-3. **Snapshot.** Build a compact state snapshot: active projects; their open tasks (id, title, status); open blockers; parked ideas (titles only); and the last N entry summaries for the relevant project.
+3. **Snapshot.** Build a compact state snapshot: active projects, plus the entry's project whatever its status; their open tasks (id, title, status); open blockers; parked ideas (titles only); and the observation summaries of the last N entries written before this one, from the entry's project or, for an unscoped entry, from any project. N is `snapshot_recent_entries` in `config.toml` (default 5; 0 for none).
 4. **Extract.** Call the configured `Extractor` with (entry, snapshot). It returns a validated `ExtractionResult`:
    - `observations[]`: kind, summary, text span, links[] with confidence
    - `ops[]`: proposed change ops with rationale and confidence

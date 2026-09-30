@@ -60,7 +60,7 @@ func TestLoadDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	dataHome, _ := env("XDG_DATA_HOME")
-	want := Config{Port: DefaultPort, DataDir: filepath.Join(dataHome, "waypoint"), LogLevel: slog.LevelInfo, ActiveProjectCap: 3}
+	want := Config{Port: DefaultPort, DataDir: filepath.Join(dataHome, "waypoint"), LogLevel: slog.LevelInfo, ActiveProjectCap: 3, SnapshotRecentEntries: 5}
 	if cfg != want {
 		t.Errorf("got %+v, want %+v", cfg, want)
 	}
@@ -86,6 +86,8 @@ func TestLoadPrecedence(t *testing.T) {
 		wantLevel slog.Level
 		wantCap   int // 0 means the default
 		wantMock  time.Duration
+		// wantRecent is SnapshotRecentEntries; nil means the default. 0 is a valid setting.
+		wantRecent *int
 	}{
 		{
 			name:      "file overrides defaults",
@@ -95,6 +97,20 @@ func TestLoadPrecedence(t *testing.T) {
 			wantLevel: slog.LevelWarn,
 			wantCap:   5,
 			wantMock:  1500 * time.Millisecond,
+		},
+		{
+			name:       "file sets snapshot recent entries",
+			file:       "snapshot_recent_entries = 2\n",
+			wantPort:   DefaultPort,
+			wantLevel:  slog.LevelInfo,
+			wantRecent: ptr(2),
+		},
+		{
+			name:       "file turns snapshot recent entries off",
+			file:       "snapshot_recent_entries = 0\n",
+			wantPort:   DefaultPort,
+			wantLevel:  slog.LevelInfo,
+			wantRecent: ptr(0),
 		},
 		{
 			name:      "env overrides file",
@@ -145,12 +161,16 @@ func TestLoadPrecedence(t *testing.T) {
 			if wantCap == 0 {
 				wantCap = 3
 			}
+			wantRecent := DefaultSnapshotRecentEntries
+			if tt.wantRecent != nil {
+				wantRecent = *tt.wantRecent
+			}
 			wantDir := tt.wantDir
 			if wantDir == "" {
 				dataHome, _ := env("XDG_DATA_HOME")
 				wantDir = filepath.Join(dataHome, "waypoint")
 			}
-			want := Config{Port: tt.wantPort, DataDir: wantDir, LogLevel: tt.wantLevel, ActiveProjectCap: wantCap, MockLatency: tt.wantMock, File: wantFile}
+			want := Config{Port: tt.wantPort, DataDir: wantDir, LogLevel: tt.wantLevel, ActiveProjectCap: wantCap, MockLatency: tt.wantMock, SnapshotRecentEntries: wantRecent, File: wantFile}
 			if cfg != want {
 				t.Errorf("got %+v, want %+v", cfg, want)
 			}
@@ -210,6 +230,7 @@ func TestLoadErrors(t *testing.T) {
 		{name: "file cap negative", file: "active_project_cap = -1\n", wantErr: "active_project_cap"},
 		{name: "file mock latency not a duration", file: "mock_latency = 'soon'\n", wantErr: "mock_latency"},
 		{name: "file mock latency negative", file: "mock_latency = '-1s'\n", wantErr: "mock_latency"},
+		{name: "file snapshot recent entries negative", file: "snapshot_recent_entries = -1\n", wantErr: "snapshot_recent_entries"},
 		{name: "env port too high", env: map[string]string{"WAYPOINT_PORT": "70000"}, wantErr: "WAYPOINT_PORT"},
 		{name: "env port not a number", env: map[string]string{"WAYPOINT_PORT": "abc"}, wantErr: "WAYPOINT_PORT"},
 		{name: "env bad log level", env: map[string]string{"WAYPOINT_LOG_LEVEL": "loud"}, wantErr: "WAYPOINT_LOG_LEVEL"},
@@ -342,3 +363,5 @@ func TestEnsureDataDir(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func ptr[T any](v T) *T { return &v }

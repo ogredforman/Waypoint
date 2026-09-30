@@ -20,6 +20,10 @@ import (
 // DefaultPort is the port the server listens on when none is configured.
 const DefaultPort = 7420
 
+// DefaultSnapshotRecentEntries is how many recent entries go into an
+// extraction snapshot when none is configured.
+const DefaultSnapshotRecentEntries = 5
+
 // Config is the resolved configuration. Each field comes from the highest
 // precedence source that sets it: flags > WAYPOINT_* env vars > config.toml > defaults.
 type Config struct {
@@ -35,6 +39,11 @@ type Config struct {
 	// MockLatency is an artificial delay the mock extractor adds to each run,
 	// to exercise the async UI. It is set in config.toml only.
 	MockLatency time.Duration
+
+	// SnapshotRecentEntries is how many earlier entries, as observation
+	// summaries, the extractor sees for context. 0 means none. It is set in
+	// config.toml only.
+	SnapshotRecentEntries int
 }
 
 // Addr is the listen address. The server always binds to loopback.
@@ -55,6 +64,8 @@ type fileConfig struct {
 
 	ActiveProjectCap *int    `toml:"active_project_cap"`
 	MockLatency      *string `toml:"mock_latency"`
+
+	SnapshotRecentEntries *int `toml:"snapshot_recent_entries"`
 }
 
 // Load resolves the configuration from args (without the program name), the
@@ -79,7 +90,7 @@ func Load(args []string, env LookupEnv, goos string, stderr io.Writer) (Config, 
 
 	// DataDir stays empty until a source sets it; the OS default is filled in
 	// last, so a missing $HOME only matters when nothing else names the folder.
-	cfg := Config{Port: DefaultPort, LogLevel: slog.LevelInfo, ActiveProjectCap: domain.DefaultActiveProjectCap}
+	cfg := Config{Port: DefaultPort, LogLevel: slog.LevelInfo, ActiveProjectCap: domain.DefaultActiveProjectCap, SnapshotRecentEntries: DefaultSnapshotRecentEntries}
 
 	// Config file: an explicitly named file must exist. The default one is
 	// optional, and skipped if the OS config dir can't be determined.
@@ -224,6 +235,12 @@ func applyFile(cfg *Config, path string) error {
 			return fmt.Errorf("mock_latency: must not be negative, got %s", d)
 		}
 		cfg.MockLatency = d
+	}
+	if fc.SnapshotRecentEntries != nil {
+		if *fc.SnapshotRecentEntries < 0 {
+			return fmt.Errorf("snapshot_recent_entries: must not be negative, got %d", *fc.SnapshotRecentEntries)
+		}
+		cfg.SnapshotRecentEntries = *fc.SnapshotRecentEntries
 	}
 	return nil
 }

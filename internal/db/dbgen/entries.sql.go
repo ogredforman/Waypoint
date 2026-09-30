@@ -60,6 +60,90 @@ func (q *Queries) GetEntry(ctx context.Context, id int64) (Entry, error) {
 	return i, err
 }
 
+const listEntriesBefore = `-- name: ListEntriesBefore :many
+SELECT id, body, project_id, reply_to_question_id, created_at FROM entries
+WHERE id < ?1
+ORDER BY created_at DESC, id DESC
+LIMIT ?2
+`
+
+type ListEntriesBeforeParams struct {
+	BeforeID int64
+	Limit    int64
+}
+
+// Entries written before the given one, newest first. IDs grow with created_at.
+func (q *Queries) ListEntriesBefore(ctx context.Context, arg ListEntriesBeforeParams) ([]Entry, error) {
+	rows, err := q.db.QueryContext(ctx, listEntriesBefore, arg.BeforeID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Entry{}
+	for rows.Next() {
+		var i Entry
+		if err := rows.Scan(
+			&i.ID,
+			&i.Body,
+			&i.ProjectID,
+			&i.ReplyToQuestionID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEntriesBeforeByProject = `-- name: ListEntriesBeforeByProject :many
+SELECT id, body, project_id, reply_to_question_id, created_at FROM entries
+WHERE project_id = ?1 AND id < ?2
+ORDER BY created_at DESC, id DESC
+LIMIT ?3
+`
+
+type ListEntriesBeforeByProjectParams struct {
+	ProjectID *int64
+	BeforeID  int64
+	Limit     int64
+}
+
+func (q *Queries) ListEntriesBeforeByProject(ctx context.Context, arg ListEntriesBeforeByProjectParams) ([]Entry, error) {
+	rows, err := q.db.QueryContext(ctx, listEntriesBeforeByProject, arg.ProjectID, arg.BeforeID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Entry{}
+	for rows.Next() {
+		var i Entry
+		if err := rows.Scan(
+			&i.ID,
+			&i.Body,
+			&i.ProjectID,
+			&i.ReplyToQuestionID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRecentEntries = `-- name: ListRecentEntries :many
 SELECT id, body, project_id, reply_to_question_id, created_at FROM entries
 ORDER BY created_at DESC, id DESC

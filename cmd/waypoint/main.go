@@ -47,6 +47,7 @@ func run() int {
 		"log_level", cfg.LogLevel.String(),
 		"active_project_cap", cfg.ActiveProjectCap,
 		"mock_latency", cfg.MockLatency.String(),
+		"snapshot_recent_entries", cfg.SnapshotRecentEntries,
 	)
 
 	ctx := context.Background()

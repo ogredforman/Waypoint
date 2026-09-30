@@ -48,6 +48,7 @@ variable, then `config.toml`, then the default. Run `waypoint -h` to list the fl
 | `-log-level` | `WAYPOINT_LOG_LEVEL` | `log_level` | `info` |
 | n/a | n/a | `active_project_cap` | `3` (how many projects can be active at once) |
 | n/a | n/a | `mock_latency` | `0` (artificial delay per mock extraction, e.g. `"1500ms"`) |
+| n/a | n/a | `snapshot_recent_entries` | `5` (how many earlier entries the extractor sees for context; `0` for none) |
 
 | OS | Config folder | Data folder (holds `waypoint.db`) |
 |---|---|---|

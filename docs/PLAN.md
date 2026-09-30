@@ -58,7 +58,7 @@ Tasks:
 ### 1C. Pipeline
 - [x] **1.8** `Extractor` interface, `ExtractionResult` types, and the shared output validator.
 - [x] **1.9** Mock extractor per SPEC §10.4, with configurable artificial latency (`mock_latency` in `config.toml`). For an entry with no project it guesses one from project titles and the tasks and blockers the entry names.
-- [ ] **1.10** Snapshot builder.
+- [x] **1.10** Snapshot builder: active projects plus the entry's own, open tasks and blockers, parked ideas, and the observation summaries of the last `snapshot_recent_entries` earlier entries (from any project for an unscoped entry).
 - [ ] **1.11** Background worker: entry saved → run created (`pending`) → extract → validate → store observations, changeset, and questions → emit SSE. Pending runs resume on restart; failures are recorded; `reprocess` endpoint.
 - [ ] **1.12** SSE hub and `/api/events`.
 
@@ -188,3 +188,4 @@ Ideas and tangents captured mid-work (via `/park`). Not scheduled. Review them a
 - [ ] `add_dependency` doesn't check for dependency cycles (A blocked by B blocked by A); it needs a store query for a task's dependencies. Add it with the task dependencies UI (parked 2026-09-29; suggested stage: 3)
 - [ ] Observation spans are UTF-8 byte offsets (SPEC §10.3); JavaScript indexes strings in UTF-16 units, so the API must convert spans (or send pre-split text segments) before the UI highlights them, or highlights shift after accents and emoji (parked 2026-09-29; suggested stage: 1, with 1.14/1.18)
 - [ ] The pipeline must not store a changeset with no ops: the applier needs at least one decision, so an empty pending changeset could never be resolved (parked 2026-09-29; suggested stage: 1, with 1.11)
+- [ ] `SnapshotBuilder.Build` reads inside `store.InTx`, which takes the write lock (`_txlock=immediate`); add a deferred read-only transaction helper to the store so snapshot reads by the worker don't briefly block a changeset apply (parked 2026-09-30; suggested stage: 1, with 1.11)

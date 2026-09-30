@@ -286,6 +286,30 @@ func TestEntries(t *testing.T) {
 	if _, err := s.ListRecentEntries(ctx, 0); err == nil {
 		t.Error("ListRecentEntries(0) succeeded, want an error")
 	}
+
+	before, err := s.ListEntriesBefore(ctx, entries[2].ID, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(before) != 2 || before[0].ID != entries[1].ID || before[1].ID != entries[0].ID {
+		t.Errorf("ListEntriesBefore = %+v, want entries %d then %d", before, entries[1].ID, entries[0].ID)
+	}
+	if before, err := s.ListEntriesBefore(ctx, entries[2].ID, 1); err != nil || len(before) != 1 || before[0].ID != entries[1].ID {
+		t.Errorf("ListEntriesBefore(limit 1) = %+v, %v; want entry %d", before, err, entries[1].ID)
+	}
+	scopedBefore, err := s.ListEntriesBeforeByProject(ctx, p.ID, entries[2].ID, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(scopedBefore) != 1 || scopedBefore[0].ID != entries[1].ID {
+		t.Errorf("ListEntriesBeforeByProject = %+v, want entry %d", scopedBefore, entries[1].ID)
+	}
+	if _, err := s.ListEntriesBefore(ctx, entries[2].ID, 0); err == nil {
+		t.Error("ListEntriesBefore(limit 0) succeeded, want an error")
+	}
+	if _, err := s.ListEntriesBeforeByProject(ctx, p.ID, entries[2].ID, 0); err == nil {
+		t.Error("ListEntriesBeforeByProject(limit 0) succeeded, want an error")
+	}
 }
 
 func TestObservationsAndLinks(t *testing.T) {

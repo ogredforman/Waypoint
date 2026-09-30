@@ -64,6 +64,39 @@ func (r reader) ListRecentEntriesByProject(ctx context.Context, projectID int64,
 	return entriesFromRows(rows), nil
 }
 
+// ListEntriesBefore returns up to limit entries written before the entry
+// beforeID, newest first.
+func (r reader) ListEntriesBefore(ctx context.Context, beforeID int64, limit int) ([]domain.Entry, error) {
+	if err := checkLimit(limit); err != nil {
+		return nil, fmt.Errorf("list entries before %d: %w", beforeID, err)
+	}
+	rows, err := r.q.ListEntriesBefore(ctx, dbgen.ListEntriesBeforeParams{
+		BeforeID: beforeID,
+		Limit:    int64(limit),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list entries before %d: %w", beforeID, err)
+	}
+	return entriesFromRows(rows), nil
+}
+
+// ListEntriesBeforeByProject returns up to limit entries scoped to the
+// project and written before the entry beforeID, newest first.
+func (r reader) ListEntriesBeforeByProject(ctx context.Context, projectID, beforeID int64, limit int) ([]domain.Entry, error) {
+	if err := checkLimit(limit); err != nil {
+		return nil, fmt.Errorf("list entries of project %d before %d: %w", projectID, beforeID, err)
+	}
+	rows, err := r.q.ListEntriesBeforeByProject(ctx, dbgen.ListEntriesBeforeByProjectParams{
+		ProjectID: &projectID,
+		BeforeID:  beforeID,
+		Limit:     int64(limit),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list entries of project %d before %d: %w", projectID, beforeID, err)
+	}
+	return entriesFromRows(rows), nil
+}
+
 // CreateEntry inserts e, ignoring its ID and CreatedAt.
 func (tx *Tx) CreateEntry(ctx context.Context, e domain.Entry) (domain.Entry, error) {
 	if err := e.Validate(); err != nil {
