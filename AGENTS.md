@@ -9,10 +9,13 @@ Go single binary + embedded Svelte SPA + SQLite (pure Go). Local-first, single u
 - Product and architecture: `docs/SPEC.md` (source of truth for *what* and *why*)
 - Build order and task list: `docs/PLAN.md` (source of truth for *what to do now*)
 - Decisions: `docs/adr/`
+- Where the code lives, key signatures, test fixtures: `docs/CODEMAP.md`
 
 ## Before any task
 
 - Read the task in `docs/PLAN.md` and only the SPEC sections it touches. Don't read the whole SPEC by default.
+- Orient with `docs/CODEMAP.md`, then read only the functions and files you'll change or call
+  (`go doc`, `grep -n`, line ranges), not whole packages. Everything read stays in context for every later turn.
 - The current stage is the one named at the top of `docs/PLAN.md`. Do not implement anything
   tagged for a later stage, even if it looks easy. Add it to the "Parked" section of PLAN.md instead.
 - If a task is ambiguous or conflicts with the SPEC, stop and ask. Don't guess on schema or API shape.
@@ -56,6 +59,7 @@ These are created in Stage 0 task 0.1. Until then, they don't exist.
 2. Run the `reviewer` agent on the diff and fix any Blocking findings.
 3. Tick the task `[x]` in `docs/PLAN.md`.
 4. If a design decision changed, update `docs/SPEC.md` or add `docs/adr/NNNN-title.md` in the same commit.
+   If a package, public entry point, or test fixture was added or moved, update `docs/CODEMAP.md`.
 5. One task per commit. Message format: `<area>: <what changed> (PLAN <stage>.<task>)`.
    No AI attribution in commit messages (no `Co-Authored-By` or model credit lines).
    Commit when asked, but don't push; the owner pushes.
