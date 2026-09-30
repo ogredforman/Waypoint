@@ -70,12 +70,12 @@ Tasks:
 - [x] **1.15** API integration tests using the mock extractor end to end.
 
 ### 1F. UI
-- [ ] **1.16** App shell and navigation: Now, Diary, Projects, Parking Lot.
-- [ ] **1.17** **Now** screen: briefing cards and diary input (Cmd/Ctrl+Enter).
+- [x] **1.16** App shell and navigation: Now, Diary, Projects, Parking Lot. The **Projects** screen lists projects grouped by status and has a "New project" form (title, why, definition of done, start active or parked). At the active-project cap the form says so calmly and offers to create the project parked instead.
+- [ ] **1.17** **Now** screen: briefing cards and diary input (Cmd/Ctrl+Enter) with an optional project scope picker.
 - [ ] **1.18** **Diary** timeline: entries with observation highlights; inline pending changeset review (accept, reject, edit per op, accept-all); follow-up questions with answer and dismiss. For an entry with no project whose changeset puts things in one, a "Project: X (guessed)" picker lets the user choose another project or none: another project rewrites `project_id` on those ops; none rejects the task and blocker ops and removes the project from the ideas.
-- [ ] **1.19** **Project** screen: header, task list with inline edit, status changes and reordering, blockers, ideas. Deleting a task or blocker asks for confirmation.
+- [ ] **1.19** **Project** screen: header with editable title, why, and definition of done; project status changes (active, paused, parked, done) with the same calm handling at the active-project cap; task list with add task, inline edit, status changes and reordering; blockers with resolve; ideas. Deleting a task or blocker asks for confirmation.
 - [ ] **1.20** **Task detail:** origin entry and linked observations timeline.
-- [ ] **1.21** **Parking lot:** ideas and parked projects; promote to task or project; delete an idea (with confirmation).
+- [ ] **1.21** **Parking lot:** ideas and parked projects; promote to task or project; activate a parked project (same cap handling as 1.16); delete an idea (with confirmation).
 - [ ] **1.22** Live updates via SSE; a "processing…" state on new entries.
 - [ ] **1.23** Playwright smoke test: create project → write entry with `todo:`/`blocked:` lines → apply → task and blocker appear → briefing updates.
 
@@ -186,3 +186,4 @@ Ideas and tangents captured mid-work (via `/park`). Not scheduled. Review them a
 - [ ] Reprocess UI: before reprocessing, warn that the entry's pending changesets will be rejected and its open questions dismissed, showing how many ops are affected; confirm to continue (parked 2026-09-30; suggested stage: 1, with 1.18)
 - [ ] The heuristic's entry excerpt is read fresh (newest observation linked to the next task). If the LLM briefer should choose the excerpt itself, it needs somewhere to store it, such as a nullable `excerpt_observation_id` on `briefings`. Also: `briefing.Service` refreshes synchronously after each apply and holds a mutex across the Briefer call, which is fine for the heuristic but would put a model call on the apply request path; the LLM briefer should refresh in the background (parked 2026-09-30; suggested stage: 2, with the LLM briefer)
 - [ ] Manual blocker creation: `POST /api/projects/{id}/blockers` as a `create_blocker` manual changeset. SPEC §10.5 has no route for it; blockers come from entries for now, and PATCH/DELETE cover editing (parked 2026-09-30; suggested stage: 1, with 1.19)
+- [ ] Client-side navigation scrolls to the top but doesn't move focus or announce the new page, so screen-reader users get no cue. Focus the new screen's `<h1>` (`tabindex="-1"`) after `navigate` (parked 2026-09-30; suggested stage: 1, with 1.22)

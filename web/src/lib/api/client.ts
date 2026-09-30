@@ -1,0 +1,60 @@
+import type { ErrorBody, FieldProblem } from './types.gen'
+
+// ApiError is a failed API request. code is the server's error code (SPEC
+// §10.5), or "unreachable" when no API answered at all.
+export class ApiError extends Error {
+  readonly status: number
+  readonly code: string
+  readonly problems: FieldProblem[]
+
+  constructor(status: number, code: string, message: string, problems: FieldProblem[] = []) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.code = code
+    this.problems = problems
+  }
+}
+
+const unreachableMessage = "Can't reach the Waypoint server."
+
+// request sends a JSON request to the API and returns the decoded response.
+// Anything but a 2xx with a JSON body throws an ApiError.
+export async function request<T>(method: string, path: string, body?: unknown, fetchFn: typeof fetch = fetch): Promise<T> {
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  const init: RequestInit = { method, headers }
+  if (body !== undefined) {
+    headers['Content-Type'] = 'application/json'
+    init.body = JSON.stringify(body)
+  }
+
+  let res: Response
+  try {
+    res = await fetchFn(path, init)
+  } catch {
+    throw new ApiError(0, 'unreachable', unreachableMessage)
+  }
+
+  let decoded: unknown
+  try {
+    decoded = await res.json()
+  } catch {
+    // Not JSON: when the Go server is down, the Vite proxy answers instead.
+    throw new ApiError(res.status, 'unreachable', unreachableMessage)
+  }
+  if (res.ok) return decoded as T
+
+  const err = (decoded as Partial<ErrorBody>).error
+  if (err && typeof err.code === 'string' && typeof err.message === 'string') {
+    throw new ApiError(res.status, err.code, err.message, err.problems ?? [])
+  }
+  throw new ApiError(res.status, 'unreachable', unreachableMessage)
+}
+
+export function getJSON<T>(path: string, fetchFn?: typeof fetch): Promise<T> {
+  return request<T>('GET', path, undefined, fetchFn)
+}
+
+export function postJSON<T>(path: string, body: unknown, fetchFn?: typeof fetch): Promise<T> {
+  return request<T>('POST', path, body, fetchFn)
+}
