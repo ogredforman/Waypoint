@@ -145,15 +145,18 @@ type ExtractionRun struct {
 }
 
 // Changeset groups the ops proposed by one extraction run or one manual edit.
-// ExtractionRunID is set exactly when Source is SourceExtraction.
+// ExtractionRunID is set exactly when Source is SourceExtraction. A changeset
+// split off another when it was applied (ADR 0003) has ParentChangesetID set
+// and the parent's source and run.
 type Changeset struct {
-	ID              int64
-	Source          ChangesetSource
-	ExtractionRunID *int64
-	Status          ChangesetStatus
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	ResolvedAt      *time.Time
+	ID                int64
+	Source            ChangesetSource
+	ExtractionRunID   *int64
+	ParentChangesetID *int64
+	Status            ChangesetStatus
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	ResolvedAt        *time.Time
 }
 
 // ChangeOp is one proposed mutation inside a changeset. Payload is the op as

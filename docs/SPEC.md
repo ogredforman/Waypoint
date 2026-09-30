@@ -69,7 +69,7 @@ These are requirements, not suggestions. Agents should treat violations as bugs.
 | **Idea** | A parking-lot item: a new idea or project spark | `project_id?`, `title`, `body`, `status` (parked / promoted / discarded), `origin_entry_id?` |
 | **Follow-up question** | A question the system asks after an entry | `entry_id`, `extraction_run_id`, `text`, `reason`, `status` (open / answered / dismissed), `answer_entry_id?` |
 | **Extraction run** | One AI (or mock) processing pass over an entry | `entry_id`, `provider`, `model`, `prompt_version`, `input_snapshot?` (JSON), `raw_output?` (JSON), `status` (pending / running / succeeded / failed; `running` resets to `pending` on restart), `error?`, `latency_ms?`, `created_at` |
-| **Changeset** | Changes proposed from one extraction run, or one manual edit | `source` (extraction / manual), `extraction_run_id?` (set exactly when `source` is extraction), `status` (pending / applied / partially_applied / rejected), `created_at`, `resolved_at?` |
+| **Changeset** | Changes proposed from one extraction run, or one manual edit | `source` (extraction / manual), `extraction_run_id?` (set exactly when `source` is extraction), `parent_changeset_id?` (set when split off another changeset at apply; same source and run as the parent), `status` (pending / applied / partially_applied / rejected), `created_at`, `resolved_at?` |
 | **Change op** | A single proposed mutation inside a changeset | `changeset_id`, `position` (order within the changeset), `op_type`, `payload` (JSON), `rationale?`, `confidence?`, `status` (pending / applied / rejected / edited), `applied_payload?` |
 | **Briefing** | Cached "what's next" output per project | `project_id`, `next_task_id?`, `next_reason`, `recap`, `generated_at`, `source` (heuristic / llm) |
 
@@ -136,7 +136,7 @@ Entry   1─* FollowUpQuestion ─(answer)→ Entry
    - `questions[]`: at most 2 follow-up questions, each with a reason
 5. **Record.** Store the extraction run (including raw output), observations, the changeset, and questions.
 6. **Notify.** Push a server-sent event (`changeset.ready`) to the UI.
-7. **Review.** The user accepts, rejects, or edits each op, or accepts all. Applied ops mutate state inside a single DB transaction.
+7. **Review.** The user accepts, rejects, or edits each op, or accepts all, then applies. What was decided is applied inside a single DB transaction and the changeset is resolved. Ops left undecided, and ops of an extraction changeset held back by the active-project cap, move to a new pending changeset split off the original ([ADR 0003](./adr/0003-splitting-changesets.md)). An op can't be applied while an op it depends on (by temporary ID) is undecided or rejected.
 8. **Refresh briefing.** Recompute the briefing for affected projects.
 
 **Auditability without full event sourcing:** entries are immutable and every state mutation happens through a recorded change op (including manual edits, recorded as a changeset with `source=manual`). That keeps a complete history of *why* state is the way it is. Replaying state from entries is a possible future capability, not a current requirement.

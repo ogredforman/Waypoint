@@ -271,6 +271,8 @@ func TestChangesetValidate(t *testing.T) {
 		{"extraction without run", Changeset{Source: SourceExtraction, Status: ChangesetPending}, []string{"extraction_run_id"}},
 		{"manual with run", Changeset{Source: SourceManual, ExtractionRunID: ptr(int64(1)), Status: ChangesetPending}, []string{"extraction_run_id"}},
 		{"bad status", Changeset{Source: SourceManual, Status: "done"}, []string{"status"}},
+		{"split off", Changeset{Source: SourceManual, ParentChangesetID: ptr(int64(1)), Status: ChangesetPending}, nil},
+		{"bad parent", Changeset{Source: SourceManual, ParentChangesetID: ptr(int64(0)), Status: ChangesetPending}, []string{"parent_changeset_id"}},
 	})
 }
 

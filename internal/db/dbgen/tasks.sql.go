@@ -9,6 +9,24 @@ import (
 	"context"
 )
 
+const addTaskDependency = `-- name: AddTaskDependency :exec
+INSERT INTO task_dependencies (task_id, blocked_by_task_id, created_at)
+VALUES (?, ?, ?)
+ON CONFLICT (task_id, blocked_by_task_id) DO NOTHING
+`
+
+type AddTaskDependencyParams struct {
+	TaskID          int64
+	BlockedByTaskID int64
+	CreatedAt       int64
+}
+
+// Adding a dependency that already exists changes nothing.
+func (q *Queries) AddTaskDependency(ctx context.Context, arg AddTaskDependencyParams) error {
+	_, err := q.db.ExecContext(ctx, addTaskDependency, arg.TaskID, arg.BlockedByTaskID, arg.CreatedAt)
+	return err
+}
+
 const createTask = `-- name: CreateTask :one
 INSERT INTO tasks (
     project_id, milestone_id, parent_task_id, title, notes, status, size, energy,

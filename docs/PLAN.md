@@ -51,7 +51,7 @@ Tasks:
 
 ### 1B. Changeset system
 - [x] **1.4** Change op types and payload validation (SPEC §6.2), including `delete_task`, `delete_blocker`, and `delete_idea`, plus `update_project`, `update_blocker`, `update_idea`, and `position` on `update_task` for manual edits: a new migration rebuilds `change_ops` with the extended `op_type` CHECK list (ADR 0002). Payload validation also covers the cross-row rules the store doesn't check: a parent task or blocker task in the same project, no parent-task cycles.
-- [ ] **1.5** Transactional applier: per-op accept, reject, or edit; temp-ID (`$new:N`) resolution; full rollback on any failure; changeset status updates. Enforces the project status rules from 1.3 (`domain.CheckProjectStatusChange` / `CheckNewProjectStatus` with `tx.CountActiveProjects` and `cfg.ActiveProjectCap`) inside the apply transaction; an `ActiveCapError` rejects the op.
+- [x] **1.5** Transactional applier: per-op accept, reject, or edit; temp-ID (`$new:N`) resolution; full rollback on any failure; changeset status updates. Enforces the project status rules from 1.3 (`domain.CheckProjectStatusChange` with `tx.CountActiveProjects` and `cfg.ActiveProjectCap`) inside the apply transaction. Undecided ops, and extraction ops held back by the active-project cap, split off into a new pending changeset (ADR 0003, migration 00003); on a manual changeset an `ActiveCapError` fails the apply.
 - [ ] **1.6** Manual edits routed through the applier as `source=manual` changesets.
 - [ ] **1.7** Unit tests covering every op type, temp IDs, partial apply, and rollback.
 
@@ -186,3 +186,4 @@ Ideas and tangents captured mid-work (via `/park`). Not scheduled. Review them a
 - [ ] Deleting a project. Blocked by entry immutability (entries reference projects); needs a decision on what happens to its entries, tasks, and ideas. Parking or finishing covers it for now (parked 2026-09-29; suggested stage: later)
 - [ ] Manage user-facing settings (caps and similar preferences) in the app, beyond the provider settings in 2.12, instead of only via `config.toml`/env; technical settings such as port can stay in `config.toml` (parked 2026-09-29; suggested stage: 3)
 - [ ] `add_dependency` doesn't check for dependency cycles (A blocked by B blocked by A); it needs a store query for a task's dependencies. Add it with the task dependencies UI (parked 2026-09-29; suggested stage: 3)
+- [ ] The pipeline must not store a changeset with no ops: the applier needs at least one decision, so an empty pending changeset could never be resolved (parked 2026-09-29; suggested stage: 1, with 1.11)

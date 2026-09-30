@@ -109,8 +109,8 @@ func TestCoreSchema(t *testing.T) {
 	if err := sqlDB.QueryRowContext(ctx, "SELECT max(version_id) FROM goose_db_version").Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != 2 {
-		t.Errorf("schema version %d, want 2", version)
+	if version != 3 {
+		t.Errorf("schema version %d, want 3", version)
 	}
 	if got := appTables(t, sqlDB); !slices.Equal(got, coreTables) {
 		t.Errorf("tables %v, want %v", got, coreTables)
@@ -169,7 +169,7 @@ func TestCoreSchemaRejects(t *testing.T) {
 		{"idea status", check, `INSERT INTO ideas (title, status, created_at, updated_at) VALUES ('x', 'active', 1, 1)`},
 		{"extraction changeset without run", check, `INSERT INTO changesets (source, status, created_at, updated_at) VALUES ('extraction', 'pending', 1, 1)`},
 		{"manual changeset with run", check, `INSERT INTO changesets (source, extraction_run_id, status, created_at, updated_at) VALUES ('manual', 1, 'pending', 1, 1)`},
-		{"second changeset for run", unique, `INSERT INTO changesets (source, extraction_run_id, status, created_at, updated_at) VALUES ('extraction', 1, 'pending', 1, 1)`},
+		{"changeset missing parent", fk, `INSERT INTO changesets (source, parent_changeset_id, status, created_at, updated_at) VALUES ('manual', 99, 'pending', 1, 1)`},
 		{"changeset status", check, `INSERT INTO changesets (source, status, created_at, updated_at) VALUES ('manual', 'done', 1, 1)`},
 		{"op type", check, `INSERT INTO change_ops (changeset_id, position, op_type, payload, status, created_at, updated_at) VALUES (1, 2, 'delete_project', '{}', 'pending', 1, 1)`},
 		{"op invalid JSON", check, `INSERT INTO change_ops (changeset_id, position, op_type, payload, status, created_at, updated_at) VALUES (1, 2, 'park_idea', 'nope', 'pending', 1, 1)`},
@@ -268,5 +268,96 @@ func TestChangeOpsRebuild(t *testing.T) {
 	}
 	if !slices.Equal(ids, []int64{1, 2}) {
 		t.Errorf("ops after down %v, want [1 2]", ids)
+	}
+}
+
+// noFKViolations fails the test if PRAGMA foreign_key_check reports anything.
+func noFKViolations(t *testing.T, sqlDB *sql.DB) {
+	t.Helper()
+	rows, err := sqlDB.QueryContext(context.Background(), "PRAGMA foreign_key_check")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	if rows.Next() {
+		t.Error("foreign_key_check reports violations")
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func ids(t *testing.T, sqlDB *sql.DB, query string) []int64 {
+	t.Helper()
+	rows, err := sqlDB.QueryContext(context.Background(), query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var out []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		out = append(out, id)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+// TestChangesetSplitRebuild checks that 00003 keeps existing changesets and
+// their ops, allows a split-off changeset on the same run, and that going back
+// down drops split-off changesets and their ops.
+func TestChangesetSplitRebuild(t *testing.T) {
+	ctx := context.Background()
+	fsys, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB := openTemp(t)
+	provider, err := goose.NewProvider(goose.DialectSQLite3, sqlDB, fsys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.UpTo(ctx, 2); err != nil {
+		t.Fatal(err)
+	}
+	seed(t, sqlDB)
+	exec(t, sqlDB, `UPDATE changesets SET resolved_at = 5 WHERE id = 2`)
+
+	if _, err := provider.UpTo(ctx, 3); err != nil {
+		t.Fatal(err)
+	}
+	noFKViolations(t, sqlDB)
+	var run int64
+	var resolved int64
+	if err := sqlDB.QueryRowContext(ctx, `SELECT extraction_run_id FROM changesets WHERE id = 1`).Scan(&run); err != nil || run != 1 {
+		t.Errorf("changeset 1 run: %d, %v", run, err)
+	}
+	if err := sqlDB.QueryRowContext(ctx, `SELECT resolved_at FROM changesets WHERE id = 2`).Scan(&resolved); err != nil || resolved != 5 {
+		t.Errorf("changeset 2 resolved_at: %d, %v", resolved, err)
+	}
+	if got := ids(t, sqlDB, `SELECT id FROM change_ops ORDER BY id`); !slices.Equal(got, []int64{1, 2}) {
+		t.Errorf("ops after rebuild %v, want [1 2]", got)
+	}
+
+	exec(t, sqlDB, `INSERT INTO changesets (id, source, extraction_run_id, parent_changeset_id, status, created_at, updated_at)
+		VALUES (3, 'extraction', 1, 1, 'pending', 1, 1)`)
+	exec(t, sqlDB, `INSERT INTO changesets (id, source, extraction_run_id, parent_changeset_id, status, created_at, updated_at)
+		VALUES (4, 'extraction', 1, 3, 'pending', 1, 1)`)
+	exec(t, sqlDB, `UPDATE change_ops SET changeset_id = 4 WHERE id = 1`)
+
+	if _, err := provider.DownTo(ctx, 2); err != nil {
+		t.Fatal(err)
+	}
+	noFKViolations(t, sqlDB)
+	if got := ids(t, sqlDB, `SELECT id FROM changesets ORDER BY id`); !slices.Equal(got, []int64{1, 2}) {
+		t.Errorf("changesets after down %v, want [1 2]", got)
+	}
+	if got := ids(t, sqlDB, `SELECT id FROM change_ops ORDER BY id`); !slices.Equal(got, []int64{2}) {
+		t.Errorf("ops after down %v, want [2]", got)
 	}
 }

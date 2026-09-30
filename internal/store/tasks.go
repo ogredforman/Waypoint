@@ -132,3 +132,20 @@ func (tx *Tx) DeleteTask(ctx context.Context, id int64) (domain.Task, error) {
 	}
 	return taskFromRow(row), nil
 }
+
+// AddTaskDependency records that taskID can't start until blockedByTaskID is
+// done. Adding one that already exists changes nothing.
+func (tx *Tx) AddTaskDependency(ctx context.Context, taskID, blockedByTaskID int64) error {
+	if taskID == blockedByTaskID {
+		return fmt.Errorf("add dependency: task %d can't block itself", taskID)
+	}
+	err := tx.q.AddTaskDependency(ctx, dbgen.AddTaskDependencyParams{
+		TaskID:          taskID,
+		BlockedByTaskID: blockedByTaskID,
+		CreatedAt:       tx.nowMS(),
+	})
+	if err != nil {
+		return fmt.Errorf("add dependency of task %d on %d: %w", taskID, blockedByTaskID, err)
+	}
+	return nil
+}

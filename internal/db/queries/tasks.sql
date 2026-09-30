@@ -43,3 +43,9 @@ WHERE task_id = sqlc.arg(task_id) OR blocked_by_task_id = sqlc.arg(task_id);
 DELETE FROM tasks
 WHERE id = ?
 RETURNING *;
+
+-- name: AddTaskDependency :exec
+-- Adding a dependency that already exists changes nothing.
+INSERT INTO task_dependencies (task_id, blocked_by_task_id, created_at)
+VALUES (?, ?, ?)
+ON CONFLICT (task_id, blocked_by_task_id) DO NOTHING;

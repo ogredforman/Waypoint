@@ -217,6 +217,7 @@ func (s Changeset) Validate() error {
 	var c checker
 	c.enum("source", s.Source.Valid())
 	c.optRef("extraction_run_id", s.ExtractionRunID)
+	c.optRef("parent_changeset_id", s.ParentChangesetID)
 	c.enum("status", s.Status.Valid())
 	if (s.Source == SourceExtraction) != (s.ExtractionRunID != nil) {
 		c.add("extraction_run_id", "is set exactly when the source is extraction")

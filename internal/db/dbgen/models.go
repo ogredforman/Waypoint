@@ -43,13 +43,14 @@ type ChangeOp struct {
 }
 
 type Changeset struct {
-	ID              int64
-	Source          string
-	ExtractionRunID *int64
-	Status          string
-	CreatedAt       int64
-	UpdatedAt       int64
-	ResolvedAt      *int64
+	ID                int64
+	Source            string
+	ExtractionRunID   *int64
+	ParentChangesetID *int64
+	Status            string
+	CreatedAt         int64
+	UpdatedAt         int64
+	ResolvedAt        *int64
 }
 
 type Entry struct {

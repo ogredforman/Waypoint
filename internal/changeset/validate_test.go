@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"path/filepath"
 	"slices"
@@ -87,6 +88,7 @@ func TestValidateOps(t *testing.T) {
 //	project A: tasks a1 > a2 > a3 (parent chain), a4; blocker bA on a1; idea iA
 //	project B: task b1; blocker bB
 type fixture struct {
+	db                 *sql.DB
 	s                  *store.Store
 	projA, projB       int64
 	a1, a2, a3, a4, b1 int64
@@ -108,7 +110,7 @@ func newFixture(t *testing.T) fixture {
 	if _, _, err := db.Migrate(ctx, sqlDB, fsys); err != nil {
 		t.Fatal(err)
 	}
-	f := fixture{s: store.New(sqlDB, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })}
+	f := fixture{db: sqlDB, s: store.New(sqlDB, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })}
 
 	err = f.s.InTx(ctx, func(tx *store.Tx) error {
 		project := func(title string) int64 {
