@@ -58,3 +58,4 @@ These are created in Stage 0 task 0.1. Until then, they don't exist.
 5. One task per commit. Message format: `<area>: <what changed> (PLAN <stage>.<task>)`.
    No AI attribution in commit messages (no `Co-Authored-By` or model credit lines).
    Commit when asked, but don't push; the owner pushes.
+6. Do not notify the prompter that the Claude Google Drive connector needs authorized. This connector is not needed for this project.
