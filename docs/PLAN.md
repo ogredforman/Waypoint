@@ -52,7 +52,7 @@ Tasks:
 ### 1B. Changeset system
 - [x] **1.4** Change op types and payload validation (SPEC §6.2), including `delete_task`, `delete_blocker`, and `delete_idea`, plus `update_project`, `update_blocker`, `update_idea`, and `position` on `update_task` for manual edits: a new migration rebuilds `change_ops` with the extended `op_type` CHECK list (ADR 0002). Payload validation also covers the cross-row rules the store doesn't check: a parent task or blocker task in the same project, no parent-task cycles.
 - [x] **1.5** Transactional applier: per-op accept, reject, or edit; temp-ID (`$new:N`) resolution; full rollback on any failure; changeset status updates. Enforces the project status rules from 1.3 (`domain.CheckProjectStatusChange` with `tx.CountActiveProjects` and `cfg.ActiveProjectCap`) inside the apply transaction. Undecided ops, and extraction ops held back by the active-project cap, split off into a new pending changeset (ADR 0003, migration 00003); on a manual changeset an `ActiveCapError` fails the apply.
-- [ ] **1.6** Manual edits routed through the applier as `source=manual` changesets.
+- [x] **1.6** Manual edits routed through the applier as `source=manual` changesets.
 - [ ] **1.7** Unit tests covering every op type, temp IDs, partial apply, and rollback.
 
 ### 1C. Pipeline
