@@ -227,6 +227,10 @@ func (s Changeset) Validate() error {
 func (o ChangeOp) Validate() error {
 	var c checker
 	c.ref("changeset_id", o.ChangesetID)
+	// Positions start at 1: temp IDs ("$new:N") name ops by position.
+	if o.Position < 1 {
+		c.add("position", "must be at least 1, got %d", o.Position)
+	}
 	c.enum("op_type", o.OpType.Valid())
 	if o.Payload == nil {
 		c.add("payload", "is required")

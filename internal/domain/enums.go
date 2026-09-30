@@ -225,18 +225,25 @@ const (
 	OpUpdateTask     OpType = "update_task"
 	OpSetTaskStatus  OpType = "set_task_status"
 	OpSplitTask      OpType = "split_task"
-	OpCreateBlocker  OpType = "create_blocker"
-	OpResolveBlocker OpType = "resolve_blocker"
-	OpParkIdea       OpType = "park_idea"
-	OpCreateProject  OpType = "create_project"
 	OpAddDependency  OpType = "add_dependency"
+	OpDeleteTask     OpType = "delete_task"
+	OpCreateBlocker  OpType = "create_blocker"
+	OpUpdateBlocker  OpType = "update_blocker"
+	OpResolveBlocker OpType = "resolve_blocker"
+	OpDeleteBlocker  OpType = "delete_blocker"
+	OpParkIdea       OpType = "park_idea"
+	OpUpdateIdea     OpType = "update_idea"
+	OpDeleteIdea     OpType = "delete_idea"
+	OpCreateProject  OpType = "create_project"
+	OpUpdateProject  OpType = "update_project"
 )
 
 func OpTypes() []OpType {
 	return []OpType{
-		OpCreateTask, OpUpdateTask, OpSetTaskStatus, OpSplitTask,
-		OpCreateBlocker, OpResolveBlocker, OpParkIdea, OpCreateProject,
-		OpAddDependency,
+		OpCreateTask, OpUpdateTask, OpSetTaskStatus, OpSplitTask, OpAddDependency, OpDeleteTask,
+		OpCreateBlocker, OpUpdateBlocker, OpResolveBlocker, OpDeleteBlocker,
+		OpParkIdea, OpUpdateIdea, OpDeleteIdea,
+		OpCreateProject, OpUpdateProject,
 	}
 }
 

@@ -91,9 +91,9 @@ func seed(t *testing.T, sqlDB *sql.DB) {
 			VALUES (1, 'extraction', 1, 'pending', 1, 1)`,
 		`INSERT INTO changesets (id, source, status, created_at, updated_at) VALUES (2, 'manual', 'applied', 1, 1)`,
 		`INSERT INTO change_ops (id, changeset_id, position, op_type, payload, rationale, confidence, status, created_at, updated_at)
-			VALUES (1, 1, 0, 'create_task', '{"project_id":1,"title":"Write the schema"}', 'todo: line', 1, 'pending', 1, 1)`,
+			VALUES (1, 1, 1, 'create_task', '{"project_id":1,"title":"Write the schema"}', 'todo: line', 1, 'pending', 1, 1)`,
 		`INSERT INTO change_ops (id, changeset_id, position, op_type, payload, status, created_at, updated_at)
-			VALUES (2, 2, 0, 'set_task_status', '{"task_id":1,"status":"done"}', 'applied', 1, 1)`,
+			VALUES (2, 2, 1, 'set_task_status', '{"task_id":1,"status":"done"}', 'applied', 1, 1)`,
 		`INSERT INTO briefings (id, project_id, next_task_id, source, generated_at, created_at, updated_at)
 			VALUES (1, 1, 1, 'heuristic', 1, 1, 1)`,
 	} {
@@ -109,8 +109,8 @@ func TestCoreSchema(t *testing.T) {
 	if err := sqlDB.QueryRowContext(ctx, "SELECT max(version_id) FROM goose_db_version").Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != 1 {
-		t.Errorf("schema version %d, want 1", version)
+	if version != 2 {
+		t.Errorf("schema version %d, want 2", version)
 	}
 	if got := appTables(t, sqlDB); !slices.Equal(got, coreTables) {
 		t.Errorf("tables %v, want %v", got, coreTables)
@@ -171,10 +171,10 @@ func TestCoreSchemaRejects(t *testing.T) {
 		{"manual changeset with run", check, `INSERT INTO changesets (source, extraction_run_id, status, created_at, updated_at) VALUES ('manual', 1, 'pending', 1, 1)`},
 		{"second changeset for run", unique, `INSERT INTO changesets (source, extraction_run_id, status, created_at, updated_at) VALUES ('extraction', 1, 'pending', 1, 1)`},
 		{"changeset status", check, `INSERT INTO changesets (source, status, created_at, updated_at) VALUES ('manual', 'done', 1, 1)`},
-		{"op type", check, `INSERT INTO change_ops (changeset_id, position, op_type, payload, status, created_at, updated_at) VALUES (1, 1, 'delete_task', '{}', 'pending', 1, 1)`},
-		{"op invalid JSON", check, `INSERT INTO change_ops (changeset_id, position, op_type, payload, status, created_at, updated_at) VALUES (1, 1, 'park_idea', 'nope', 'pending', 1, 1)`},
-		{"op duplicate position", unique, `INSERT INTO change_ops (changeset_id, position, op_type, payload, status, created_at, updated_at) VALUES (1, 0, 'park_idea', '{}', 'pending', 1, 1)`},
-		{"op status", check, `INSERT INTO change_ops (changeset_id, position, op_type, payload, status, created_at, updated_at) VALUES (1, 1, 'park_idea', '{}', 'maybe', 1, 1)`},
+		{"op type", check, `INSERT INTO change_ops (changeset_id, position, op_type, payload, status, created_at, updated_at) VALUES (1, 2, 'delete_project', '{}', 'pending', 1, 1)`},
+		{"op invalid JSON", check, `INSERT INTO change_ops (changeset_id, position, op_type, payload, status, created_at, updated_at) VALUES (1, 2, 'park_idea', 'nope', 'pending', 1, 1)`},
+		{"op duplicate position", unique, `INSERT INTO change_ops (changeset_id, position, op_type, payload, status, created_at, updated_at) VALUES (1, 1, 'park_idea', '{}', 'pending', 1, 1)`},
+		{"op status", check, `INSERT INTO change_ops (changeset_id, position, op_type, payload, status, created_at, updated_at) VALUES (1, 2, 'park_idea', '{}', 'maybe', 1, 1)`},
 		{"second briefing for project", unique, `INSERT INTO briefings (project_id, source, generated_at, created_at, updated_at) VALUES (1, 'heuristic', 1, 1, 1)`},
 		{"briefing source", check, `INSERT INTO briefings (project_id, source, generated_at, created_at, updated_at) VALUES (1, 'guess', 1, 1, 1)`},
 	} {
@@ -212,5 +212,61 @@ func TestCoreSchemaDownAndUp(t *testing.T) {
 	}
 	if got := appTables(t, sqlDB); !slices.Equal(got, coreTables) {
 		t.Errorf("tables after re-up %v, want %v", got, coreTables)
+	}
+}
+
+// TestChangeOpsRebuild checks that 00002 keeps existing ops, accepts the new
+// op types, and that going back down keeps only the ops the old table allows.
+func TestChangeOpsRebuild(t *testing.T) {
+	ctx := context.Background()
+	fsys, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB := openTemp(t)
+	provider, err := goose.NewProvider(goose.DialectSQLite3, sqlDB, fsys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.UpTo(ctx, 1); err != nil {
+		t.Fatal(err)
+	}
+	seed(t, sqlDB)
+
+	if _, err := provider.UpTo(ctx, 2); err != nil {
+		t.Fatal(err)
+	}
+	var payload, rationale string
+	if err := sqlDB.QueryRowContext(ctx,
+		`SELECT payload, rationale FROM change_ops WHERE id = 1`).Scan(&payload, &rationale); err != nil {
+		t.Fatal(err)
+	}
+	if payload != `{"project_id":1,"title":"Write the schema"}` || rationale != "todo: line" {
+		t.Errorf("op 1 after rebuild: payload %s, rationale %q", payload, rationale)
+	}
+	exec(t, sqlDB, `INSERT INTO change_ops (id, changeset_id, position, op_type, payload, status, created_at, updated_at)
+		VALUES (3, 2, 2, 'delete_task', '{"task_id":2}', 'pending', 1, 1)`)
+
+	if _, err := provider.DownTo(ctx, 1); err != nil {
+		t.Fatal(err)
+	}
+	var ids []int64
+	rows, err := sqlDB.QueryContext(ctx, `SELECT id FROM change_ops ORDER BY id`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(ids, []int64{1, 2}) {
+		t.Errorf("ops after down %v, want [1 2]", ids)
 	}
 }

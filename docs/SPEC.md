@@ -79,20 +79,34 @@ Validation in `internal/domain` enforces two rules the schema doesn't: a blocker
 
 Ops are the only way extraction output mutates state. Each op payload is typed and validated server-side.
 
-- `create_task`: {project_id, title, notes?, size?, energy?, parent_task_id?, milestone_id?}
-- `update_task`: {task_id, fields to change}
+Tasks:
+- `create_task`: {project_id, title, notes?, size?, energy?, parent_task_id?, milestone_id?} (starts as `todo`; `milestone_id` is rejected until milestones exist)
+- `update_task`: {task_id, title?, notes?, size?, energy?, parent_task_id?, position?} (`position` orders the task within its project's task list; status changes go through `set_task_status`)
 - `set_task_status`: {task_id, status}
-- `split_task`: {task_id, subtasks[]} (breaks a vague task into startable steps)
-- `create_blocker`: {project_id, task_id?, description}
-- `resolve_blocker`: {blocker_id}
-- `park_idea`: {project_id?, title, body}
-- `create_project`: {title, why?} (always created as `parked`)
+- `split_task`: {task_id, subtasks[]} (breaks a vague task into startable steps, created as its subtasks)
 - `add_dependency`: {task_id, blocked_by_task_id}
 - `delete_task`: {task_id}
+
+Blockers:
+- `create_blocker`: {project_id, task_id?, description}
+- `update_blocker`: {blocker_id, description?, task_id?}
+- `resolve_blocker`: {blocker_id}
 - `delete_blocker`: {blocker_id}
+
+Ideas:
+- `park_idea`: {project_id?, title, body?}
+- `update_idea`: {idea_id, title?, body?, project_id?, status?} (promoting an idea is a status change plus the op that creates the task or project)
 - `delete_idea`: {idea_id}
 
-References to entities created earlier in the same changeset use temporary IDs (e.g. `"$new:1"`), which are resolved at apply time.
+Projects:
+- `create_project`: {title, why?} (always created as `parked`)
+- `update_project`: {project_id, title?, why?, definition_of_done?, status?} (a status change to `active` is subject to the active-project cap)
+
+The update ops change only the fields present in the payload. For the optional references and enums (`size`, `energy`, `parent_task_id`, a blocker's `task_id`, an idea's `project_id`), `null` clears the field. Unknown fields are rejected. A manual "create an active project" is `create_project` followed by `update_project` in the same changeset.
+
+References to entities created earlier in the same changeset use temporary IDs: `"$new:N"` names the entity created by the op at position `N` (positions start at 1). The referenced op must come earlier and create the right kind of entity; `split_task` subtasks can't be referenced. Temporary IDs are resolved at apply time.
+
+Beyond the shape, ops are checked against the current state just before they are applied: referenced rows exist, a parent task or a blocker's task is in the same project, a dependency's tasks are in the same project, and a new parent doesn't create a parent-task cycle.
 
 Deleting removes the row for good ([ADR 0002](./adr/0002-deleting-tasks-blockers-ideas.md)); the softer option is a status (dropped, resolved, discarded). Deleting a task makes its subtasks top-level, removes its dependencies, keeps its blockers on the project without a task, clears it from briefings, and removes observation links to it. Deleting a blocker or idea removes the links to it. Observations and entries are never deleted. Projects can't be deleted, because entries reference them; they are parked or marked done instead. The applier records the deleted row in the op's `applied_payload`.
 

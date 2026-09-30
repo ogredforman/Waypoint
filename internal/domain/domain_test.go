@@ -67,7 +67,7 @@ func TestEnumValid(t *testing.T) {
 		{"IdeaStatus", IdeaPromoted.Valid(), IdeaStatus("active").Valid(), len(IdeaStatuses())},
 		{"ChangesetSource", SourceManual.Valid(), ChangesetSource("import").Valid(), len(ChangesetSources())},
 		{"ChangesetStatus", ChangesetPartiallyApplied.Valid(), ChangesetStatus("done").Valid(), len(ChangesetStatuses())},
-		{"OpType", OpAddDependency.Valid(), OpType("delete_task").Valid(), len(OpTypes())},
+		{"OpType", OpDeleteTask.Valid(), OpType("delete_project").Valid(), len(OpTypes())},
 		{"ChangeOpStatus", OpEdited.Valid(), ChangeOpStatus("maybe").Valid(), len(ChangeOpStatuses())},
 		{"BriefingSource", BriefingLLM.Valid(), BriefingSource("guess").Valid(), len(BriefingSources())},
 	} {
@@ -275,7 +275,7 @@ func TestChangesetValidate(t *testing.T) {
 }
 
 func TestChangeOpValidate(t *testing.T) {
-	ok := ChangeOp{ChangesetID: 1, OpType: OpCreateTask, Payload: json.RawMessage(`{"project_id":1,"title":"x"}`), Confidence: ptr(0.8), Status: OpPending}
+	ok := ChangeOp{ChangesetID: 1, Position: 1, OpType: OpCreateTask, Payload: json.RawMessage(`{"project_id":1,"title":"x"}`), Confidence: ptr(0.8), Status: OpPending}
 	edited := ok
 	edited.Status, edited.AppliedPayload = OpEdited, json.RawMessage(`{"project_id":1,"title":"y"}`)
 	noPayload := ok
@@ -287,7 +287,9 @@ func TestChangeOpValidate(t *testing.T) {
 	badConfidence := ok
 	badConfidence.Confidence = ptr(-0.1)
 	badType := ok
-	badType.OpType = "delete_task"
+	badType.OpType = "delete_project"
+	zeroPosition := ok
+	zeroPosition.Position = 0
 	runValidate(t, []validateCase{
 		{"valid", ok, nil},
 		{"edited", edited, nil},
@@ -296,6 +298,7 @@ func TestChangeOpValidate(t *testing.T) {
 		{"bad applied payload", badApplied, []string{"applied_payload"}},
 		{"bad confidence", badConfidence, []string{"confidence"}},
 		{"bad op type", badType, []string{"op_type"}},
+		{"zero position", zeroPosition, []string{"position"}},
 	})
 }
 
@@ -313,7 +316,7 @@ func TestProblemsDontEchoText(t *testing.T) {
 	for _, v := range []validator{
 		Task{Title: secret, Status: "bogus"},
 		Observation{EntryID: 1, ExtractionRunID: 1, Kind: ObservationKind(secret), Summary: secret, SpanEnd: -1},
-		ChangeOp{ChangesetID: 1, OpType: OpType(secret), Payload: json.RawMessage(secret), Status: ChangeOpStatus(secret)},
+		ChangeOp{ChangesetID: 1, Position: 1, OpType: OpType(secret), Payload: json.RawMessage(secret), Status: ChangeOpStatus(secret)},
 	} {
 		err := v.Validate()
 		if err == nil || strings.Contains(err.Error(), secret) {
