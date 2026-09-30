@@ -67,7 +67,7 @@ Tasks:
 
 ### 1E. API
 - [x] **1.14** Endpoints from SPEC §10.5, except settings UI editing and export (config file only for now). DTOs live in `internal/api/apitypes` with generated TS types (ADR 0001).
-- [ ] **1.15** API integration tests using the mock extractor end to end.
+- [x] **1.15** API integration tests using the mock extractor end to end.
 
 ### 1F. UI
 - [ ] **1.16** App shell and navigation: Now, Diary, Projects, Parking Lot.
