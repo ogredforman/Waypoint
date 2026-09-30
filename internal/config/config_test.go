@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func fakeEnv(m map[string]string) LookupEnv {
@@ -84,14 +85,16 @@ func TestLoadPrecedence(t *testing.T) {
 		wantDir   string // "" means the default data dir
 		wantLevel slog.Level
 		wantCap   int // 0 means the default
+		wantMock  time.Duration
 	}{
 		{
 			name:      "file overrides defaults",
-			file:      file + "active_project_cap = 5\n",
+			file:      file + "active_project_cap = 5\nmock_latency = '1500ms'\n",
 			wantPort:  1001,
 			wantDir:   fileDir,
 			wantLevel: slog.LevelWarn,
 			wantCap:   5,
+			wantMock:  1500 * time.Millisecond,
 		},
 		{
 			name:      "env overrides file",
@@ -147,7 +150,7 @@ func TestLoadPrecedence(t *testing.T) {
 				dataHome, _ := env("XDG_DATA_HOME")
 				wantDir = filepath.Join(dataHome, "waypoint")
 			}
-			want := Config{Port: tt.wantPort, DataDir: wantDir, LogLevel: tt.wantLevel, ActiveProjectCap: wantCap, File: wantFile}
+			want := Config{Port: tt.wantPort, DataDir: wantDir, LogLevel: tt.wantLevel, ActiveProjectCap: wantCap, MockLatency: tt.wantMock, File: wantFile}
 			if cfg != want {
 				t.Errorf("got %+v, want %+v", cfg, want)
 			}
@@ -205,6 +208,8 @@ func TestLoadErrors(t *testing.T) {
 		{name: "file bad log level", file: "log_level = 'loud'\n", wantErr: "log_level"},
 		{name: "file cap zero", file: "active_project_cap = 0\n", wantErr: "active_project_cap"},
 		{name: "file cap negative", file: "active_project_cap = -1\n", wantErr: "active_project_cap"},
+		{name: "file mock latency not a duration", file: "mock_latency = 'soon'\n", wantErr: "mock_latency"},
+		{name: "file mock latency negative", file: "mock_latency = '-1s'\n", wantErr: "mock_latency"},
 		{name: "env port too high", env: map[string]string{"WAYPOINT_PORT": "70000"}, wantErr: "WAYPOINT_PORT"},
 		{name: "env port not a number", env: map[string]string{"WAYPOINT_PORT": "abc"}, wantErr: "WAYPOINT_PORT"},
 		{name: "env bad log level", env: map[string]string{"WAYPOINT_LOG_LEVEL": "loud"}, wantErr: "WAYPOINT_LOG_LEVEL"},

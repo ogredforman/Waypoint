@@ -47,6 +47,7 @@ variable, then `config.toml`, then the default. Run `waypoint -h` to list the fl
 | `-data-dir` | `WAYPOINT_DATA_DIR` | `data_dir` | OS data folder (see below) |
 | `-log-level` | `WAYPOINT_LOG_LEVEL` | `log_level` | `info` |
 | n/a | n/a | `active_project_cap` | `3` (how many projects can be active at once) |
+| n/a | n/a | `mock_latency` | `0` (artificial delay per mock extraction, e.g. `"1500ms"`) |
 
 | OS | Config folder | Data folder (holds `waypoint.db`) |
 |---|---|---|

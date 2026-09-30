@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/BurntSushi/toml"
 
@@ -30,6 +31,10 @@ type Config struct {
 	// ActiveProjectCap limits how many projects can be active at once. It is
 	// set in config.toml only (no env var or flag).
 	ActiveProjectCap int
+
+	// MockLatency is an artificial delay the mock extractor adds to each run,
+	// to exercise the async UI. It is set in config.toml only.
+	MockLatency time.Duration
 }
 
 // Addr is the listen address. The server always binds to loopback.
@@ -48,7 +53,8 @@ type fileConfig struct {
 	DataDir  *string `toml:"data_dir"`
 	LogLevel *string `toml:"log_level"`
 
-	ActiveProjectCap *int `toml:"active_project_cap"`
+	ActiveProjectCap *int    `toml:"active_project_cap"`
+	MockLatency      *string `toml:"mock_latency"`
 }
 
 // Load resolves the configuration from args (without the program name), the
@@ -208,6 +214,16 @@ func applyFile(cfg *Config, path string) error {
 			return fmt.Errorf("active_project_cap: must be at least 1, got %d", *fc.ActiveProjectCap)
 		}
 		cfg.ActiveProjectCap = *fc.ActiveProjectCap
+	}
+	if fc.MockLatency != nil {
+		d, err := time.ParseDuration(*fc.MockLatency)
+		if err != nil {
+			return fmt.Errorf("mock_latency: %q is not a duration such as \"1500ms\"", *fc.MockLatency)
+		}
+		if d < 0 {
+			return fmt.Errorf("mock_latency: must not be negative, got %s", d)
+		}
+		cfg.MockLatency = d
 	}
 	return nil
 }

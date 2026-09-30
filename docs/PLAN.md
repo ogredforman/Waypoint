@@ -57,7 +57,7 @@ Tasks:
 
 ### 1C. Pipeline
 - [x] **1.8** `Extractor` interface, `ExtractionResult` types, and the shared output validator.
-- [ ] **1.9** Mock extractor per SPEC §10.4, with configurable artificial latency.
+- [x] **1.9** Mock extractor per SPEC §10.4, with configurable artificial latency (`mock_latency` in `config.toml`). For an entry with no project it guesses one from project titles and the tasks and blockers the entry names.
 - [ ] **1.10** Snapshot builder.
 - [ ] **1.11** Background worker: entry saved → run created (`pending`) → extract → validate → store observations, changeset, and questions → emit SSE. Pending runs resume on restart; failures are recorded; `reprocess` endpoint.
 - [ ] **1.12** SSE hub and `/api/events`.
@@ -72,7 +72,7 @@ Tasks:
 ### 1F. UI
 - [ ] **1.16** App shell and navigation: Now, Diary, Projects, Parking Lot.
 - [ ] **1.17** **Now** screen: briefing cards and diary input (Cmd/Ctrl+Enter).
-- [ ] **1.18** **Diary** timeline: entries with observation highlights; inline pending changeset review (accept, reject, edit per op, accept-all); follow-up questions with answer and dismiss.
+- [ ] **1.18** **Diary** timeline: entries with observation highlights; inline pending changeset review (accept, reject, edit per op, accept-all); follow-up questions with answer and dismiss. For an entry with no project whose changeset puts things in one, a "Project: X (guessed)" picker lets the user choose another project or none: another project rewrites `project_id` on those ops; none rejects the task and blocker ops and removes the project from the ideas.
 - [ ] **1.19** **Project** screen: header, task list with inline edit, status changes and reordering, blockers, ideas. Deleting a task or blocker asks for confirmation.
 - [ ] **1.20** **Task detail:** origin entry and linked observations timeline.
 - [ ] **1.21** **Parking lot:** ideas and parked projects; promote to task or project; delete an idea (with confirmation).

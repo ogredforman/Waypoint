@@ -46,6 +46,7 @@ func run() int {
 		"addr", cfg.Addr(),
 		"log_level", cfg.LogLevel.String(),
 		"active_project_cap", cfg.ActiveProjectCap,
+		"mock_latency", cfg.MockLatency.String(),
 	)
 
 	ctx := context.Background()
