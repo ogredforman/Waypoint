@@ -200,3 +200,17 @@ func TestCreates(t *testing.T) {
 		}
 	}
 }
+
+func TestRefs(t *testing.T) {
+	p := CreateTask{ProjectID: Temp(1), ParentTaskID: ptr(ID(7)), Title: "t"}
+	want := []FieldRef{
+		{Field: "project_id", Kind: domain.TargetProject, Ref: Temp(1)},
+		{Field: "parent_task_id", Kind: domain.TargetTask, Ref: ID(7)},
+	}
+	if got := Refs(p); !slices.Equal(got, want) {
+		t.Errorf("Refs = %v, want %v", got, want)
+	}
+	if got := Refs(CreateProject{Title: "t"}); len(got) != 0 {
+		t.Errorf("Refs(CreateProject) = %v, want none", got)
+	}
+}

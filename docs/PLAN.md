@@ -56,7 +56,7 @@ Tasks:
 - [x] **1.7** Unit tests covering every op type, temp IDs, partial apply, and rollback.
 
 ### 1C. Pipeline
-- [ ] **1.8** `Extractor` interface, `ExtractionResult` types, and the shared output validator.
+- [x] **1.8** `Extractor` interface, `ExtractionResult` types, and the shared output validator.
 - [ ] **1.9** Mock extractor per SPEC §10.4, with configurable artificial latency.
 - [ ] **1.10** Snapshot builder.
 - [ ] **1.11** Background worker: entry saved → run created (`pending`) → extract → validate → store observations, changeset, and questions → emit SSE. Pending runs resume on restart; failures are recorded; `reprocess` endpoint.
@@ -186,4 +186,5 @@ Ideas and tangents captured mid-work (via `/park`). Not scheduled. Review them a
 - [ ] Deleting a project. Blocked by entry immutability (entries reference projects); needs a decision on what happens to its entries, tasks, and ideas. Parking or finishing covers it for now (parked 2026-09-29; suggested stage: later)
 - [ ] Manage user-facing settings (caps and similar preferences) in the app, beyond the provider settings in 2.12, instead of only via `config.toml`/env; technical settings such as port can stay in `config.toml` (parked 2026-09-29; suggested stage: 3)
 - [ ] `add_dependency` doesn't check for dependency cycles (A blocked by B blocked by A); it needs a store query for a task's dependencies. Add it with the task dependencies UI (parked 2026-09-29; suggested stage: 3)
+- [ ] Observation spans are UTF-8 byte offsets (SPEC §10.3); JavaScript indexes strings in UTF-16 units, so the API must convert spans (or send pre-split text segments) before the UI highlights them, or highlights shift after accents and emoji (parked 2026-09-29; suggested stage: 1, with 1.14/1.18)
 - [ ] The pipeline must not store a changeset with no ops: the applier needs at least one decision, so an empty pending changeset could never be resolved (parked 2026-09-29; suggested stage: 1, with 1.11)

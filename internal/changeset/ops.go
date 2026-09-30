@@ -201,6 +201,24 @@ func (DeleteIdea) Creates() (domain.TargetType, bool)     { return "", false }
 func (CreateProject) Creates() (domain.TargetType, bool)  { return domain.TargetProject, true }
 func (UpdateProject) Creates() (domain.TargetType, bool)  { return "", false }
 
+// FieldRef is one ref set in a payload: the JSON field it came from and the
+// kind of row it must point at.
+type FieldRef struct {
+	Field string
+	Kind  domain.TargetType
+	Ref   Ref
+}
+
+// Refs lists the refs set in p, in field order. Extraction validation uses it
+// to check existing-row refs against the snapshot.
+func Refs(p Payload) []FieldRef {
+	var out []FieldRef
+	for _, r := range p.refs() {
+		out = append(out, FieldRef{Field: r.field, Kind: r.kind, Ref: r.ref})
+	}
+	return out
+}
+
 // refs
 
 func one(field string, kind domain.TargetType, r Ref) fieldRef {

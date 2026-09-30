@@ -301,7 +301,9 @@ type Briefer interface {
 }
 ```
 
-Every extractor's output passes through the **same validator** before storage. The validator checks that referenced IDs exist, enforces enum values and caps, and verifies text spans fall within the entry.
+Every extractor's output passes through the **same validator** before storage. The validator checks that referenced IDs exist, enforces enum values and caps, and verifies text spans fall within the entry. "Exist" means *in the snapshot the extractor was given*: an extractor can only know the IDs it was shown, so a real ID outside the snapshot is most likely made up. The applier still re-checks refs against the DB at apply time. Observation links point only at existing rows, not at `$new:N` entities, since observations are stored before the changeset is applied. Invalid output fails the whole result; it never becomes partial state.
+
+Observation spans are **byte offsets** into the UTF-8 entry body and must fall on character boundaries. The browser indexes strings in UTF-16 units, so the API converts spans before sending them to the UI.
 
 ### 10.4 Mock extractor
 
