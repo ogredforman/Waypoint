@@ -17,6 +17,8 @@ type Deps struct {
 	// Web serves everything outside /api (the embedded frontend). Nil means
 	// no frontend: those paths get chi's default 404.
 	Web http.Handler
+	// Hub serves /api/events. Nil leaves the route unmounted.
+	Hub *Hub
 }
 
 // NewRouter returns the HTTP handler for the API and, if set, the frontend.
@@ -40,6 +42,9 @@ func newMux(d Deps) *chi.Mux {
 			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
 		})
 		r.Get("/health", handleHealth(d.DB, d.Logger))
+		if d.Hub != nil {
+			r.Get("/events", d.Hub.ServeHTTP)
+		}
 	})
 	if d.Web != nil {
 		r.Handle("/*", d.Web)

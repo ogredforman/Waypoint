@@ -85,3 +85,38 @@ func TestServeGracefulShutdown(t *testing.T) {
 		t.Error("new connection accepted after shutdown")
 	}
 }
+
+func TestServeShutdownEndsEventStreams(t *testing.T) {
+	logger, _ := jsonLogger()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hub := NewHub(logger)
+	h := NewRouter(Deps{DB: openDB(t), Logger: logger, Hub: hub})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	served := make(chan error, 1)
+	go func() { served <- Serve(ctx, ln, h, logger, hub.Close) }()
+
+	resp, err := http.Get("http://" + ln.Addr().String() + "/api/events")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	// Read the connected comment, so the stream is open.
+	if _, err := resp.Body.Read(make([]byte, 64)); err != nil {
+		t.Fatal(err)
+	}
+
+	cancel()
+	select {
+	case err := <-served:
+		if err != nil {
+			t.Errorf("Serve = %v, want nil", err)
+		}
+	case <-time.After(shutdownTimeout / 2):
+		t.Fatal("Serve waited on the open event stream")
+	}
+}

@@ -60,7 +60,7 @@ Tasks:
 - [x] **1.9** Mock extractor per SPEC §10.4, with configurable artificial latency (`mock_latency` in `config.toml`). For an entry with no project it guesses one from project titles and the tasks and blockers the entry names.
 - [x] **1.10** Snapshot builder: active projects plus the entry's own, open tasks and blockers, parked ideas, and the observation summaries of the last `snapshot_recent_entries` earlier entries (from any project for an unscoped entry).
 - [x] **1.11** Background worker: entry saved → run created (`pending`) → extract → validate → store observations, changeset, and questions → emit SSE. Pending runs resume on restart; failures are recorded; `Worker.Reprocess` (HTTP route in 1.14, see Parked).
-- [ ] **1.12** SSE hub and `/api/events`.
+- [x] **1.12** SSE hub and `/api/events`.
 
 ### 1D. Briefing
 - [ ] **1.13** Heuristic `Briefer` (SPEC §7.3). Recompute on changeset apply and task edit.

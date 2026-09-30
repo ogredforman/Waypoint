@@ -88,11 +88,10 @@ func run() int {
 		stop()
 	}()
 
-	// The SSE hub (PLAN 1.12) becomes the worker's notifier; until then
-	// events are dropped.
+	hub := api.NewHub(logger)
 	st := store.New(sqlDB, time.Now)
 	snapshots := pipeline.NewSnapshotBuilder(st, time.Now, cfg.SnapshotRecentEntries)
-	worker := pipeline.NewWorker(st, snapshots, mock.New(cfg.MockLatency), nil, logger)
+	worker := pipeline.NewWorker(st, snapshots, mock.New(cfg.MockLatency), hub, logger)
 	workerDone := make(chan struct{})
 	go func() {
 		defer close(workerDone)
@@ -101,8 +100,8 @@ func run() int {
 		}
 	}()
 
-	router := api.NewRouter(api.Deps{DB: sqlDB, Logger: logger, Web: web.NewHandler(web.Dist())})
-	err = api.Serve(ctx, ln, router, logger)
+	router := api.NewRouter(api.Deps{DB: sqlDB, Logger: logger, Web: web.NewHandler(web.Dist()), Hub: hub})
+	err = api.Serve(ctx, ln, router, logger, hub.Close)
 	stop() // stop the worker too if the server failed on its own
 	<-workerDone
 	if err != nil {
