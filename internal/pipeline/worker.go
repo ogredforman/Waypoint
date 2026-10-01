@@ -292,6 +292,15 @@ func (w *Worker) process(ctx context.Context, run domain.ExtractionRun) {
 		w.fail(ctx, run, stageLoad, err, nil, nil)
 		return
 	}
+	var replyTo *domain.FollowUpQuestion
+	if id := entry.ReplyToQuestionID; id != nil {
+		q, err := w.store.GetQuestion(ctx, *id)
+		if err != nil {
+			w.fail(ctx, run, stageLoad, err, nil, nil)
+			return
+		}
+		replyTo = &q
+	}
 
 	snap, err := w.snapshots.Build(ctx, entry)
 	if err == nil {
@@ -302,7 +311,7 @@ func (w *Worker) process(ctx context.Context, run domain.ExtractionRun) {
 		return
 	}
 
-	in := extract.ExtractInput{Entry: entry, Snapshot: snap, PromptVersion: run.PromptVersion}
+	in := extract.ExtractInput{Entry: entry, Snapshot: snap, ReplyTo: replyTo, PromptVersion: run.PromptVersion}
 	start := time.Now()
 	res, err := w.extract(ctx, in)
 	latency := time.Since(start).Milliseconds()

@@ -328,7 +328,7 @@ The mock is deterministic and rule-based, so the whole system can be built and t
 | `decided: <text>` | decision observation |
 | anything else | note observation linked to the scoped project |
 
-Questions: if the entry has no `todo:`/`doing:` lines, ask "What's the next step?" If a task has been in progress for more than 3 days with no blocker, ask about blockers. The mock may add artificial latency (configurable) to exercise the async UI.
+Questions: if the entry has no `todo:`/`doing:` lines, ask "What's the next step?" If a task has been in progress for more than 3 days with no blocker, ask about blockers. An entry that replies to a question (`reply_to_question_id`) never gets that same question again; the extractor sees the replied-to question in `ExtractInput.ReplyTo`. The mock may add artificial latency (configurable) to exercise the async UI.
 
 New tasks, blockers, and ideas go into the entry's project. For an entry with no project, the mock guesses one: the only project in the snapshot, else the one with the most clues (words of its title in the entry, and lines naming its tasks or blockers), else the first project with low confidence. Ops on a guessed project carry a lower confidence and say so in their rationale; the review UI lets the user pick another project or none. `done:`, `doing:`, and `unblocked:` match across all projects; an observation naming a task links to that task's project. Observations aren't linked to a project guessed without any clue, since the picker moves ops, not observations. A prefixed line that yields nothing (no match, or no project to use) becomes a note.
 

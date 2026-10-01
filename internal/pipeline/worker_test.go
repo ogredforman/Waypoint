@@ -228,6 +228,29 @@ func TestSaveEntryAnswersQuestion(t *testing.T) {
 	}
 }
 
+func TestProcessReplyDoesNotRepeatQuestion(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	w := f.worker(mock.New(0), nil)
+	asked, _ := f.save(w, "feel: stuck", nil)
+	processNext(t, w)
+	qs := f.stored(asked.ID).questions
+	if len(qs) != 1 || qs[0].Text != "What's the next step?" {
+		t.Fatalf("questions on the first entry = %+v, want the next-step question", qs)
+	}
+
+	reply, _, err := w.SaveEntry(ctx, domain.Entry{Body: "the parts", ReplyToQuestionID: &qs[0].ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if run := f.run(processNext(t, w).ID); run.Status != domain.RunSucceeded {
+		t.Fatalf("reply run = %+v, want succeeded", run)
+	}
+	if got := f.stored(reply.ID).questions; len(got) != 0 {
+		t.Errorf("questions on the reply = %+v, want none", got)
+	}
+}
+
 func TestProcessStoresResult(t *testing.T) {
 	f := newFixture(t)
 	p := f.project("Build Waypoint", domain.ProjectActive)

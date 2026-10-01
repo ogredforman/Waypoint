@@ -49,7 +49,7 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
   transaction, full rollback, undecided/capped ops split into a new pending changeset (ADR 0003);
   calls `AfterApply.Applied`. `manual.go`: `Applier.ApplyManual(ctx, ops ...Payload)` for
   `source=manual`. `reject.go`: `RejectPending`.
-- **extract**: provider-neutral boundary. `Extractor{Extract, Name}`, `ExtractInput`,
+- **extract**: provider-neutral boundary. `Extractor{Extract, Name}`, `ExtractInput` (entry, snapshot, `ReplyTo` question),
   `ExtractionResult` (observations, links, `ChangeOpDraft`s, `QuestionDraft`s), `StateSnapshot`
   (`Has`), `Validate` (shared validator, `MaxQuestions = 2`).
   **extract/mock**: deterministic line-prefix extractor (SPEC §10.4), `mock.New(latency)`.

@@ -469,7 +469,12 @@ func (b *builder) questions() {
 	}
 }
 
+// ask adds a question unless the cap is reached or the entry is a reply to
+// the same question: answering it shouldn't raise it again under the reply.
 func (b *builder) ask(text, reason string) {
+	if r := b.in.ReplyTo; r != nil && strings.EqualFold(strings.TrimSpace(r.Text), text) {
+		return
+	}
 	if len(b.res.Questions) < extract.MaxQuestions {
 		b.res.Questions = append(b.res.Questions, extract.QuestionDraft{Text: text, Reason: reason})
 	}

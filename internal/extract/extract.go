@@ -17,11 +17,12 @@ type Extractor interface {
 	Name() string // "mock", "anthropic", ...
 }
 
-// ExtractInput is everything an extractor sees: the entry and a snapshot of
-// the state it may refer to.
+// ExtractInput is everything an extractor sees: the entry, a snapshot of the
+// state it may refer to, and the question the entry answers, if any.
 type ExtractInput struct {
 	Entry         domain.Entry
 	Snapshot      StateSnapshot
+	ReplyTo       *domain.FollowUpQuestion // nil unless Entry.ReplyToQuestionID is set
 	PromptVersion string
 }
 

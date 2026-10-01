@@ -382,6 +382,41 @@ func TestQuestions(t *testing.T) {
 	}
 }
 
+func TestReplyDoesNotRepeatQuestion(t *testing.T) {
+	stalled := snapshot()
+	stalled.Projects[0].Tasks[0].UpdatedAt = now.Add(-4 * 24 * time.Hour)
+	stalled.Projects[0].Blockers[0].TaskID = ptr(int64(11))
+	const next = "What's the next step?"
+	const blockers = `Is anything in the way of "Write the mock extractor"?`
+	for _, tt := range []struct {
+		name    string
+		replyTo string
+		want    []string
+	}{
+		{"not a reply", "", []string{next, blockers}},
+		{"reply to next step", " what's the NEXT step? ", []string{blockers}},
+		{"reply to stalled task", blockers, []string{next}},
+		{"reply to another question", "How did it go?", []string{next, blockers}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			in := extract.ExtractInput{Entry: domain.Entry{ID: 2, Body: "feel: fine"}, Snapshot: stalled}
+			if tt.replyTo != "" {
+				in.Entry.ReplyToQuestionID = ptr(int64(1))
+				in.ReplyTo = &domain.FollowUpQuestion{ID: 1, EntryID: 1, Text: tt.replyTo}
+			}
+			res, err := New(0).Extract(context.Background(), in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got []string
+			for _, q := range res.Questions {
+				got = append(got, q.Text)
+			}
+			equal(t, "questions", got, tt.want)
+		})
+	}
+}
+
 func TestDeterministic(t *testing.T) {
 	body := "done: mock\ntodo: a\nblocked: b\nidea: c\nunblocked: driver\nfeel: ok"
 	first := run(t, snapshot(), 0, body)
