@@ -1,0 +1,71 @@
+<script lang="ts">
+  import { ApiError, deleteJSON, patchJSON } from '../lib/api/client'
+  import type { Blocker } from '../lib/api/types.gen'
+  import { paths } from '../lib/router'
+  import Button from './ui/Button.svelte'
+
+  let {
+    blocker,
+    onchanged,
+    ondeleted,
+  }: {
+    blocker: Blocker
+    onchanged: (b: Blocker) => void
+    ondeleted: (id: number) => void
+  } = $props()
+
+  let confirmingDelete = $state(false)
+  let saving = $state(false)
+  let notice = $state('')
+
+  const resolved = $derived(blocker.status === 'resolved')
+
+  async function resolve() {
+    notice = ''
+    saving = true
+    try {
+      onchanged(await patchJSON<Blocker>(`/api/blockers/${blocker.id}`, { status: 'resolved' }))
+    } catch (err) {
+      notice = err instanceof ApiError ? err.message : "Couldn't resolve the blocker."
+    } finally {
+      saving = false
+    }
+  }
+
+  async function remove() {
+    notice = ''
+    saving = true
+    try {
+      await deleteJSON(`/api/blockers/${blocker.id}`)
+      ondeleted(blocker.id)
+    } catch (err) {
+      notice = err instanceof ApiError ? err.message : "Couldn't delete the blocker."
+      saving = false
+    }
+  }
+</script>
+
+<li class="px-4 py-3">
+  <div class="flex items-start gap-3">
+    <div class="min-w-0 flex-1">
+      <p class={['whitespace-pre-line', resolved ? 'text-ink-muted' : 'text-ink']}>{blocker.description}</p>
+      {#if blocker.task_id !== null}
+        <a href={paths.task(blocker.task_id)} class="text-sm text-ink-muted hover:text-accent">Blocks a task →</a>
+      {/if}
+    </div>
+    <div class="flex shrink-0 items-center gap-1">
+      {#if !resolved}
+        <Button variant="secondary" class="px-3 py-1" disabled={saving} onclick={resolve}>Resolve</Button>
+      {/if}
+      <Button variant="quiet" class="px-2" onclick={() => (confirmingDelete = true)}>Delete</Button>
+    </div>
+  </div>
+  {#if confirmingDelete}
+    <div class="mt-2 flex items-center gap-2 text-sm" role="group" aria-label="Confirm delete">
+      <span class="text-ink-muted">Delete this blocker?</span>
+      <Button variant="secondary" class="px-3 py-1" disabled={saving} onclick={remove}>Delete blocker</Button>
+      <Button variant="quiet" class="px-3 py-1" onclick={() => (confirmingDelete = false)}>Keep it</Button>
+    </div>
+  {/if}
+  {#if notice}<p class="mt-2 text-sm text-accent" role="status">{notice}</p>{/if}
+</li>

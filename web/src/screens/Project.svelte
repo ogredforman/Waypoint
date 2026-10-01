@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import ProjectBlockers from '../components/ProjectBlockers.svelte'
   import ProjectHeader from '../components/ProjectHeader.svelte'
+  import ProjectIdeas from '../components/ProjectIdeas.svelte'
   import ProjectStatus from '../components/ProjectStatus.svelte'
   import ProjectTasks from '../components/ProjectTasks.svelte'
   import { ApiError, getJSON } from '../lib/api/client'
@@ -67,5 +69,7 @@
     <ProjectHeader {project} onsaved={updated} />
     <ProjectStatus {project} {activeCount} {cap} onchanged={updated} />
     <ProjectTasks projectId={project.id} />
+    <ProjectBlockers projectId={project.id} />
+    <ProjectIdeas projectId={project.id} />
   {/if}
 </section>
