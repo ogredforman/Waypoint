@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { on, onReconnect, retryDelay, startEvents } from './events'
+import { on, onDisconnect, onReconnect, retryDelay, startEvents } from './events'
 import { FakeEventSource, fakeOpen } from './events.fake'
 
 let stop: () => void = () => {}
@@ -43,6 +43,23 @@ describe('events', () => {
     src.fail()
     src.open()
     expect(reconnects).toBe(1)
+  })
+
+  it('calls disconnect handlers once each time an open stream drops', () => {
+    let drops = 0
+    offs.push(onDisconnect(() => drops++))
+    FakeEventSource.latest().fail()
+    expect(drops).toBe(0) // never opened: nothing was lost
+    FakeEventSource.latest().open()
+    FakeEventSource.latest().fail()
+    FakeEventSource.latest().fail(true)
+    expect(drops).toBe(1)
+    vi.advanceTimersByTime(retryDelay)
+    FakeEventSource.latest().fail(true)
+    expect(drops).toBe(1)
+    FakeEventSource.latest().open()
+    FakeEventSource.latest().fail()
+    expect(drops).toBe(2)
   })
 
   it('reconnects after the server refuses the stream', () => {

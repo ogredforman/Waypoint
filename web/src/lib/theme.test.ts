@@ -37,4 +37,10 @@ describe('theme tokens', () => {
     expect(tokens[bg], `--color-${bg}`).toBeDefined()
     expect(contrast(tokens[fg], tokens[bg])).toBeGreaterThanOrEqual(4.5)
   })
+
+  it('colours scrollbars from tokens', () => {
+    const colours = [...css.matchAll(/scrollbar-color:\s*([^;]+);/g)].map((m) => m[1].trim())
+    expect(colours.length).toBeGreaterThan(0)
+    for (const c of colours) expect(c).toMatch(/^var\(--color-[\w-]+\) transparent$/)
+  })
 })

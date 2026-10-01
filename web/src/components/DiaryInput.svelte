@@ -76,7 +76,7 @@
   <Textarea
     id="diary-entry"
     rows={5}
-    class="resize-y"
+    tall
     placeholder="What did you do, what's in the way, what's on your mind?"
     bind:value={draft.body}
     oninput={() => (saved = false)}

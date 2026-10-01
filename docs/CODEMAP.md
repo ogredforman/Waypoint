@@ -83,9 +83,11 @@ pieces. Tests sit next to the code as `*.test.ts`.
   both, and neither on `/diary`. Both wrap `DiaryContent`, which `screens/Diary` also shows full-page.
   `lib/diaryPanel.ts`: panel width limits, drag/key resizing, `localStorage` prefs.
 - Live updates: `lib/events.ts` is the app's one `EventSource` (`startEvents` in `App.svelte`; `on(name, handler)`,
-  `onReconnect`). Screens subscribe in `onMount` and refetch; `lib/events.fake.ts` `FakeEventSource` for tests.
+  `onReconnect`, `onDisconnect`). Screens subscribe in `onMount` and refetch; `lib/events.fake.ts` `FakeEventSource` for tests.
   `lib/live.ts`: `liveReload` (reload on `changeset.applied`, optionally for one project, and on reconnect) and
   `latest` (drop stale answers); used by the Project, Projects, Parking lot, and Task screens. `screens/Project.test.ts`.
+- Server status: `lib/health.ts` (`fetchHealth`, `watchHealth`: asks at start, on stream drop/reconnect, and
+  re-polls only while unhealthy) → `components/ServerBanner.svelte` under the header in `App.svelte`; nothing shows while healthy.
 - Diary input: `components/DiaryInput.svelte` (in `DiaryContent`); `lib/diary.ts` (submit shortcut,
   default project scope from the route, `entryRequest`); `lib/diaryDraft.svelte.ts` (shared draft that
   outlives the panel/overlay).
@@ -115,9 +117,10 @@ pieces. Tests sit next to the code as `*.test.ts`.
   `lib/projects.ts` `parkedProjects`.
 - Theme: named tokens in `app.css` `@theme` (`canvas`/`surface`/`raised`/`line`, `ink`/`ink-muted`/
   `ink-faint`, `accent`/`accent-strong`/`accent-deep`/`on-accent`, `shadow-glow`/`focus`/`edge`,
-  `text-title`, `px-gutter`, `rounded-card`). Use these, not raw Tailwind colours.
+  `text-title`, `px-gutter`, `rounded-card`). Use these, not raw Tailwind colours. Thin scrollbars from tokens in `@layer base`.
   `lib/theme.test.ts` checks AA contrast for the text pairs.
-- `components/ui/`: `Button` (`primary`/`secondary`/`quiet`), `Input`, `Textarea` (`bind:value`),
+- `components/ui/`: `Button` (`primary`/`secondary`/`quiet`), `Input`, `Textarea` (`bind:value`; grows to
+  `max-h-64`, or `max-h-96` with `tall`, then scrolls, via `lib/autosize.ts`),
   `Card` (`glow` for the one thing to notice), `Panel` (row container). `npm --prefix web test`, `npm --prefix web run check`.
 - Icons: `@lucide/svelte`, imported one per path (`import BookOpen from '@lucide/svelte/icons/book-open'`) so only
   used icons are bundled; decorative icons get `aria-hidden="true"`, and icon-only buttons an `aria-label`.

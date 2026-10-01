@@ -67,7 +67,7 @@
       }}
     >
       <label for="answer-{question.id}" class="sr-only">Your answer</label>
-      <Textarea id="answer-{question.id}" rows={3} class="resize-y text-sm" bind:value={body} {onkeydown} />
+      <Textarea id="answer-{question.id}" rows={3} class="text-sm" bind:value={body} {onkeydown} />
       <div class="flex flex-wrap gap-2">
         <Button type="submit" disabled={busy || body.trim() === ''}>{busy ? 'Saving…' : 'Save answer'}</Button>
         <Button variant="quiet" onclick={() => (answering = false)}>Cancel</Button>
