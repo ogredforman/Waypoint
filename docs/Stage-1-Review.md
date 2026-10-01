@@ -1,0 +1,18 @@
+Owner Thoughts:
+- The UI is going to get cluttered as soon as we have a decent number of projects in here. Let's make sure things stay clean and organized with many projects.
+- I don't see any way to delete a project.
+- We need to add a simple colored scroll bar, the default looks trash
+- 'todo:' prefix doesn't seem to work as indicated in MOCK-TESTING.md
+- We should add a rich editor to tasks, allowing for things like checklists, bulleted lists, etc.
+- The sidebar needs an icon when collapsed, "open the diary" written sideways looks very odd
+- Any text boxes that are scrollable, such as the "notes" field when editing a task, need adjusted. Right now they remind me of 2010s era websites. I'm not sure what the issue is but something is weird about how they develop a squished scrollbar once you type enough into them.
+- There is a large empty footer at the bottom of the site for no reason
+- Change the "Save" button on the diary to "Write Entry"
+- Make buttons clearer. There are many buttons that are just clickable text, such as "more" and "read again" on diary entries. Also we should use colors to denote when a button might cancel an action, or do something such as delete or remove a task. For example, the "delete" buttons on tasks should definitely be red. the "edit" button could also have a color and actual outline and such.
+- It feels to me like we've done well making the system able to update tasks and project states based on the diary inputs. However, I think we need to further build out the information tasks can have. Right now they are very limited to where each task would likely be just one item from, say, a checklist of related things. Let's discuss this.
+- We need to replace all default fonts with something nicer and more stylized
+- Need to find any icons we may need, especially one for the diary
+- I think improving the core base of the project here, instead of in Stage 3, may be smart. This will prevent us from continuing to do things that will need adjusted/redone. Specifically:
+    - We should implement any parked UI improvements here, now that the frontend is close to its finished state. Lets implement themes.
+    - We should implement the parked settings changes, moving things into an in-app settings menu
+    - I think we should consider implementing multi-user capabilities at this point. Not necessarily full-fledged auth, as we're not worrying about any real deployment yet if ever, but the ability to support multiple users could be implemented prior to adding the real AI integration. I think this fits well with implementing in-app settings as well.

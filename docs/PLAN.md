@@ -2,9 +2,9 @@
 
 > Companion to [`SPEC.md`](./SPEC.md). The spec defines *what* and *why*; this plan defines *order*, *scope per stage*, and *exit criteria*. Each stage should end in a runnable, usable state. Don't pull later-stage work forward.
 
-**Current stage: Stage 1 — Prototype (mock AI, no real model)**
+**Current stage: Stage 1.5 — Foundation refinement**
 
-Task IDs are `<stage>.<task>` (e.g. `1.5`). Tick tasks `[x]` as they're finished. `/next-task` picks the first unchecked task in the current stage; `/park` adds ideas to the Parked section at the bottom.
+Task IDs are `<stage>.<task>` (e.g. `1.5`, or `1.5.3` in Stage 1.5). Tick tasks `[x]` as they're finished. `/next-task` picks the first unchecked task in the current stage; `/park` adds ideas to the Parked section at the bottom.
 
 ## Background (conversation summary)
 
@@ -16,7 +16,7 @@ Task IDs are `<stage>.<task>` (e.g. `1.5`). Tick tasks `[x]` as they're finished
   - The home screen shows one next action and a "where you left off" recap.
   - No guilt mechanics. Ideas get parked. Active projects are capped.
 - **Stack:** Go single binary + embedded Svelte SPA + SQLite (pure Go driver) + SSE. Pluggable extractor: mock, Anthropic, or OpenAI-compatible (covers local models).
-- **Scope now:** local-first, single user, no auth. Auth, multi-user, and sync may come later.
+- **Scope now:** local-first, single user, no auth. One person can keep separate *profiles* (e.g. Personal, Portfolio), each its own database (Stage 1.5). Auth, multi-user, and sync may come later.
 - **Guardrail:** building the productivity app must not become the new lofty goal. Stages are small, and the MVP's test is simply *"I use it to track building it."*
 
 ---
@@ -40,7 +40,7 @@ Tasks:
 
 ---
 
-## Stage 1 — Prototype (mock AI, no real model)
+## Stage 1 — Prototype (mock AI, no real model) — done 2026-10-01
 
 **Goal:** the complete core loop, *write → extract → review → apply → briefing*, working end to end with the deterministic **mock extractor**. This validates the data model, pipeline, changeset system, and UI before any AI cost or unpredictability enters the picture.
 
@@ -97,6 +97,48 @@ Tasks:
 
 ---
 
+## Stage 1.5 — Foundation refinement
+
+**Goal:** settle the base the rest of the app builds on (appearance, settings, profiles, deletion, and the shape of tasks) now that the Stage 1 frontend is close to its finished form, so Stage 2 and later don't redo it. Comes from the owner's Stage 1 review (`docs/Stage-1-Review.md`). The core loop keeps working throughout: `make e2e` passes after every task.
+
+### 1.5A. Fixes and visual basics
+- [ ] **1.5.1** Icons via `lucide-svelte` (only the icons used are bundled). The collapsed diary sidebar shows an icon with a tooltip instead of sideways text. The diary's "Save" button becomes "Write Entry".
+- [ ] **1.5.2** Button variants as shared components: `primary` (filled accent), `secondary` (outlined, e.g. Edit), `quiet` (subtle background, for actions that are bare text today such as "more" and "read again"), and `danger` (red, for delete and remove). Apply them on every screen. Add to SPEC §11: red marks destructive buttons only, never state.
+- [ ] **1.5.3** Text areas grow with their content up to a maximum height and scroll only past it, with no resize handle. A thin scrollbar styled from theme tokens everywhere. Remove the health footer; show a calm banner only when the server can't be reached.
+- [ ] **1.5.4** A `plan` observation kind (new migration rebuilding the `observations.kind` CHECK) with its own highlight colour. The mock's `todo:` lines produce one, so a new task is visible in the timeline, not only in the changeset. Update SPEC §6.1 and §10.4 and MOCK-TESTING.md.
+- [ ] **1.5.5** Observation links to entities the same changeset creates: an extractor link may name a temp ID (`$new:N`); it is stored pending, resolved when that op is applied, and dropped if the op is rejected. The mock links `todo:`/`doing:`/`done:` highlights to the tasks they create, so Task detail shows them. Plan first (touches `internal/changeset` and the pipeline); update SPEC §6.2 and §7.1.
+
+### 1.5B. Settings and profiles
+- [ ] **1.5.6** Settings store: a `settings` table (new migration) and `GET`/`PATCH /api/settings`. User preferences (active-project cap, questions per entry, and later theme and fonts) live here; `config.toml` keeps technical settings (port, data dir, mock latency), and its preference values only seed a new profile's defaults. Update SPEC §10.5.
+- [ ] **1.5.7** **Settings** screen, starting with the caps. Lowering the active-project cap below the current number of active projects deactivates nothing; it applies to the next activation.
+- [ ] **1.5.8** Profiles (ADR): each profile is its own SQLite file in the data dir, with a display name. The existing database becomes a profile named "Personal". The server opens every profile at startup, each with its own store, worker, SSE hub, and briefing service; pending runs resume in every profile. The API names the profile in the path, since `EventSource` can't send headers (exact shape settled in the ADR). Endpoints to list, create, rename, and delete profiles; deleting removes the database file (with its `-wal`/`-shm`), and the last profile can't be deleted. Update SPEC §4, §6, and §10.
+- [ ] **1.5.9** Profile switcher in the app shell; the browser remembers the active profile. Create and rename profiles; delete one from Settings, confirmed by typing its name, with copy saying plainly that everything in it goes. Deleting the active profile switches to another first.
+
+### 1.5C. Appearance
+- [ ] **1.5.10** Fonts bundled with the app (`@fontsource`, no external CDN). Two separate per-profile settings, each with a live preview in Settings: an **interface font** (Inter, Geist, Manrope, IBM Plex Sans, Atkinson Hyperlegible Next) and a **diary font** (the same five plus Literata, a serif, as the default).
+- [ ] **1.5.11** Themes, per profile, chosen in Settings with preview swatches. Dark: **Midnight** (the current purple) and **Forest** (deep green, teal accent). Light: **Paper** (warm off-white, indigo accent), **Sage** (soft green), and **Dawn** (cream, amber accent). Every theme meets WCAG AA text contrast, and no accent is near the `danger` red. A new profile copies the current profile's appearance.
+
+### 1.5D. Organising and deleting
+- [ ] **1.5.12** Archive projects (ADR): an `archived` project status that hides the project from the Now screen, lists, project pickers, and the extraction snapshot. An "Archived" group on the Projects screen restores a project to `parked`. Update SPEC §6.
+- [ ] **1.5.13** Delete a project (ADR, replacing "projects can't be deleted" in SPEC §6.2): a `delete_project` op in a `source=manual` changeset removes the project with its tasks, blockers, ideas, milestones, briefing, and links. The confirmation shows what goes with it and asks about its diary entries: **keep them** (they become unscoped, text untouched) or **delete them too** (as in 1.5.14).
+- [ ] **1.5.14** Delete a diary entry: removes the entry with its runs, observations and links, follow-up questions, and pending changesets. Changes already applied from it stay, with their origin cleared. A question it answered becomes dismissed; replies to its questions lose the reply link. Entries are still never *edited*. Offered from each entry card's menu, with confirmation. Update SPEC §5, §6.2, and §7.1.
+- [ ] **1.5.15** Many projects stay tidy: the Projects screen gets a filter box, sorts each status group by last activity, and collapses Done and Archived by default. Project pickers (diary scope, the guessed-project picker in review) become searchable comboboxes.
+
+### 1.5E. Richer tasks
+- [ ] **1.5.16** Subtasks in the UI: the Project screen nests subtasks under their parent; Task detail shows them as a checklist with **Add step** (`create_task` with `parent_task_id`), a checkbox that marks a step done (or back to todo), reordering, and delete. The briefing may recommend a step and names its parent ("step 2 of *Set up CI*").
+- [ ] **1.5.17** Rich text editor (ADR; Tiptap or similar): word-processor editing with headings, bold and italic, bulleted, numbered, and check lists, and links, stored as markdown. Used for task notes, a project's why and definition of done, and an idea's body. The diary input stays plain text. Checklists in notes are free-form detail; steps the system should track are subtasks.
+- [ ] **1.5.18** Milestones in the backend: `create_milestone` {project_id, title, description?}, `update_milestone` {milestone_id, title?, description?, status?, position?}, `delete_milestone` (its tasks stay, with no milestone), and `milestone_id` accepted on `create_task` and `update_task`. A new migration rebuilds `change_ops` with the extended op-type CHECK (as in 1.4). Store, validation, applier, API, and tests. Plan first (touches the schema and `internal/changeset`); update SPEC §6.
+- [ ] **1.5.19** Milestones in the UI: the Project screen groups tasks by milestone (plus "No milestone") with add, edit, reorder, and mark done or dropped; tasks can move between milestones. The heuristic briefing prefers tasks in the first open milestone. Proposing milestones from diary entries waits for the Stage 2 prompt.
+
+**Exit criteria:**
+- At least two profiles in use, each with its own theme and fonts; switching is instant and nothing leaks between them.
+- Projects can be archived, restored, and deleted; diary entries and profiles can be deleted.
+- A task can have hand-made steps and formatted notes, and tasks can be grouped into milestones.
+- A `todo:` line shows a highlight in the diary, linked to its task once applied.
+- `make test`, `make lint`, and `make e2e` pass.
+
+---
+
 ## Stage 2 — MVP (real AI, dogfoodable)
 
 **Goal:** swap in a real model so natural-language entries work, with just enough polish that the owner **uses Waypoint to track the rest of Waypoint's development.**
@@ -119,7 +161,7 @@ Tasks:
 - [ ] **2.11** Better follow-up questions (stalled tasks, missing next step, negative tone).
 
 ### 2D. Usability minimums
-- [ ] **2.12** Settings screen: provider, model, endpoint, and key (key stored in config, masked in UI and excluded from export).
+- [ ] **2.12** Provider settings on the Settings screen (1.5.7): provider, model, endpoint, and key (key stored in config, masked in UI and excluded from export).
 - [ ] **2.13** JSON export (`/api/export`) and a documented "back up by copying the DB file" note.
 - [ ] **2.14** Error and empty states; a first-run flow that creates the first project.
 - [ ] **2.15** README: install, configure a provider, run.
@@ -139,7 +181,6 @@ Tasks:
 
 **Goal:** fix what dogfooding revealed, then add the ADHD-support features from the spec. Priorities should come from the friction log, not from this list. Candidates:
 
-- Milestones (outcome layer above tasks).
 - Energy and size filters; the "low energy? try one of these" option in the briefing. Needs a self-reported energy field on entries (removed from the Stage 0 schema; add it with a new migration) to match against `tasks.energy`.
 - Staleness prompts ("still want this?") for long-untouched tasks.
 - "Welcome back" recap after multi-day gaps.
@@ -168,7 +209,7 @@ Tasks:
 
 ## Later / future (not planned yet)
 
-- Authentication and multiple users (add `user_id` scoping, sessions or tokens, and non-localhost binding with TLS guidance).
+- Authentication and multiple users (add `user_id` scoping, sessions or tokens, and non-localhost binding with TLS guidance). Profiles (1.5.8) separate one person's areas of life; they are not accounts.
 - Sync between devices, or a hosted version.
 - Replaying state from entries (true event sourcing) for re-extraction with newer models.
 - Mobile-friendly UI and voice entry.
@@ -190,8 +231,8 @@ Tasks:
 Ideas and tangents captured mid-work (via `/park`). Not scheduled. Review them at the start of each stage.
 - [ ] SPEC §10.1 lists a `release` Makefile target that no task covers yet; CI (0.9) cross-compiles inline, so a `release` target belongs with the release pipeline (parked 2026-09-29; suggested stage: 4, with 4.2)
 - [ ] Configurable bind host (e.g. `0.0.0.0` for Docker); only safe once auth exists, so the server stays on `127.0.0.1` for now (parked 2026-09-29; suggested stage: later)
-- [ ] Deleting a project. Blocked by entry immutability (entries reference projects); needs a decision on what happens to its entries, tasks, and ideas. Parking or finishing covers it for now (parked 2026-09-29; suggested stage: later)
-- [ ] Manage user-facing settings (caps and similar preferences) in the app, beyond the provider settings in 2.12, instead of only via `config.toml`/env; technical settings such as port can stay in `config.toml` (parked 2026-09-29; suggested stage: 3)
+- [x] *(Scheduled as 1.5.13.)* Deleting a project. Blocked by entry immutability (entries reference projects); needs a decision on what happens to its entries, tasks, and ideas. Parking or finishing covers it for now (parked 2026-09-29; suggested stage: later)
+- [x] *(Scheduled as 1.5.6–1.5.7.)* Manage user-facing settings (caps and similar preferences) in the app, beyond the provider settings in 2.12, instead of only via `config.toml`/env; technical settings such as port can stay in `config.toml` (parked 2026-09-29; suggested stage: 3)
 - [ ] `add_dependency` doesn't check for dependency cycles (A blocked by B blocked by A); it needs a store query for a task's dependencies. Add it with the task dependencies UI (parked 2026-09-29; suggested stage: 3)
 - [ ] The heuristic's entry excerpt is read fresh (newest observation linked to the next task). If the LLM briefer should choose the excerpt itself, it needs somewhere to store it, such as a nullable `excerpt_observation_id` on `briefings`. Also: `briefing.Service` refreshes synchronously after each apply and holds a mutex across the Briefer call, which is fine for the heuristic but would put a model call on the apply request path; the LLM briefer should refresh in the background (parked 2026-09-30; suggested stage: 2, with the LLM briefer)
-- [ ] More colour palettes or UI themes (e.g. other accent colours, a light theme), chosen in the app. 1.16b ships one dark purple theme with its colours as named tokens so more can be added (parked 2026-09-30; suggested stage: 3)
+- [x] *(Scheduled as 1.5.11.)* More colour palettes or UI themes (e.g. other accent colours, a light theme), chosen in the app. 1.16b ships one dark purple theme with its colours as named tokens so more can be added (parked 2026-09-30; suggested stage: 3)
