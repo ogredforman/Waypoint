@@ -18,6 +18,8 @@
   // projects is only for counting active ones against the cap; the server has the final say.
   let projects = $state<Project[]>([])
   let cap = $state<number | null>(null)
+  // tasksVersion remounts the task list when an idea is promoted into it.
+  let tasksVersion = $state(0)
 
   const activeCount = $derived(countActive(projects))
 
@@ -68,8 +70,13 @@
   {:else}
     <ProjectHeader {project} onsaved={updated} />
     <ProjectStatus {project} {activeCount} {cap} onchanged={updated} />
-    <ProjectTasks projectId={project.id} />
+    {#key tasksVersion}<ProjectTasks projectId={project.id} />{/key}
     <ProjectBlockers projectId={project.id} />
-    <ProjectIdeas projectId={project.id} />
+    <ProjectIdeas
+      projectId={project.id}
+      onpromoted={(r) => {
+        if (r.task?.project_id === project?.id) tasksVersion++
+      }}
+    />
   {/if}
 </section>

@@ -1,13 +1,23 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { ApiError, getJSON } from '../lib/api/client'
-  import type { Idea } from '../lib/api/types.gen'
+  import type { Idea, Project, PromoteIdeaResponse } from '../lib/api/types.gen'
+  import IdeaRow from './IdeaRow.svelte'
   import Panel from './ui/Panel.svelte'
 
-  let { projectId }: { projectId: number } = $props()
+  let {
+    projectId,
+    onpromoted,
+  }: {
+    projectId: number
+    // onpromoted lets the Project screen show a task promoted into it.
+    onpromoted?: (r: PromoteIdeaResponse) => void
+  } = $props()
 
-  // Parked ideas only (the endpoint's default). Promote and delete come with the Parking lot.
+  // Parked ideas only (the endpoint's default).
   let ideas = $state<Idea[] | null>(null)
+  // projects are where a promoted task can go.
+  let projects = $state<Project[] | null>(null)
   let loadError = $state('')
 
   async function load() {
@@ -19,7 +29,22 @@
     }
   }
 
-  onMount(load)
+  async function loadProjects() {
+    try {
+      projects = await getJSON<Project[]>('/api/projects')
+    } catch {
+      projects = null // promoting to a new project still works
+    }
+  }
+
+  function removed(id: number) {
+    ideas = (ideas ?? []).filter((i) => i.id !== id)
+  }
+
+  onMount(() => {
+    load()
+    loadProjects()
+  })
 </script>
 
 <section aria-labelledby="ideas-heading" class="space-y-3">
@@ -38,10 +63,15 @@
     <Panel>
       <ul class="divide-y divide-line" aria-label="Parked ideas">
         {#each ideas as idea (idea.id)}
-          <li class="px-4 py-3">
-            <p class="text-ink">{idea.title}</p>
-            {#if idea.body}<p class="mt-0.5 text-sm whitespace-pre-line text-ink-muted">{idea.body}</p>{/if}
-          </li>
+          <IdeaRow
+            {idea}
+            {projects}
+            onpromoted={(r) => {
+              removed(r.idea.id)
+              onpromoted?.(r)
+            }}
+            ondeleted={removed}
+          />
         {/each}
       </ul>
     </Panel>

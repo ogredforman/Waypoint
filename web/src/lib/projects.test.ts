@@ -4,6 +4,7 @@ import type { Project } from './api/types.gen'
 import {
   activateCapMessage,
   activeProjects,
+  parkedProjects,
   atCap,
   capMessage,
   countActive,
@@ -71,6 +72,12 @@ describe('newProjectRequest', () => {
 describe('activeProjects', () => {
   it('keeps only active projects, in order', () => {
     expect(activeProjects([project(1, 'active'), project(2, 'parked'), project(3, 'active')]).map((p) => p.id)).toEqual([1, 3])
+  })
+})
+
+describe('parkedProjects', () => {
+  it('keeps only parked projects, in order', () => {
+    expect(parkedProjects([project(1, 'parked'), project(2, 'paused'), project(3, 'parked')]).map((p) => p.id)).toEqual([1, 3])
   })
 })
 

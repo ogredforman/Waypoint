@@ -81,7 +81,7 @@ Tasks:
 - [x] **1.19c** **Project** screen blockers and ideas: open and resolved blockers with resolve, deleting a blocker asks for confirmation; this project's parked ideas (promote and delete come in 1.21).
 - [x] **1.19d** Atomic task reorder: `POST /api/tasks/{id}/move` (`{"direction": "up"|"down"}`) swaps `position` with the neighbouring task in the same status group as one `source=manual` changeset (two `update_task` ops, one briefing refresh); the Project screen's move up/down uses it instead of two PATCHes.
 - [x] **1.20** **Task detail:** origin entry and linked observations timeline.
-- [ ] **1.21** **Parking lot:** ideas and parked projects; promote to task or project; activate a parked project (same cap handling as 1.16); delete an idea (with confirmation).
+- [x] **1.21** **Parking lot:** ideas and parked projects; promote to task or project; activate a parked project (same cap handling as 1.16); delete an idea (with confirmation).
 - [ ] **1.22** Live updates via SSE; a "processing…" state on new entries.
 - [ ] **1.23** Playwright smoke test: create project → write entry with `todo:`/`blocked:` lines → apply → task and blocker appear → briefing updates.
 

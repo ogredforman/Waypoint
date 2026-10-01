@@ -101,9 +101,13 @@ pieces. Tests sit next to the code as `*.test.ts`.
   inline edit, status, delete with confirmation); move up/down is one `POST /api/tasks/{id}/move` (`api/tasks.go`
   `moveTask`, `movePositions`). `lib/tasks.ts`: `groupTasks`, `taskPatch`, `newTaskRequest`.
   Blockers: `components/ProjectBlockers.svelte` (open, then resolved) → `BlockerRow.svelte` (resolve, delete with confirmation);
-  `lib/blockers.ts`: `splitBlockers`. Ideas: `components/ProjectIdeas.svelte` (this project's parked ideas, read-only).
+  `lib/blockers.ts`: `splitBlockers`. Ideas: `components/ProjectIdeas.svelte` (this project's parked ideas) → `IdeaRow.svelte`.
 - Task detail: `screens/Task.svelte` (`GET /api/tasks/{id}`: fields, origin entry, linked observations grouped by entry
   via `lib/tasks.ts` `observationTimeline`; read-only, edits live on the Project screen). `lib/entries.ts` `kindLabel`.
+- Parking lot: `screens/ParkingLot.svelte` (all parked ideas and parked projects) → `components/IdeaRow.svelte` (promote to a
+  task in a chosen project or to a parked project, delete with confirmation; also used by `ProjectIdeas`) and
+  `ParkedProjectRow.svelte` (activate, calm cap handling). `lib/ideas.ts`: `promoteTargets`, `defaultTarget`, `projectName`;
+  `lib/projects.ts` `parkedProjects`.
 - Theme: named tokens in `app.css` `@theme` (`canvas`/`surface`/`raised`/`line`, `ink`/`ink-muted`/
   `ink-faint`, `accent`/`accent-strong`/`accent-deep`/`on-accent`, `shadow-glow`/`focus`/`edge`,
   `text-title`, `px-gutter`, `rounded-card`). Use these, not raw Tailwind colours.

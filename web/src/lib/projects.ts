@@ -105,3 +105,8 @@ export function activateCapMessage(activeCount: number, cap: number): string {
   const projects = activeCount === 1 ? 'project' : 'projects'
   return `You have ${activeCount} active ${projects}, and the limit is ${cap}. Pause or finish one when you'd like to make this one active.`
 }
+
+// parkedProjects are the projects the Parking lot shows, in their list order.
+export function parkedProjects(projects: Project[]): Project[] {
+  return projects.filter((p) => p.status === 'parked')
+}

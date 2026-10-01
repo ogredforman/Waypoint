@@ -27,7 +27,10 @@ let ideas: Idea[]
 let failWrites = false
 const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
   const method = init?.method ?? 'GET'
-  if (method === 'GET') return json(url.startsWith('/api/ideas') ? ideas : blockers)
+  if (method === 'GET') {
+    if (url === '/api/projects') return json([])
+    return json(url.startsWith('/api/ideas') ? ideas : blockers)
+  }
   if (failWrites) return json({ error: { code: 'internal', message: 'Something went wrong.' } }, 500)
   const id = Number(url.split('/').pop())
   if (method === 'DELETE') return new Response(null, { status: 204 })
