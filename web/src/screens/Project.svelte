@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import ProjectHeader from '../components/ProjectHeader.svelte'
   import ProjectStatus from '../components/ProjectStatus.svelte'
+  import ProjectTasks from '../components/ProjectTasks.svelte'
   import { ApiError, getJSON } from '../lib/api/client'
   import type { Project, Settings } from '../lib/api/types.gen'
   import { countActive } from '../lib/projects'
@@ -65,5 +66,6 @@
   {:else}
     <ProjectHeader {project} onsaved={updated} />
     <ProjectStatus {project} {activeCount} {cap} onchanged={updated} />
+    <ProjectTasks projectId={project.id} />
   {/if}
 </section>
