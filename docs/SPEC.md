@@ -340,7 +340,8 @@ GET    /api/projects/{id}             PATCH /api/projects/{id}
 GET    /api/projects/{id}/tasks       POST /api/projects/{id}/tasks
 PATCH  /api/tasks/{id}                GET  /api/tasks/{id} (incl. linked observations + origin)
 DELETE /api/tasks/{id}               POST /api/tasks/{id}/move   body: { direction: up|down }
-GET    /api/projects/{id}/blockers    PATCH /api/blockers/{id}   DELETE /api/blockers/{id}
+GET    /api/projects/{id}/blockers    POST /api/projects/{id}/blockers
+PATCH  /api/blockers/{id}             DELETE /api/blockers/{id}
 GET    /api/ideas?status=&project_id= PATCH /api/ideas/{id}      DELETE /api/ideas/{id}
 POST   /api/ideas/{id}/promote        body: { to: task|project, project_id? }
 GET    /api/entries?project_id=&before=&limit=   POST /api/entries

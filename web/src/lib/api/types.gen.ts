@@ -16,6 +16,15 @@ export interface Blocker {
   updated_at: string;
 }
 /**
+ * CreateBlockerRequest is the body of POST /api/projects/{id}/blockers. A
+ * blocker starts open, on the project alone unless TaskID names one of the
+ * project's tasks.
+ */
+export interface CreateBlockerRequest {
+  description: string;
+  task_id?: number /* int64 */;
+}
+/**
  * UpdateBlockerRequest is the body of PATCH /api/blockers/{id}. Only the
  * fields present change; a null task_id leaves the blocker on the project
  * alone. Status can only be set to resolved.

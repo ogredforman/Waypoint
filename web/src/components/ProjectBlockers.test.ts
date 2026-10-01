@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { flushSync, mount, tick, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Blocker, Idea } from '../lib/api/types.gen'
+import type { Blocker, Idea, Task } from '../lib/api/types.gen'
 import ProjectBlockers from './ProjectBlockers.svelte'
 import ProjectIdeas from './ProjectIdeas.svelte'
 
@@ -24,14 +24,20 @@ let target: HTMLElement
 let component: ReturnType<typeof mount> | undefined
 let blockers: Blocker[]
 let ideas: Idea[]
+let tasks: Task[] = []
 let failWrites = false
 const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
   const method = init?.method ?? 'GET'
   if (method === 'GET') {
     if (url === '/api/projects') return json([])
+    if (url.endsWith('/tasks')) return json(tasks)
     return json(url.startsWith('/api/ideas') ? ideas : blockers)
   }
   if (failWrites) return json({ error: { code: 'internal', message: 'Something went wrong.' } }, 500)
+  if (method === 'POST') {
+    const body = JSON.parse(init!.body as string)
+    return json(blocker(9, 'open', { task_id: body.task_id ?? null, description: body.description }), 201)
+  }
   const id = Number(url.split('/').pop())
   if (method === 'DELETE') return new Response(null, { status: 204 })
   return json({ ...blockers.find((b) => b.id === id)!, status: 'resolved', updated_at: '2026-09-30' })
@@ -44,6 +50,7 @@ function json(v: unknown, status = 200): Response {
 beforeEach(() => {
   fetchMock.mockClear()
   failWrites = false
+  tasks = []
   vi.stubGlobal('fetch', fetchMock)
   target = document.createElement('div')
   document.body.append(target)
@@ -70,6 +77,17 @@ async function render(bs: Blocker[]) {
   await settle()
 }
 
+function task(id: number, status: Task['status'], position: number): Task {
+  return { id, status, position, title: `T${id}` } as Task
+}
+
+function type(selector: string, value: string) {
+  const input = target.querySelector<HTMLInputElement>(selector)!
+  input.value = value
+  input.dispatchEvent(new Event('input', { bubbles: true }))
+  flushSync()
+}
+
 function buttons(text: string): HTMLButtonElement[] {
   return [...target.querySelectorAll('button')].filter((b) => b.textContent?.trim() === text)
 }
@@ -94,6 +112,51 @@ describe('ProjectBlockers', () => {
   it('shows a calm empty state', async () => {
     await render([])
     expect(target.textContent).toContain('Nothing in the way.')
+  })
+
+  it('adds a blocker on the project alone, offering only open tasks', async () => {
+    tasks = [task(1, 'done', 0), task(2, 'todo', 2), task(3, 'in_progress', 1)]
+    await render([])
+    const select = target.querySelector<HTMLSelectElement>('#new-blocker-task')!
+    expect([...select.options].map((o) => o.textContent)).toEqual(['No task', 'T3', 'T2'])
+    type('#new-blocker-description', '  waiting on parts ')
+    buttons('Add')[0].click()
+    await settle()
+    expect(writes()).toEqual([{ url: '/api/projects/7/blockers', method: 'POST', body: { description: 'waiting on parts' } }])
+    expect(descriptions('Open')).toEqual(['waiting on parts'])
+    expect(target.querySelector<HTMLInputElement>('#new-blocker-description')!.value).toBe('')
+  })
+
+  it('adds a blocker on a chosen task', async () => {
+    tasks = [task(3, 'todo', 0)]
+    await render([])
+    type('#new-blocker-description', 'no key')
+    const select = target.querySelector<HTMLSelectElement>('#new-blocker-task')!
+    select.selectedIndex = 1
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+    flushSync()
+    buttons('Add')[0].click()
+    await settle()
+    expect(writes()).toEqual([{ url: '/api/projects/7/blockers', method: 'POST', body: { description: 'no key', task_id: 3 } }])
+    expect(target.querySelector('ul[aria-label="Open"] a')?.getAttribute('href')).toBe('/tasks/3')
+  })
+
+  it('asks calmly for a description instead of sending a blank one', async () => {
+    await render([])
+    buttons('Add')[0].click()
+    await settle()
+    expect(writes()).toEqual([])
+    expect(target.textContent).toContain("Say what's in the way.")
+  })
+
+  it('says so when adding fails, keeping what was typed', async () => {
+    await render([])
+    failWrites = true
+    type('#new-blocker-description', 'no key')
+    buttons('Add')[0].click()
+    await settle()
+    expect(target.textContent).toContain('Something went wrong.')
+    expect(target.querySelector<HTMLInputElement>('#new-blocker-description')!.value).toBe('no key')
   })
 
   it('resolves a blocker and moves it to Resolved', async () => {

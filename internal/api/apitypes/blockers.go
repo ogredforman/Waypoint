@@ -18,6 +18,14 @@ type Blocker struct {
 	UpdatedAt       time.Time            `json:"updated_at"`
 }
 
+// CreateBlockerRequest is the body of POST /api/projects/{id}/blockers. A
+// blocker starts open, on the project alone unless TaskID names one of the
+// project's tasks.
+type CreateBlockerRequest struct {
+	Description string `json:"description"`
+	TaskID      *int64 `json:"task_id,omitempty"`
+}
+
 // UpdateBlockerRequest is the body of PATCH /api/blockers/{id}. Only the
 // fields present change; a null task_id leaves the blocker on the project
 // alone. Status can only be set to resolved.

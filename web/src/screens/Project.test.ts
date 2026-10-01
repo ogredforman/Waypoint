@@ -132,7 +132,8 @@ describe('Project screen live updates', () => {
     expect(text()).not.toContain('Need a key')
     expect(text()).toContain('Export')
     expect(fetched('/api/projects/7')).toBe(1)
-    expect(fetched('/api/projects/7/tasks')).toBe(1)
+    // Once for the task list and once for the blockers' task picker.
+    expect(fetched('/api/projects/7/tasks')).toBe(2)
     expect(fetched('/api/projects/7/blockers')).toBe(1)
     expect(fetched('/api/settings')).toBe(2)
   })

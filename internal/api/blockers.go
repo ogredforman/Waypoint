@@ -7,6 +7,36 @@ import (
 	"github.com/ogredforman/waypoint/internal/domain"
 )
 
+// createBlocker takes an apitypes.CreateBlockerRequest as one create_blocker.
+func (h *handlers) createBlocker(w http.ResponseWriter, r *http.Request) {
+	projectID, err := h.projectFromPath(r)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	body, err := readObject(w, r)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	create, err := opFrom(domain.OpCreateBlocker, body, map[string]any{"project_id": projectID})
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	res, err := h.applier.ApplyManual(r.Context(), create)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	b, err := h.store.GetBlocker(r.Context(), res.Created[1])
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, blockerDTO(b))
+}
+
 // updateBlocker takes an apitypes.UpdateBlockerRequest: an update_blocker
 // for the fields other than status, then a resolve_blocker if status is
 // resolved, as one changeset. Reopening isn't an op, so no other status is

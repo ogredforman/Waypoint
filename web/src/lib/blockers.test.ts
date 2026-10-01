@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { Blocker } from './api/types.gen'
-import { splitBlockers } from './blockers'
+import type { Blocker, Task } from './api/types.gen'
+import { newBlockerRequest, openTasks, splitBlockers } from './blockers'
 
 function blocker(id: number, status: Blocker['status'], created_at: string, updated_at = created_at): Blocker {
   return {
@@ -30,5 +30,20 @@ describe('splitBlockers', () => {
 
   it('handles an empty list', () => {
     expect(splitBlockers([])).toEqual({ open: [], resolved: [] })
+  })
+})
+
+describe('openTasks', () => {
+  it('keeps todo and in-progress tasks in position order', () => {
+    const task = (id: number, status: Task['status'], position: number) => ({ id, status, position }) as Task
+    const got = openTasks([task(1, 'done', 0), task(2, 'todo', 3), task(3, 'in_progress', 1), task(4, 'dropped', 2)])
+    expect(got.map((t) => t.id)).toEqual([3, 2])
+  })
+})
+
+describe('newBlockerRequest', () => {
+  it('trims the description and leaves out an empty task', () => {
+    expect(newBlockerRequest('  no key  ', '')).toEqual({ description: 'no key' })
+    expect(newBlockerRequest('no key', 5)).toEqual({ description: 'no key', task_id: 5 })
   })
 })

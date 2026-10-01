@@ -356,13 +356,31 @@ func TestBlockerRoutes(t *testing.T) {
 	s := newServer(t)
 	p := s.project("Waypoint", domain.ProjectActive)
 	task := ok[apitypes.Task](s, http.StatusCreated, "POST", fmt.Sprintf("/api/projects/%d/tasks", p.ID), `{"title": "Ship"}`)
-	res, err := s.applier.ApplyManual(context.Background(), changeset.CreateBlocker{ProjectID: changeset.ID(p.ID), Description: "waiting on parts"})
-	if err != nil {
-		t.Fatal(err)
+	blockersURL := fmt.Sprintf("/api/projects/%d/blockers", p.ID)
+	before := s.manualChangesets()
+	created := ok[apitypes.Blocker](s, http.StatusCreated, "POST", blockersURL, `{"description": "waiting on parts"}`)
+	if created.Description != "waiting on parts" || created.Status != domain.BlockerOpen || created.TaskID != nil || created.ProjectID != p.ID {
+		t.Errorf("created blocker = %+v", created)
 	}
-	blockerURL := fmt.Sprintf("/api/blockers/%d", res.Created[1])
+	if got := s.manualChangesets(); got != before+1 {
+		t.Errorf("manual changesets = %d, want %d", got, before+1)
+	}
+	onTask := ok[apitypes.Blocker](s, http.StatusCreated, "POST", blockersURL, map[string]any{"description": "no key", "task_id": task.ID})
+	if onTask.TaskID == nil || *onTask.TaskID != task.ID {
+		t.Errorf("blocker on task = %+v", onTask)
+	}
+	other := s.project("Garden", domain.ProjectParked)
+	otherTask := ok[apitypes.Task](s, http.StatusCreated, "POST", fmt.Sprintf("/api/projects/%d/tasks", other.ID), `{"title": "Dig"}`)
+	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", blockersURL, `{"description": "  "}`)
+	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", blockersURL, map[string]any{"description": "x", "task_id": otherTask.ID})
+	s.fails(http.StatusNotFound, "not_found", "POST", "/api/projects/999/blockers", `{"description": "x"}`)
+	// Remove the blocker on the task so the checks below see one blocker.
+	if rec := s.call("DELETE", fmt.Sprintf("/api/blockers/%d", onTask.ID), nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("DELETE blocker: status = %d, want 204", rec.Code)
+	}
+	blockerURL := fmt.Sprintf("/api/blockers/%d", created.ID)
 
-	list := ok[[]apitypes.Blocker](s, http.StatusOK, "GET", fmt.Sprintf("/api/projects/%d/blockers", p.ID), nil)
+	list := ok[[]apitypes.Blocker](s, http.StatusOK, "GET", blockersURL, nil)
 	if len(list) != 1 || list[0].Status != domain.BlockerOpen || list[0].TaskID != nil {
 		t.Errorf("blockers = %+v", list)
 	}
@@ -707,6 +725,8 @@ func TestRequestTypesMatchOps(t *testing.T) {
 			with(without(jsonFields(changeset.CreateTask{}), "project_id", "milestone_id"), "status")},
 		{"UpdateTaskRequest", apitypes.UpdateTaskRequest{},
 			with(without(jsonFields(changeset.UpdateTask{}), "task_id"), "status")},
+		{"CreateBlockerRequest", apitypes.CreateBlockerRequest{},
+			without(jsonFields(changeset.CreateBlocker{}), "project_id")},
 		{"UpdateBlockerRequest", apitypes.UpdateBlockerRequest{},
 			with(without(jsonFields(changeset.UpdateBlocker{}), "blocker_id"), "status")},
 		{"UpdateIdeaRequest", apitypes.UpdateIdeaRequest{},
