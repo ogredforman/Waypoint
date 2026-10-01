@@ -44,6 +44,7 @@ export function observationHref(o: Observation): string | null {
 
 const kindLabels: Record<ObservationKind, string> = {
   progress: 'Progress',
+  plan: 'Plan',
   blocker: 'Blocker',
   idea: 'Idea',
   feeling: 'Feeling',
@@ -55,6 +56,14 @@ const kindLabels: Record<ObservationKind, string> = {
 // kindLabel names an observation's kind for display.
 export function kindLabel(kind: ObservationKind): string {
   return kindLabels[kind]
+}
+
+// highlightClass colours a highlight by its kind: plans (things the user means to do) get their
+// own tint, so a new task stands out in the timeline; every other kind uses the accent. A linked
+// highlight is underlined and brightens on hover.
+export function highlightClass(kind: ObservationKind, linked: boolean): string {
+  if (kind === 'plan') return linked ? 'bg-plan/15 decoration-plan/50 hover:bg-plan/25' : 'bg-plan/15'
+  return linked ? 'bg-accent/15 decoration-accent/50 hover:bg-accent/25' : 'bg-accent/15'
 }
 
 // observationLabel describes a highlight for its tooltip.

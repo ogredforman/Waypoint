@@ -285,6 +285,7 @@ func (b *builder) line(l line) error {
 		made, err = b.setStatus(l, domain.TaskInProgress)
 	case prefixTodo:
 		if b.project != 0 {
+			b.observe(l, domain.ObservationPlan)
 			_, err = b.createTask(l)
 			made = true
 		}

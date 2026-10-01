@@ -109,8 +109,8 @@ func TestCoreSchema(t *testing.T) {
 	if err := sqlDB.QueryRowContext(ctx, "SELECT max(version_id) FROM goose_db_version").Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != 3 {
-		t.Errorf("schema version %d, want 3", version)
+	if version != 4 {
+		t.Errorf("schema version %d, want 4", version)
 	}
 	if got := appTables(t, sqlDB); !slices.Equal(got, coreTables) {
 		t.Errorf("tables %v, want %v", got, coreTables)
@@ -359,5 +359,55 @@ func TestChangesetSplitRebuild(t *testing.T) {
 	}
 	if got := ids(t, sqlDB, `SELECT id FROM change_ops ORDER BY id`); !slices.Equal(got, []int64{2}) {
 		t.Errorf("ops after down %v, want [2]", got)
+	}
+}
+
+// TestObservationPlanRebuild checks that 00004 keeps existing observations and
+// their links, accepts the plan kind, and that going back down turns plan
+// observations into notes, links kept.
+func TestObservationPlanRebuild(t *testing.T) {
+	ctx := context.Background()
+	fsys, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB := openTemp(t)
+	provider, err := goose.NewProvider(goose.DialectSQLite3, sqlDB, fsys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.UpTo(ctx, 3); err != nil {
+		t.Fatal(err)
+	}
+	seed(t, sqlDB)
+
+	if _, err := provider.UpTo(ctx, 4); err != nil {
+		t.Fatal(err)
+	}
+	noFKViolations(t, sqlDB)
+	var kind, summary string
+	if err := sqlDB.QueryRowContext(ctx, `SELECT kind, summary FROM observations WHERE id = 1`).Scan(&kind, &summary); err != nil {
+		t.Fatal(err)
+	}
+	if kind != "progress" || summary != "Wants to write the schema" {
+		t.Errorf("observation 1 after rebuild: %s %q", kind, summary)
+	}
+	if got := ids(t, sqlDB, `SELECT observation_id FROM observation_links ORDER BY id`); !slices.Equal(got, []int64{1}) {
+		t.Errorf("links after rebuild point at %v, want [1]", got)
+	}
+	exec(t, sqlDB, `INSERT INTO observations (id, entry_id, extraction_run_id, kind, summary, span_start, span_end, created_at)
+		VALUES (2, 1, 1, 'plan', 'write the schema', 0, 22, 1)`)
+	exec(t, sqlDB, `INSERT INTO observation_links (id, observation_id, target_type, target_id, confidence, created_at)
+		VALUES (2, 2, 'project', 1, 1, 1)`)
+
+	if _, err := provider.DownTo(ctx, 3); err != nil {
+		t.Fatal(err)
+	}
+	noFKViolations(t, sqlDB)
+	if err := sqlDB.QueryRowContext(ctx, `SELECT kind FROM observations WHERE id = 2`).Scan(&kind); err != nil || kind != "note" {
+		t.Errorf("plan observation after down: %q, %v", kind, err)
+	}
+	if got := ids(t, sqlDB, `SELECT observation_id FROM observation_links ORDER BY id`); !slices.Equal(got, []int64{1, 2}) {
+		t.Errorf("links after down point at %v, want [1 2]", got)
 	}
 }

@@ -63,7 +63,7 @@ These are requirements, not suggestions. Agents should treat violations as bugs.
 | **Task** | A concrete action the user does | `project_id`, `milestone_id?`, `parent_task_id?`, `title`, `notes`, `status` (todo / in_progress / done / dropped), `size?` (xs / s / m / l), `energy?` (low / medium / deep), `position`, `origin_entry_id?`, timestamps |
 | **Task dependency** | One task blocks another | `task_id`, `blocked_by_task_id` |
 | **Entry** | A diary entry. Immutable. | `body` (markdown text), `project_id?` (user-chosen scope, or null for auto), `reply_to_question_id?`, `created_at`. (Self-reported mood and energy are deferred to Stage 3; feelings are captured as `feeling` observations.) |
-| **Observation** | A typed fragment extracted from an entry | `entry_id`, `kind` (progress / blocker / idea / feeling / decision / question / note), `summary`, `span_start`, `span_end`, `extraction_run_id` |
+| **Observation** | A typed fragment extracted from an entry | `entry_id`, `kind` (progress / plan / blocker / idea / feeling / decision / question / note; plan is something the user means to do), `summary`, `span_start`, `span_end`, `extraction_run_id` |
 | **Observation link** | Links an observation to a project element (many-to-many) | `observation_id`, `target_type` (project / milestone / task / blocker / idea), `target_id`, `confidence` |
 | **Blocker** | Something preventing progress, with a lifecycle | `project_id`, `task_id?`, `description`, `status` (open / resolved), `origin_entry_id?`, `resolved_entry_id?`, timestamps |
 | **Idea** | A parking-lot item: a new idea or project spark | `project_id?`, `title`, `body`, `status` (parked / promoted / discarded), `origin_entry_id?` |
@@ -320,7 +320,7 @@ The mock is deterministic and rule-based, so the whole system can be built and t
 |---|---|
 | `done: <text>` | progress observation; `set_task_status` done on the best fuzzy title match, or `create_task` + done |
 | `doing: <text>` | progress observation; `set_task_status` in_progress |
-| `todo: <text>` | `create_task` |
+| `todo: <text>` | plan observation; `create_task` |
 | `blocked: <text>` | blocker observation; `create_blocker` |
 | `unblocked: <text>` | `resolve_blocker` on the best match |
 | `idea: <text>` | idea observation; `park_idea` |

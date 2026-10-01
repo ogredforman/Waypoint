@@ -128,12 +128,13 @@ func TestPrefixes(t *testing.T) {
 		{
 			name:    "todo",
 			body:    "todo: add the SSE hub",
+			wantObs: []string{"plan [todo: add the SSE hub] project:1"},
 			wantOps: []string{`create_task {"project_id":1,"title":"add the SSE hub"}`},
 		},
 		{
 			name:    "todo then doing the same task",
 			body:    "todo: add the SSE hub\ndoing: SSE hub",
-			wantObs: []string{"progress [doing: SSE hub] project:1"},
+			wantObs: []string{"plan [todo: add the SSE hub] project:1", "progress [doing: SSE hub] project:1"},
 			wantOps: []string{
 				`create_task {"project_id":1,"title":"add the SSE hub"}`,
 				`set_task_status {"task_id":"$new:1","status":"in_progress"}`,
@@ -181,6 +182,7 @@ func TestPrefixes(t *testing.T) {
 			name: "bullets, case, indentation, CRLF, and blank lines",
 			body: "  - TODO: first\r\n\r\n* Idea:  second  \r\n",
 			wantObs: []string{
+				"plan [TODO: first] project:1",
 				"idea [Idea:  second] project:1",
 			},
 			wantOps: []string{
@@ -290,7 +292,7 @@ func TestProjectGuess(t *testing.T) {
 // TestBlindGuessLinks checks that a project guessed without clues isn't
 // linked from observations: the review UI can move ops, not observations.
 func TestBlindGuessLinks(t *testing.T) {
-	body := "Long day.\ndone: mock extractor\nsomething else"
+	body := "Long day.\ndone: mock extractor\ntodo: call mom\nsomething else"
 	snap := snapshot()
 	snap.Projects[0].Title, snap.Projects[1].Title = "Alpha", "Beta"
 	snap.Projects[0].Tasks = nil // no task clue either
@@ -298,6 +300,7 @@ func TestBlindGuessLinks(t *testing.T) {
 	equal(t, "observations", observations(body, res), []string{
 		"note [Long day.]",
 		"progress [done: mock extractor]",
+		"plan [todo: call mom]",
 		"note [something else]",
 	})
 }
