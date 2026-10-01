@@ -79,7 +79,7 @@ Tasks:
 - [x] **1.19a** **Project** screen header: editable title, why, and definition of done; project status changes (active, paused, parked, done) with the same calm handling at the active-project cap as 1.16. The API client handles 204 responses and gains PATCH and DELETE helpers.
 - [x] **1.19b** **Project** screen tasks: task list grouped by status with add task, inline edit, status changes, and reordering (move up/down swaps `position` with the neighbouring task in the same group); deleting a task asks for confirmation.
 - [x] **1.19c** **Project** screen blockers and ideas: open and resolved blockers with resolve, deleting a blocker asks for confirmation; this project's parked ideas (promote and delete come in 1.21).
-- [ ] **1.19d** Atomic task reorder: `POST /api/tasks/{id}/move` (`{"direction": "up"|"down"}`) swaps `position` with the neighbouring task in the same status group as one `source=manual` changeset (two `update_task` ops, one briefing refresh); the Project screen's move up/down uses it instead of two PATCHes.
+- [x] **1.19d** Atomic task reorder: `POST /api/tasks/{id}/move` (`{"direction": "up"|"down"}`) swaps `position` with the neighbouring task in the same status group as one `source=manual` changeset (two `update_task` ops, one briefing refresh); the Project screen's move up/down uses it instead of two PATCHes.
 - [ ] **1.20** **Task detail:** origin entry and linked observations timeline.
 - [ ] **1.21** **Parking lot:** ideas and parked projects; promote to task or project; activate a parked project (same cap handling as 1.16); delete an idea (with confirmation).
 - [ ] **1.22** Live updates via SSE; a "processing…" state on new entries.
@@ -194,4 +194,3 @@ Ideas and tangents captured mid-work (via `/park`). Not scheduled. Review them a
 - [ ] Manual blocker creation: `POST /api/projects/{id}/blockers` as a `create_blocker` manual changeset. SPEC §10.5 has no route for it; blockers come from entries for now, and PATCH/DELETE cover editing (parked 2026-09-30; suggested stage: 1, with 1.19)
 - [ ] Client-side navigation scrolls to the top but doesn't move focus or announce the new page, so screen-reader users get no cue. Focus the new screen's `<h1>` (`tabindex="-1"`) after `navigate` (parked 2026-09-30; suggested stage: 1, with 1.22)
 - [ ] More colour palettes or UI themes (e.g. other accent colours, a light theme), chosen in the app. 1.16b ships one dark purple theme with its colours as named tokens so more can be added (parked 2026-09-30; suggested stage: 3)
-- [ ] Atomic task reorder endpoint: 1.19b swaps positions with two PATCHes (two changesets, not one transaction). Scheduled as PLAN 1.19d, after 1.19c and before 1.23's smoke test (parked 2026-09-30; suggested stage: 1)

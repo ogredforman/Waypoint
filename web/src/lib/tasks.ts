@@ -1,5 +1,5 @@
 import type { Energy, TaskSize, TaskStatus } from './api/enums.gen'
-import type { CreateTaskRequest, Task, UpdateTaskRequest } from './api/types.gen'
+import type { CreateTaskRequest, MoveDirection, Task, UpdateTaskRequest } from './api/types.gen'
 
 export interface TaskGroup {
   status: TaskStatus
@@ -29,33 +29,7 @@ export function groupTasks(tasks: Task[]): TaskGroup[] {
     .filter((g) => g.tasks.length > 0)
 }
 
-export type Direction = 'up' | 'down'
-
-// neighbour is the task next to t in its status group, or null at the end.
-export function neighbour(tasks: Task[], t: Task, dir: Direction): Task | null {
-  const group = tasks.filter((x) => x.status === t.status).sort(byPosition)
-  const i = group.findIndex((x) => x.id === t.id)
-  const j = dir === 'up' ? i - 1 : i + 1
-  return i < 0 || j < 0 || j >= group.length ? null : group[j]
-}
-
-export interface PositionPatch {
-  id: number
-  position: number
-}
-
-// movePatches are the position changes that move t past its neighbour n:
-// the two positions swap. Equal positions (ordered by id) can't swap, so t
-// alone steps one past n instead.
-export function movePatches(t: Task, n: Task, dir: Direction): PositionPatch[] {
-  if (t.position === n.position) {
-    return [{ id: t.id, position: dir === 'up' ? n.position - 1 : n.position + 1 }]
-  }
-  return [
-    { id: t.id, position: n.position },
-    { id: n.id, position: t.position },
-  ]
-}
+export type Direction = MoveDirection
 
 export interface TaskForm {
   title: string

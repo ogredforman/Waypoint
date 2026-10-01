@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -261,6 +262,65 @@ func TestTaskRoutes(t *testing.T) {
 	if n := s.manualChangesets(); n != 1+2+2+1 {
 		t.Errorf("manual changesets = %d, want 6", n)
 	}
+}
+
+func TestMoveTask(t *testing.T) {
+	s := newServer(t)
+	p := s.project("Waypoint", domain.ProjectActive)
+	tasksURL := fmt.Sprintf("/api/projects/%d/tasks", p.ID)
+	newTask := func(title string, position int64, status domain.TaskStatus) apitypes.Task {
+		t.Helper()
+		created := ok[apitypes.Task](s, http.StatusCreated, "POST", tasksURL, map[string]any{"title": title})
+		return ok[apitypes.Task](s, http.StatusOK, "PATCH", fmt.Sprintf("/api/tasks/%d", created.ID), map[string]any{"position": position, "status": status})
+	}
+	a := newTask("A", 1, domain.TaskTodo)
+	newTask("Other status", 2, domain.TaskDone)
+	b := newTask("B", 3, domain.TaskTodo)
+	c := newTask("C", 3, domain.TaskTodo) // same position as B; after it by id
+	before := s.manualChangesets()
+	move := func(task apitypes.Task, dir string) map[int64]int64 {
+		t.Helper()
+		moved := ok[[]apitypes.Task](s, http.StatusOK, "POST", fmt.Sprintf("/api/tasks/%d/move", task.ID), map[string]any{"direction": dir})
+		positions := map[int64]int64{}
+		for _, m := range moved {
+			positions[m.ID] = m.Position
+		}
+		return positions
+	}
+
+	// Down skips the done task and swaps A with B.
+	if got, want := move(a, "down"), map[int64]int64{a.ID: 3, b.ID: 1}; !maps.Equal(got, want) {
+		t.Errorf("move A down = %v, want %v", got, want)
+	}
+	// B is first now; A and C share position 3, so C alone steps above A.
+	if got, want := move(c, "up"), map[int64]int64{c.ID: 2}; !maps.Equal(got, want) {
+		t.Errorf("move C up = %v, want %v", got, want)
+	}
+	if n := s.manualChangesets() - before; n != 2 {
+		t.Errorf("manual changesets for 2 moves = %d, want 2", n)
+	}
+	// At the end of its group: nothing moves and no changeset is made.
+	if got := move(a, "down"); len(got) != 0 {
+		t.Errorf("move last task down = %v, want nothing", got)
+	}
+	if n := s.manualChangesets() - before; n != 2 {
+		t.Errorf("manual changesets after a no-op move = %d, want still 2", n)
+	}
+	list := ok[[]apitypes.Task](s, http.StatusOK, "GET", tasksURL, nil)
+	var order []string
+	for _, task := range list {
+		if task.Status == domain.TaskTodo {
+			order = append(order, task.Title)
+		}
+	}
+	if !slices.Equal(order, []string{"B", "C", "A"}) {
+		t.Errorf("todo order = %v, want [B C A]", order)
+	}
+
+	moveURL := fmt.Sprintf("/api/tasks/%d/move", a.ID)
+	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", moveURL, `{"direction": "sideways"}`)
+	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", moveURL, `{}`)
+	s.fails(http.StatusNotFound, "not_found", "POST", "/api/tasks/999/move", `{"direction": "up"}`)
 }
 
 func TestTaskDetailShowsLinkedObservations(t *testing.T) {

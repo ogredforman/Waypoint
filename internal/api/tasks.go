@@ -1,9 +1,11 @@
 package api
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"net/http"
+	"slices"
 
 	"github.com/ogredforman/waypoint/internal/api/apitypes"
 	"github.com/ogredforman/waypoint/internal/changeset"
@@ -197,4 +199,96 @@ func linkedObservations(ctx context.Context, tx *store.ReadTx, targetType domain
 		})
 	}
 	return out, nil
+}
+
+// moveTask takes an apitypes.MoveTaskRequest and swaps the task's position
+// with its neighbour in the same status group, as one changeset. It returns
+// the tasks it moved: none when the task is already at that end, so a
+// repeated click on a stale screen is harmless. The neighbour is read just
+// before the apply, not in its transaction; with a single user that's fine.
+func (h *handlers) moveTask(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r, "id")
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	t, err := h.store.GetTask(r.Context(), id)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	var req apitypes.MoveTaskRequest
+	if err := readJSON(w, r, &req); err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	if req.Direction != apitypes.MoveDirectionUp && req.Direction != apitypes.MoveDirectionDown {
+		h.fail(w, r, invalid("move", "direction", "must be up or down"))
+		return
+	}
+	tasks, err := h.store.ListTasksByProject(r.Context(), t.ProjectID)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	ops := movePositions(tasks, t, req.Direction)
+	out := []apitypes.Task{}
+	if len(ops) == 0 {
+		writeJSON(w, http.StatusOK, out)
+		return
+	}
+	payloads := make([]changeset.Payload, len(ops))
+	for i, op := range ops {
+		payloads[i] = op
+	}
+	if _, err := h.applier.ApplyManual(r.Context(), payloads...); err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	for _, op := range ops {
+		moved, err := h.store.GetTask(r.Context(), op.TaskID.ID)
+		if err != nil {
+			h.fail(w, r, err)
+			return
+		}
+		out = append(out, taskDTO(moved))
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// movePositions returns the position changes that move t past its
+// neighbour in the same status group (ordered by position, then id): the
+// two positions swap. Equal positions can't swap, so t alone steps one past
+// the neighbour. It returns nil when t is already at that end.
+func movePositions(tasks []domain.Task, t domain.Task, dir apitypes.MoveDirection) []changeset.UpdateTask {
+	var group []domain.Task
+	for _, x := range tasks {
+		if x.Status == t.Status {
+			group = append(group, x)
+		}
+	}
+	slices.SortStableFunc(group, func(a, b domain.Task) int {
+		return cmp.Or(cmp.Compare(a.Position, b.Position), cmp.Compare(a.ID, b.ID))
+	})
+	i := slices.IndexFunc(group, func(x domain.Task) bool { return x.ID == t.ID })
+	j := i + 1
+	if dir == apitypes.MoveDirectionUp {
+		j = i - 1
+	}
+	if i < 0 || j < 0 || j >= len(group) {
+		return nil
+	}
+	n := group[j]
+	if t.Position == n.Position {
+		pos := n.Position + 1
+		if dir == apitypes.MoveDirectionUp {
+			pos = n.Position - 1
+		}
+		return []changeset.UpdateTask{{TaskID: changeset.ID(t.ID), Position: &pos}}
+	}
+	tPos, nPos := n.Position, t.Position
+	return []changeset.UpdateTask{
+		{TaskID: changeset.ID(t.ID), Position: &tPos},
+		{TaskID: changeset.ID(n.ID), Position: &nPos},
+	}
 }

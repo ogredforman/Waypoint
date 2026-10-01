@@ -2,8 +2,8 @@
   import { onMount } from 'svelte'
   import { ApiError, getJSON, patchJSON, postJSON } from '../lib/api/client'
   import { energyValues, taskSizeValues, type Energy, type TaskSize } from '../lib/api/enums.gen'
-  import type { Task } from '../lib/api/types.gen'
-  import { groupTasks, movePatches, neighbour, newTaskRequest, type Direction } from '../lib/tasks'
+  import type { MoveTaskRequest, Task } from '../lib/api/types.gen'
+  import { groupTasks, newTaskRequest, type Direction } from '../lib/tasks'
   import TaskRow from './TaskRow.svelte'
   import Button from './ui/Button.svelte'
   import Input from './ui/Input.svelte'
@@ -65,18 +65,15 @@
     }
   }
 
-  // move swaps positions with the neighbouring task as two PATCHes. They
-  // aren't one transaction (see Parked in PLAN.md); if one fails, the list
-  // reloads to show what the server has, keeping the list if that fails too.
+  // move swaps the task with its neighbour in one request and puts the
+  // tasks the server moved in place. If it fails, the list reloads to show
+  // what the server has, keeping the list if that fails too.
   async function move(t: Task, dir: Direction) {
-    const n = tasks === null ? null : neighbour(tasks, t, dir)
-    if (n === null) return
     moveNotice = ''
     moving = true
     try {
-      for (const p of movePatches(t, n, dir)) {
-        replace(await patchJSON<Task>(`/api/tasks/${p.id}`, { position: p.position }))
-      }
+      const moved = await postJSON<Task[]>(`/api/tasks/${t.id}/move`, { direction: dir } satisfies MoveTaskRequest)
+      moved.forEach(replace)
     } catch (err) {
       moveNotice = err instanceof ApiError ? err.message : "Couldn't move the task."
       try {

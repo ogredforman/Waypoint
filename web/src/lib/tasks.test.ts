@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { TaskStatus } from './api/enums.gen'
 import type { Task } from './api/types.gen'
-import { groupTasks, movePatches, neighbour, newTaskRequest, taskFields, taskPatch } from './tasks'
+import { groupTasks, newTaskRequest, taskFields, taskPatch } from './tasks'
 
 function task(id: number, status: TaskStatus, position: number, extra: Partial<Task> = {}): Task {
   return {
@@ -39,35 +39,6 @@ describe('groupTasks', () => {
   it('leaves out empty sections', () => {
     expect(groupTasks([task(1, 'todo', 1)]).map((g) => g.status)).toEqual(['todo'])
     expect(groupTasks([])).toEqual([])
-  })
-})
-
-describe('neighbour', () => {
-  const tasks = [task(1, 'todo', 1), task(2, 'done', 2), task(3, 'todo', 3), task(4, 'todo', 4)]
-
-  it('finds the adjacent task in the same group, skipping other statuses', () => {
-    expect(neighbour(tasks, tasks[2], 'up')?.id).toBe(1)
-    expect(neighbour(tasks, tasks[0], 'down')?.id).toBe(3)
-  })
-
-  it('is null at either end of the group', () => {
-    expect(neighbour(tasks, tasks[0], 'up')).toBeNull()
-    expect(neighbour(tasks, tasks[3], 'down')).toBeNull()
-    expect(neighbour(tasks, tasks[1], 'down')).toBeNull()
-  })
-})
-
-describe('movePatches', () => {
-  it('swaps the two positions', () => {
-    expect(movePatches(task(3, 'todo', 3), task(1, 'todo', 1), 'up')).toEqual([
-      { id: 3, position: 1 },
-      { id: 1, position: 3 },
-    ])
-  })
-
-  it('steps past a neighbour with the same position', () => {
-    expect(movePatches(task(3, 'todo', 2), task(1, 'todo', 2), 'up')).toEqual([{ id: 3, position: 1 }])
-    expect(movePatches(task(1, 'todo', 2), task(3, 'todo', 2), 'down')).toEqual([{ id: 1, position: 3 }])
   })
 })
 

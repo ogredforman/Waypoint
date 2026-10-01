@@ -26,10 +26,12 @@ function task(id: number, status: TaskStatus, position: number, extra: Partial<T
 let target: HTMLElement
 let component: ReturnType<typeof mount> | undefined
 let server: Task[]
+let moved: Task[]
 const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
   const method = init?.method ?? 'GET'
   const body = init?.body ? JSON.parse(init.body as string) : undefined
   if (method === 'GET') return json(server)
+  if (url.endsWith('/move')) return json(moved)
   if (method === 'POST') return json(task(99, 'todo', 9, body), 201)
   const id = Number(url.split('/').pop())
   if (method === 'DELETE') return new Response(null, { status: 204 })
@@ -43,6 +45,7 @@ function json(v: unknown, status = 200): Response {
 
 beforeEach(() => {
   fetchMock.mockClear()
+  moved = []
   vi.stubGlobal('fetch', fetchMock)
   target = document.createElement('div')
   document.body.append(target)
@@ -134,15 +137,23 @@ describe('ProjectTasks', () => {
     expect(titles('Done')).toEqual(['T1'])
   })
 
-  it('moves a task down by swapping positions with its neighbour', async () => {
+  it('moves a task with one request and shows what the server moved', async () => {
     await render([task(1, 'todo', 1), task(2, 'done', 2), task(3, 'todo', 3)])
     expect(button('Move T1 up').disabled).toBe(true)
+    moved = [task(1, 'todo', 3), task(3, 'todo', 1)]
     button('Move T1 down').click()
     await settle()
-    expect(writes()).toEqual([
-      { url: '/api/tasks/1', method: 'PATCH', body: { position: 3 } },
-      { url: '/api/tasks/3', method: 'PATCH', body: { position: 1 } },
-    ])
+    expect(writes()).toEqual([{ url: '/api/tasks/1/move', method: 'POST', body: { direction: 'down' } }])
+    expect(titles('To do')).toEqual(['T3', 'T1'])
+  })
+
+  it('reloads the list when a move fails', async () => {
+    await render([task(1, 'todo', 1), task(3, 'todo', 3)])
+    fetchMock.mockImplementationOnce(async () => json({ error: { code: 'invalid', message: 'No.' } }, 422))
+    server = [task(1, 'todo', 5), task(3, 'todo', 3)]
+    button('Move T1 down').click()
+    await settle()
+    expect(target.textContent).toContain('No.')
     expect(titles('To do')).toEqual(['T3', 'T1'])
   })
 

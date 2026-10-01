@@ -479,3 +479,17 @@ export interface LinkedObservation {
   quote: string;
   confidence: number /* float64 */;
 }
+/**
+ * MoveDirection is which way a task moves within its status group.
+ */
+export const MoveDirectionUp = "up";
+export const MoveDirectionDown = "down";
+export type MoveDirection = typeof MoveDirectionUp | typeof MoveDirectionDown;
+/**
+ * MoveTaskRequest is the body of POST /api/tasks/{id}/move. The task swaps
+ * position with its neighbour in the same status group; the response is the
+ * tasks whose position changed, none when it is already at that end.
+ */
+export interface MoveTaskRequest {
+  direction: MoveDirection;
+}

@@ -115,6 +115,7 @@ func (h *handlers) routes(r chi.Router) {
 	r.Get("/tasks/{id}", h.getTask)
 	r.Patch("/tasks/{id}", h.updateTask)
 	r.Delete("/tasks/{id}", h.deleteTask)
+	r.Post("/tasks/{id}/move", h.moveTask)
 
 	r.Patch("/blockers/{id}", h.updateBlocker)
 	r.Delete("/blockers/{id}", h.deleteBlocker)
