@@ -114,14 +114,14 @@
     <div class="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
       <p>Waypoint couldn't read this entry. It's saved as written.</p>
       {#if !asking}
-        <Button variant="secondary" class="px-3 py-1 text-xs" disabled={rereading} onclick={readAgain}>Read again</Button>
+        <Button variant="secondary" size="xs" disabled={rereading} onclick={readAgain}>Read again</Button>
       {/if}
     </div>
   {:else if canReprocess(detail) && !asking}
     <div class="flex items-center gap-1 text-xs">
-      <Button variant="quiet" class="px-1 py-0 text-xs" aria-expanded={moreOpen} onclick={() => (moreOpen = !moreOpen)}>More</Button>
+      <Button variant="quiet" size="xs" aria-expanded={moreOpen} onclick={() => (moreOpen = !moreOpen)}>More</Button>
       {#if moreOpen}
-        <Button variant="quiet" class="px-1 py-0 text-xs" disabled={rereading} onclick={readAgain}>Read again</Button>
+        <Button variant="quiet" size="xs" disabled={rereading} onclick={readAgain}>Read again</Button>
       {/if}
     </div>
   {/if}
@@ -129,8 +129,8 @@
   {#if asking}
     <div class="flex flex-wrap items-center gap-2 text-sm" role="group" aria-label="Confirm reading again">
       <span class="text-ink-muted">{warning ?? 'Read this entry again?'}</span>
-      <Button variant="secondary" class="px-3 py-1" disabled={rereading} onclick={confirmReadAgain}>Read again</Button>
-      <Button variant="quiet" class="px-3 py-1" onclick={keep}>Keep these</Button>
+      <Button variant="secondary" size="sm" disabled={rereading} onclick={confirmReadAgain}>Read again</Button>
+      <Button variant="quiet" size="sm" onclick={keep}>Keep these</Button>
     </div>
   {/if}
   {#if rereadNotice}<p class="text-xs text-ink-muted" role="status">{rereadNotice}</p>{/if}

@@ -82,10 +82,10 @@
       {/if}
     </div>
     <div class="flex shrink-0 items-center gap-1">
-      <Button variant="secondary" class="px-3 py-1" disabled={promoting} onclick={openPromote}>Promote</Button>
+      <Button variant="secondary" size="sm" disabled={promoting} onclick={openPromote}>Promote</Button>
       <Button
-        variant="quiet"
-        class="px-2"
+        variant="danger"
+        size="sm"
         onclick={() => {
           promoting = false
           confirmingDelete = true
@@ -125,18 +125,18 @@
         <Button
           type="submit"
           variant="secondary"
-          class="px-3 py-1"
+          size="sm"
           disabled={saving || (to === 'task' && targetId === null)}>Promote idea</Button
         >
-        <Button variant="quiet" class="px-3 py-1" onclick={() => (promoting = false)}>Cancel</Button>
+        <Button variant="quiet" size="sm" onclick={() => (promoting = false)}>Cancel</Button>
       </div>
     </form>
   {/if}
   {#if confirmingDelete}
     <div class="mt-2 flex items-center gap-2 text-sm" role="group" aria-label="Confirm delete">
       <span class="text-ink-muted">Delete this idea?</span>
-      <Button variant="secondary" class="px-3 py-1" disabled={saving} onclick={remove}>Delete idea</Button>
-      <Button variant="quiet" class="px-3 py-1" onclick={() => (confirmingDelete = false)}>Keep it</Button>
+      <Button variant="danger" size="sm" disabled={saving} onclick={remove}>Delete idea</Button>
+      <Button variant="quiet" size="sm" onclick={() => (confirmingDelete = false)}>Keep it</Button>
     </div>
   {/if}
   {#if notice}<p class="mt-2 text-sm text-accent" role="status">{notice}</p>{/if}

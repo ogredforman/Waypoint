@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Button from '../components/ui/Button.svelte'
   import { onMount } from 'svelte'
   import Card from '../components/ui/Card.svelte'
   import { ApiError, getJSON } from '../lib/api/client'
@@ -65,7 +66,7 @@
     <h1 class="text-title font-semibold tracking-tight text-ink" {@attach pageHeading}>Task</h1>
     <p class="text-ink-muted">
       {loadError}
-      <button type="button" class="ml-1 text-accent underline underline-offset-2" onclick={load}>Try again</button>
+      <Button variant="quiet" size="xs" class="ml-1" onclick={load}>Try again</Button>
     </p>
   {:else if task === null || detail === null}
     <p class="text-ink-muted">Loading…</p>

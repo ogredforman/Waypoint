@@ -48,7 +48,7 @@
       <a href={paths.project(project.id)} class="text-ink hover:text-accent">{project.title}</a>
       {#if project.why}<p class="mt-0.5 text-sm whitespace-pre-line text-ink-muted">{project.why}</p>{/if}
     </div>
-    <Button variant="secondary" class="shrink-0 px-3 py-1" disabled={full || saving} onclick={activate}>Activate</Button>
+    <Button variant="secondary" size="sm" class="shrink-0" disabled={full || saving} onclick={activate}>Activate</Button>
   </div>
   {#if notice}
     <p class="mt-2 text-sm text-accent" role="status">{notice}</p>

@@ -374,7 +374,7 @@ Request and response bodies are the DTOs in `internal/api/apitypes`, with TypeSc
 5. **Parking lot**: ideas and parked projects.
 6. **Settings**: provider, model, keys, caps.
 
-UX notes: keyboard-first diary input (Ctrl/Cmd+Enter to submit); calm visual design (a dark theme with a purple accent and restrained gradients and glows; glow draws attention, never alarm); no red "overdue" states; empty states that encourage starting small; text areas grow with their content to a maximum height, then scroll; the server's status appears only as a calm banner when it can't be reached (or can't reach its database), never as a permanent indicator.
+UX notes: keyboard-first diary input (Ctrl/Cmd+Enter to submit); calm visual design (a dark theme with a purple accent and restrained gradients and glows; glow draws attention, never alarm); no red "overdue" states; empty states that encourage starting small; text areas grow with their content to a maximum height, then scroll; the server's status appears only as a calm banner when it can't be reached (or can't reach its database), never as a permanent indicator. Buttons come in four variants: primary (the one main action), secondary (outlined alternatives such as Edit), quiet (subtle, for cancel and small in-line actions), and danger; red marks destructive buttons only (delete, remove), never state.
 
 ## 12. Quality and testing
 

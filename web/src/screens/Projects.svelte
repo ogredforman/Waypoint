@@ -63,7 +63,7 @@
   {#if loadError}
     <p class="text-ink-muted">
       {loadError}
-      <button type="button" class="ml-1 text-accent underline underline-offset-2" onclick={load}>Try again</button>
+      <Button variant="quiet" size="xs" class="ml-1" onclick={load}>Try again</Button>
     </p>
   {:else if projects === null}
     <p class="text-ink-muted">Loading…</p>

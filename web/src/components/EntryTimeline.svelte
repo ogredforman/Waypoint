@@ -17,7 +17,7 @@
 {#if timeline.status === 'error'}
   <p class="text-sm text-ink-muted">
     {timeline.error}
-    <button type="button" class="ml-1 text-accent underline underline-offset-2" onclick={loadTimeline}>Try again</button>
+    <Button variant="quiet" size="xs" class="ml-1" onclick={loadTimeline}>Try again</Button>
   </p>
 {:else if timeline.status !== 'ready' && timeline.items.length === 0}
   <p class="text-sm text-ink-muted">Loading…</p>

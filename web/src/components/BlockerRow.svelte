@@ -55,16 +55,16 @@
     </div>
     <div class="flex shrink-0 items-center gap-1">
       {#if !resolved}
-        <Button variant="secondary" class="px-3 py-1" disabled={saving} onclick={resolve}>Resolve</Button>
+        <Button variant="secondary" size="sm" disabled={saving} onclick={resolve}>Resolve</Button>
       {/if}
-      <Button variant="quiet" class="px-2" onclick={() => (confirmingDelete = true)}>Delete</Button>
+      <Button variant="danger" size="sm" onclick={() => (confirmingDelete = true)}>Delete</Button>
     </div>
   </div>
   {#if confirmingDelete}
     <div class="mt-2 flex items-center gap-2 text-sm" role="group" aria-label="Confirm delete">
       <span class="text-ink-muted">Delete this blocker?</span>
-      <Button variant="secondary" class="px-3 py-1" disabled={saving} onclick={remove}>Delete blocker</Button>
-      <Button variant="quiet" class="px-3 py-1" onclick={() => (confirmingDelete = false)}>Keep it</Button>
+      <Button variant="danger" size="sm" disabled={saving} onclick={remove}>Delete blocker</Button>
+      <Button variant="quiet" size="sm" onclick={() => (confirmingDelete = false)}>Keep it</Button>
     </div>
   {/if}
   {#if notice}<p class="mt-2 text-sm text-accent" role="status">{notice}</p>{/if}

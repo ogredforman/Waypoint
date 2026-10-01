@@ -25,6 +25,7 @@ const textPairs: [string, string][] = [
   ...['ink', 'ink-muted', 'accent'].flatMap((fg) => ['canvas', 'surface', 'raised'].map((bg): [string, string] => [fg, bg])),
   ['on-accent', 'accent-strong'],
   ['on-accent', 'accent-deep'],
+  ['on-accent', 'danger'],
 ]
 
 // blend paints fg at the given opacity over bg in sRGB, close to what a `bg-plan/15` tint renders.

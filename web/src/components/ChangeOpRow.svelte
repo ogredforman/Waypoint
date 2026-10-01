@@ -84,14 +84,14 @@
   {:else if choice}
     <div class="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
       <span>{decided[choice.action]}</span>
-      <Button variant="quiet" class="px-2 py-1 text-xs" onclick={onundo} {disabled}>Undo</Button>
+      <Button variant="quiet" size="xs" onclick={onundo} {disabled}>Undo</Button>
     </div>
   {:else}
     <div class="flex flex-wrap gap-2">
-      <Button variant="secondary" class="px-3 py-1" onclick={onaccept} disabled={disabled || blockedBy !== null}>Accept</Button>
-      <Button variant="quiet" class="px-3 py-1" onclick={onreject} {disabled}>Reject</Button>
+      <Button variant="secondary" size="sm" onclick={onaccept} disabled={disabled || blockedBy !== null}>Accept</Button>
+      <Button variant="quiet" size="sm" onclick={onreject} {disabled}>Reject</Button>
       {#if fields.length > 0}
-        <Button variant="quiet" class="px-3 py-1" onclick={startEdit} {disabled}>Edit</Button>
+        <Button variant="secondary" size="sm" onclick={startEdit} {disabled}>Edit</Button>
       {/if}
     </div>
     {#if blockedBy !== null}

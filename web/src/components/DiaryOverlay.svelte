@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Button from './ui/Button.svelte'
   import BookOpen from '@lucide/svelte/icons/book-open'
   import DiaryContent from './DiaryContent.svelte'
 
@@ -35,9 +36,7 @@
   <div class="flex h-full flex-col">
     <div class="flex items-center justify-between gap-2 border-b border-line px-gutter py-3">
       <h2 id="diary-overlay-title" class="font-semibold tracking-tight">Diary</h2>
-      <button type="button" class="rounded-control px-2 py-1 text-label text-ink-muted hover:text-ink" onclick={() => dialog.close()}>
-        Close
-      </button>
+      <Button variant="quiet" size="xs" onclick={() => dialog.close()}>Close</Button>
     </div>
     <div class="min-h-0 flex-1 overflow-y-auto p-gutter">
       {#if open}<DiaryContent />{/if}

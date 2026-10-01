@@ -119,7 +119,7 @@ pieces. Tests sit next to the code as `*.test.ts`.
   `ink-faint`, `accent`/`accent-strong`/`accent-deep`/`on-accent`, `plan` (plan highlights; `lib/entries.ts` `highlightClass`), `shadow-glow`/`focus`/`edge`,
   `text-title`, `px-gutter`, `rounded-card`). Use these, not raw Tailwind colours. Thin scrollbars from tokens in `@layer base`.
   `lib/theme.test.ts` checks AA contrast for the text pairs.
-- `components/ui/`: `Button` (`primary`/`secondary`/`quiet`), `Input`, `Textarea` (`bind:value`; grows to
+- `components/ui/`: `Button` (`primary`/`secondary`/`quiet`/`danger`, `size` `md`/`sm`/`xs`), `Input`, `Textarea` (`bind:value`; grows to
   `max-h-64`, or `max-h-96` with `tall`, then scrolls, via `lib/autosize.ts`),
   `Card` (`glow` for the one thing to notice), `Panel` (row container). `npm --prefix web test`, `npm --prefix web run check`.
 - Icons: `@lucide/svelte`, imported one per path (`import BookOpen from '@lucide/svelte/icons/book-open'`) so only

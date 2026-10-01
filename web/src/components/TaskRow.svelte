@@ -167,19 +167,21 @@
         {#if task.notes}<p class="mt-0.5 text-sm whitespace-pre-line text-ink-muted">{task.notes}</p>{/if}
       </div>
       <div class="flex shrink-0 items-center gap-1">
-        <button
-          type="button"
+        <Button
+          variant="quiet"
+          size="xs"
           aria-label="Move {task.title} up"
           disabled={!canMoveUp || moving}
           onclick={() => onmove('up')}
-          class="rounded-control px-1.5 text-ink-muted hover:text-ink disabled:invisible">↑</button
+          class="disabled:invisible">↑</Button
         >
-        <button
-          type="button"
+        <Button
+          variant="quiet"
+          size="xs"
           aria-label="Move {task.title} down"
           disabled={!canMoveDown || moving}
           onclick={() => onmove('down')}
-          class="rounded-control px-1.5 text-ink-muted hover:text-ink disabled:invisible">↓</button
+          class="disabled:invisible">↓</Button
         >
         <label for="{idPrefix}-status" class="sr-only">Status of {task.title}</label>
         <select
@@ -191,15 +193,15 @@
         >
           {#each statusLabels as o (o.status)}<option value={o.status}>{o.label}</option>{/each}
         </select>
-        <Button variant="quiet" class="px-2" onclick={edit}>Edit</Button>
-        <Button variant="quiet" class="px-2" onclick={() => (confirmingDelete = true)}>Delete</Button>
+        <Button variant="secondary" size="sm" onclick={edit}>Edit</Button>
+        <Button variant="danger" size="sm" onclick={() => (confirmingDelete = true)}>Delete</Button>
       </div>
     </div>
     {#if confirmingDelete}
       <div class="mt-2 flex items-center gap-2 text-sm" role="group" aria-label="Confirm delete">
         <span class="text-ink-muted">Delete this task?</span>
-        <Button variant="secondary" class="px-3 py-1" disabled={saving} onclick={remove}>Delete task</Button>
-        <Button variant="quiet" class="px-3 py-1" onclick={() => (confirmingDelete = false)}>Keep it</Button>
+        <Button variant="danger" size="sm" disabled={saving} onclick={remove}>Delete task</Button>
+        <Button variant="quiet" size="sm" onclick={() => (confirmingDelete = false)}>Keep it</Button>
       </div>
     {/if}
     {#if notice}<p class="mt-2 text-sm text-accent" role="status">{notice}</p>{/if}

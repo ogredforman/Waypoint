@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Button from './ui/Button.svelte'
   import { onMount } from 'svelte'
   import { ApiError, getJSON } from '../lib/api/client'
   import { latest, liveReload } from '../lib/live'
@@ -69,7 +70,7 @@
   {#if loadError}
     <p class="text-ink-muted">
       {loadError}
-      <button type="button" class="ml-1 text-accent underline underline-offset-2" onclick={load}>Try again</button>
+      <Button variant="quiet" size="xs" class="ml-1" onclick={load}>Try again</Button>
     </p>
   {:else if ideas === null}
     <p class="text-ink-muted">Loading…</p>

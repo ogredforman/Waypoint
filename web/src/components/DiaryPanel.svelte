@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Button from './ui/Button.svelte'
   import BookOpen from '@lucide/svelte/icons/book-open'
   import {
     browserStorage,
@@ -91,15 +92,15 @@
       <h2 id="diary-panel-title" class="font-semibold tracking-tight">Diary</h2>
       <div class="flex items-center gap-1 text-label">
         <a href={paths.diary} class="rounded-control px-2 py-1 text-ink-muted hover:text-ink">Full page</a>
-        <button
-          type="button"
-          class="rounded-control px-2 py-1 text-ink-muted hover:text-ink"
+        <Button
+          variant="quiet"
+          size="xs"
           aria-expanded="true"
           aria-controls="diary-panel"
           onclick={() => (open = false)}
         >
           Hide
-        </button>
+        </Button>
       </div>
     </div>
 
