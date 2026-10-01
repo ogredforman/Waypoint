@@ -1,4 +1,4 @@
-import { ApiError, getJSON } from './api/client'
+import { ApiError, getJSON, postJSON } from './api/client'
 import type { Entry, EntryDetail, EntryPage, ExtractionRun, Project } from './api/types.gen'
 import { on, onReconnect } from './events'
 
@@ -116,6 +116,17 @@ export async function addEntry(entry: Entry, run?: ExtractionRun): Promise<void>
   const detail = run ? { entry, run, observations: [], questions: [], changesets: [] } : null
   timeline.items.unshift({ entry, detail, error: '' })
   await loadEntry(entry.id)
+}
+
+// reprocessEntry asks Waypoint to read an entry again. The server rejects the
+// entry's pending changesets and dismisses its open questions; the entry shows
+// as being read straight away, then reloads so those go too. Errors (e.g. a
+// 409 while a run is under way) are the caller's to show.
+export async function reprocessEntry(id: number): Promise<void> {
+  const run = await postJSON<ExtractionRun>(`/api/entries/${id}/reprocess`, undefined)
+  const item = timeline.items.find((i) => i.entry.id === id)
+  if (item?.detail) item.detail.run = run
+  await loadEntry(id)
 }
 
 // entryChanged reloads an entry the server says changed. An entry newer than

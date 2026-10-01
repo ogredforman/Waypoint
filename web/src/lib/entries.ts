@@ -90,6 +90,41 @@ export function runState(detail: EntryDetail): RunState {
   }
 }
 
+// canReprocess says whether an entry can be read again: its detail has loaded
+// and no run is queued or under way (the server refuses one then).
+export function canReprocess(detail: EntryDetail | null): detail is EntryDetail {
+  return detail !== null && runState(detail) !== 'reading'
+}
+
+// ReprocessImpact is what reading an entry again would replace: the ops still
+// waiting for review in its pending changesets (split-offs included), and its
+// open questions.
+export interface ReprocessImpact {
+  ops: number
+  questions: number
+}
+
+export function reprocessImpact(detail: EntryDetail): ReprocessImpact {
+  const ops = detail.changesets
+    .filter((c) => c.status === 'pending')
+    .reduce((n, c) => n + c.ops.filter((op) => op.status === 'pending').length, 0)
+  const questions = detail.questions.filter((q) => q.status === 'open').length
+  return { ops, questions }
+}
+
+const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+
+// reprocessWarning says, calmly, what reading again replaces, or null when
+// nothing would be.
+export function reprocessWarning({ ops, questions }: ReprocessImpact): string | null {
+  const parts = [
+    ops > 0 ? count(ops, 'proposed change', 'proposed changes') : '',
+    questions > 0 ? count(questions, 'open question', 'open questions') : '',
+  ].filter(Boolean)
+  if (parts.length === 0) return null
+  return `Reading this again replaces what's waiting here: ${parts.join(' and ')}.`
+}
+
 // repliedQuestion finds the question an entry answers among the loaded
 // details, or null if it isn't a reply or the question isn't loaded.
 export function repliedQuestion(entry: Entry, details: (EntryDetail | null)[]): Question | null {

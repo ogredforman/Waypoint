@@ -15,10 +15,14 @@ vi.mock('./api/client', async (importOriginal) => {
       if (!routes.has(path)) throw new real.ApiError(404, 'not_found', `no route ${path}`)
       return routes.get(path)
     },
+    postJSON: async (path: string) => {
+      if (!routes.has(`POST ${path}`)) throw new real.ApiError(404, 'not_found', `no route ${path}`)
+      return routes.get(`POST ${path}`)
+    },
   }
 })
 
-const { addEntry, followEvents, loadEntry, loadOlder, loadTimeline, pageSize, timeline } = await import('./timeline.svelte')
+const { addEntry, followEvents, loadEntry, loadOlder, loadTimeline, pageSize, reprocessEntry, timeline } = await import('./timeline.svelte')
 
 const stopFollowing = followEvents()
 const stopEvents = startEvents(fakeOpen)
@@ -148,6 +152,21 @@ describe('timeline', () => {
     release({ ...detail(1), run: run('running') })
     await stale
     expect(timeline.items[0].detail?.run?.status).toBe('succeeded')
+  })
+
+  it('shows a reprocessed entry as being read, then reloads it', async () => {
+    routes.set(first, page([1], null))
+    routes.set('/api/entries/1', { ...detail(1), run: run('failed') })
+    await loadTimeline()
+    let release: (d: EntryDetail) => void = () => {}
+    routes.set('POST /api/entries/1/reprocess', run('pending'))
+    routes.set('/api/entries/1', new Promise<EntryDetail>((resolve) => (release = resolve)))
+    const reprocessing = reprocessEntry(1)
+    await settle()
+    expect(timeline.items[0].detail?.run?.status).toBe('pending')
+    release({ ...detail(1), run: run('running') })
+    await reprocessing
+    expect(timeline.items[0].detail?.run?.status).toBe('running')
   })
 
   it('reloads an entry when its run finishes', async () => {

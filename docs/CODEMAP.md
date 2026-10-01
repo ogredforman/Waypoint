@@ -91,7 +91,8 @@ pieces. Tests sit next to the code as `*.test.ts`.
   outlives the panel/overlay).
 - Diary timeline: `components/EntryTimeline.svelte` → `EntryCard.svelte` (highlights, run state) →
   `FollowUpQuestion.svelte` (answer/dismiss). `lib/timeline.svelte.ts`: shared timeline state (`loadTimeline`,
-  `loadOlder`, `loadEntry`, `addEntry`, `followEvents`). `lib/entries.ts`: `segments`, `observationHref`, detail helpers.
+  `loadOlder`, `loadEntry`, `addEntry`, `reprocessEntry`, `followEvents`). `lib/entries.ts`: `segments`, `observationHref`, detail helpers,
+  reading again (`canReprocess`, `reprocessImpact`, `reprocessWarning`). `components/EntryCard.test.ts`.
 - Changeset review: `EntryCard` → `components/ChangesetReview.svelte` (one per pending changeset; project
   picker, Apply / Accept all) → `ChangeOpRow.svelte` (accept/reject/edit). `lib/review.ts`: pure logic
   (`reject`/`accept` cascades over `$new:N`, `guessedProject`, `noProject`, `applyRequest`, `describe` using

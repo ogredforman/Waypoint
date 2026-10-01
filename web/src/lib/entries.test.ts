@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import type { Entry, EntryDetail, Observation, ObservationLink } from './api/types.gen'
-import { observationHref, pendingChangesets, repliedQuestion, runState, segments, shownQuestions } from './entries'
+import {
+  canReprocess,
+  observationHref,
+  pendingChangesets,
+  repliedQuestion,
+  reprocessImpact,
+  reprocessWarning,
+  runState,
+  segments,
+  shownQuestions,
+} from './entries'
 
 function obs(id: number, start: number, end: number, links: ObservationLink[] = []): Observation {
   return { id, kind: 'note', summary: `obs ${id}`, span_start: start, span_end: end, links }
@@ -133,5 +143,76 @@ describe('entry detail helpers', () => {
     expect(repliedQuestion(entry(2, 4), details)?.text).toBe('q4')
     expect(repliedQuestion(entry(2, 9), details)).toBeNull()
     expect(repliedQuestion(entry(2), details)).toBeNull()
+  })
+})
+
+describe('reading again', () => {
+  const op = (status: 'pending' | 'applied' | 'rejected') => ({
+    id: 1,
+    position: 1,
+    op_type: 'create_task' as const,
+    payload: {},
+    rationale: null,
+    confidence: null,
+    status,
+    applied_payload: null,
+    refs: {},
+  })
+  const cs = (id: number, status: 'pending' | 'applied' | 'rejected', ops: ReturnType<typeof op>[], parent: number | null = null) => ({
+    id,
+    source: 'extraction' as const,
+    entry_id: 1,
+    parent_changeset_id: parent,
+    status,
+    ops,
+    created_at: '',
+    resolved_at: null,
+  })
+  const q = (id: number, status: 'open' | 'answered' | 'dismissed') => ({
+    id,
+    entry_id: 1,
+    text: '',
+    reason: '',
+    status,
+    answer_entry_id: null,
+    created_at: '',
+  })
+  const run = (status: 'pending' | 'running' | 'succeeded' | 'failed') => ({
+    id: 1,
+    entry_id: 1,
+    status,
+    error: null,
+    created_at: '',
+    updated_at: '',
+  })
+
+  it("isn't offered before the detail loads or while a run is under way", () => {
+    expect(canReprocess(null)).toBe(false)
+    expect(canReprocess(detail({ run: run('pending') }))).toBe(false)
+    expect(canReprocess(detail({ run: run('running') }))).toBe(false)
+    expect(canReprocess(detail({ run: run('failed') }))).toBe(true)
+    expect(canReprocess(detail({ run: run('succeeded') }))).toBe(true)
+  })
+
+  it('counts undecided ops in pending changesets, split-offs included, and open questions', () => {
+    const d = detail({
+      changesets: [
+        cs(1, 'applied', [op('applied'), op('rejected')]),
+        cs(2, 'pending', [op('pending'), op('pending')], 1),
+        cs(3, 'pending', [op('pending'), op('rejected')]),
+        cs(4, 'rejected', [op('rejected')]),
+      ],
+      questions: [q(1, 'open'), q(2, 'answered'), q(3, 'dismissed')],
+    })
+    expect(reprocessImpact(d)).toEqual({ ops: 3, questions: 1 })
+  })
+
+  it('says what is replaced, or nothing when nothing is', () => {
+    expect(reprocessWarning({ ops: 0, questions: 0 })).toBeNull()
+    expect(reprocessWarning({ ops: 1, questions: 0 })).toBe("Reading this again replaces what's waiting here: 1 proposed change.")
+    expect(reprocessWarning({ ops: 3, questions: 1 })).toBe(
+      "Reading this again replaces what's waiting here: 3 proposed changes and 1 open question.",
+    )
+    expect(reprocessWarning({ ops: 0, questions: 2 })).toBe("Reading this again replaces what's waiting here: 2 open questions.")
   })
 })
