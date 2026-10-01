@@ -1,0 +1,134 @@
+import { describe, expect, it } from 'vitest'
+import type { Entry, EntryDetail, Observation, ObservationLink } from './api/types.gen'
+import { observationHref, pendingOpCount, repliedQuestion, runState, segments, shownQuestions } from './entries'
+
+function obs(id: number, start: number, end: number, links: ObservationLink[] = []): Observation {
+  return { id, kind: 'note', summary: `obs ${id}`, span_start: start, span_end: end, links }
+}
+
+function link(target_type: ObservationLink['target_type'], target_id: number): ObservationLink {
+  return { target_type, target_id, confidence: 1 }
+}
+
+function entry(id: number, reply: number | null = null): Entry {
+  return { id, body: 'x', project_id: null, reply_to_question_id: reply, created_at: '2026-09-30T10:00:00Z' }
+}
+
+function detail(over: Partial<EntryDetail> = {}): EntryDetail {
+  return { entry: entry(1), run: null, observations: [], questions: [], changesets: [], ...over }
+}
+
+const texts = (body: string, os: Observation[]) => segments(body, os).map((s) => [s.text, s.observation?.id ?? null])
+
+describe('segments', () => {
+  it('returns the whole body when nothing is highlighted', () => {
+    expect(texts('hello', [])).toEqual([['hello', null]])
+  })
+
+  it('splits around highlights in span order', () => {
+    const body = 'done: a\ntodo: b\nplain'
+    expect(texts(body, [obs(2, 8, 15), obs(1, 0, 7)])).toEqual([
+      ['done: a', 1],
+      ['\n', null],
+      ['todo: b', 2],
+      ['\nplain', null],
+    ])
+  })
+
+  it('starts an overlapping span where the earlier one ends, and drops one inside it', () => {
+    expect(texts('abcdefgh', [obs(1, 0, 4), obs(2, 2, 6), obs(3, 1, 3)])).toEqual([
+      ['abcd', 1],
+      ['ef', 2],
+      ['gh', null],
+    ])
+  })
+
+  it('skips empty and out-of-range spans', () => {
+    expect(texts('abc', [obs(1, 1, 1), obs(2, 2, 9), obs(3, -1, 2)])).toEqual([['abc', null]])
+  })
+
+  it('slices by UTF-16 offsets', () => {
+    const body = 'é 🌱 ok'
+    expect(texts(body, [obs(1, 5, 7)])).toEqual([
+      ['é 🌱 ', null],
+      ['ok', 1],
+    ])
+  })
+})
+
+describe('observationHref', () => {
+  it('prefers the task, then the project, then the parking lot', () => {
+    expect(observationHref(obs(1, 0, 1, [link('project', 3), link('task', 7)]))).toBe('/tasks/7')
+    expect(observationHref(obs(1, 0, 1, [link('blocker', 4), link('project', 3)]))).toBe('/projects/3')
+    expect(observationHref(obs(1, 0, 1, [link('idea', 5)]))).toBe('/parking-lot')
+  })
+
+  it('is null without a link that has a page', () => {
+    expect(observationHref(obs(1, 0, 1))).toBeNull()
+    expect(observationHref(obs(1, 0, 1, [link('blocker', 4)]))).toBeNull()
+  })
+})
+
+describe('entry detail helpers', () => {
+  const q = (id: number, status: 'open' | 'answered' | 'dismissed') => ({
+    id,
+    entry_id: 1,
+    text: `q${id}`,
+    reason: '',
+    status,
+    answer_entry_id: null,
+    created_at: '',
+  })
+
+  it('shows open and answered questions, not dismissed ones', () => {
+    expect(shownQuestions(detail({ questions: [q(1, 'open'), q(2, 'answered'), q(3, 'dismissed')] })).map((x) => x.id)).toEqual([1, 2])
+  })
+
+  it('counts pending ops in pending changesets', () => {
+    const op = (status: 'pending' | 'applied') => ({
+      id: 1,
+      position: 1,
+      op_type: 'create_task' as const,
+      payload: {},
+      rationale: null,
+      confidence: null,
+      status,
+      applied_payload: null,
+    })
+    const cs = (status: 'pending' | 'applied', ops: ReturnType<typeof op>[]) => ({
+      id: 1,
+      source: 'extraction' as const,
+      entry_id: 1,
+      parent_changeset_id: null,
+      status,
+      ops,
+      created_at: '',
+      resolved_at: null,
+    })
+    const d = detail({ changesets: [cs('pending', [op('pending'), op('pending')]), cs('applied', [op('pending'), op('applied')])] })
+    expect(pendingOpCount(d)).toBe(2)
+  })
+
+  it('reads the run state', () => {
+    const run = (status: 'pending' | 'running' | 'succeeded' | 'failed') => ({
+      id: 1,
+      entry_id: 1,
+      status,
+      error: null,
+      created_at: '',
+      updated_at: '',
+    })
+    expect(runState(detail({ run: run('pending') }))).toBe('reading')
+    expect(runState(detail({ run: run('running') }))).toBe('reading')
+    expect(runState(detail({ run: run('failed') }))).toBe('failed')
+    expect(runState(detail({ run: run('succeeded') }))).toBe('done')
+    expect(runState(detail())).toBe('done')
+  })
+
+  it('finds the question a reply answers among loaded details', () => {
+    const details = [null, detail({ questions: [q(4, 'answered')] })]
+    expect(repliedQuestion(entry(2, 4), details)?.text).toBe('q4')
+    expect(repliedQuestion(entry(2, 9), details)).toBeNull()
+    expect(repliedQuestion(entry(2), details)).toBeNull()
+  })
+})

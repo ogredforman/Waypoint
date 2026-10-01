@@ -85,6 +85,9 @@ pieces. Tests sit next to the code as `*.test.ts`.
 - Diary input: `components/DiaryInput.svelte` (in `DiaryContent`); `lib/diary.ts` (submit shortcut,
   default project scope from the route, `entryRequest`); `lib/diaryDraft.svelte.ts` (shared draft that
   outlives the panel/overlay).
+- Diary timeline: `components/EntryTimeline.svelte` → `EntryCard.svelte` (highlights, run state) →
+  `FollowUpQuestion.svelte` (answer/dismiss). `lib/timeline.svelte.ts`: shared timeline state (`loadTimeline`,
+  `loadOlder`, `loadEntry`, `addEntry`). `lib/entries.ts`: `segments`, `observationHref`, detail helpers.
 - Now: `screens/Now.svelte` loads active projects' briefings into `components/BriefingCard.svelte`.
   `lib/projects.ts`: grouping, `activeProjects`, cap helpers.
 - Theme: named tokens in `app.css` `@theme` (`canvas`/`surface`/`raised`/`line`, `ink`/`ink-muted`/

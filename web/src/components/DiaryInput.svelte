@@ -5,6 +5,7 @@
   import { entryRequest, isSubmitShortcut, resolveScope, scopeOptions, screenProjectID } from '../lib/diary'
   import { clearDraft, draft } from '../lib/diaryDraft.svelte'
   import { current } from '../lib/navigation.svelte'
+  import { addEntry } from '../lib/timeline.svelte'
   import Button from './ui/Button.svelte'
   import Textarea from './ui/Textarea.svelte'
   import { fieldClass } from './ui/field'
@@ -35,8 +36,9 @@
     const { body, choice } = draft
     clearDraft()
     try {
-      await postJSON<CreateEntryResponse>('/api/entries', req)
+      const res = await postJSON<CreateEntryResponse>('/api/entries', req)
       saved = true
+      addEntry(res.entry)
     } catch (err) {
       if (draft.body.trim() === '') {
         draft.body = body
