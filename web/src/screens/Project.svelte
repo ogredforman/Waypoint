@@ -8,6 +8,7 @@
   import { ApiError, getJSON } from '../lib/api/client'
   import type { Project, Settings } from '../lib/api/types.gen'
   import { latest, liveReload } from '../lib/live'
+  import { pageHeading } from '../lib/navigation.svelte'
   import { countActive } from '../lib/projects'
   import { paths } from '../lib/router'
 
@@ -76,8 +77,10 @@
   <a href={paths.projects} class="text-sm text-ink-muted hover:text-ink">← Projects</a>
 
   {#if missing}
+    <h1 class="text-title font-semibold tracking-tight" {@attach pageHeading}>Project</h1>
     <p class="text-ink-muted">This project isn't here. The Projects list has all of them.</p>
   {:else if loadError}
+    <h1 class="text-title font-semibold tracking-tight" {@attach pageHeading}>Project</h1>
     <p class="text-ink-muted">
       {loadError}
       <button type="button" class="ml-1 text-accent underline underline-offset-2" onclick={load}>Try again</button>

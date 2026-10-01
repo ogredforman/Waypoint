@@ -60,6 +60,11 @@
     outline-offset: 2px;
   }
 
+  /* Headings focused by the router after a page change (pageHeading) aren't controls: no ring. */
+  h1[tabindex='-1']:focus {
+    outline: none;
+  }
+
   /* Set on <html> while the diary panel is being dragged. */
   .resizing,
   .resizing * {

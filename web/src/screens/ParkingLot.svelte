@@ -6,6 +6,7 @@
   import { ApiError, getJSON } from '../lib/api/client'
   import type { Idea, Project, PromoteIdeaResponse, Settings } from '../lib/api/types.gen'
   import { latest, liveReload } from '../lib/live'
+  import { pageHeading } from '../lib/navigation.svelte'
   import { countActive, parkedProjects } from '../lib/projects'
 
   let ideas = $state<Idea[] | null>(null)
@@ -62,7 +63,7 @@
 
 <section class="space-y-8">
   <div>
-    <h1 class="text-title font-semibold tracking-tight">Parking lot</h1>
+    <h1 class="text-title font-semibold tracking-tight" {@attach pageHeading}>Parking lot</h1>
     <p class="mt-2 text-ink-muted">Ideas and parked projects wait here until you're ready for them.</p>
   </div>
 

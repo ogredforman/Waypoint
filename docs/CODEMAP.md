@@ -75,7 +75,7 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
 
 Svelte 5 runes + TS + Tailwind, Vitest. `main.ts` → `App.svelte`. `lib/api/client.ts` is the
 typed API client (the only place that calls `fetch`), with generated `types.gen.ts`/`enums.gen.ts`.
-`lib/router.ts` + `lib/navigation.svelte.ts`: client-side routing. `screens/`: page components
+`lib/router.ts` + `lib/navigation.svelte.ts`: client-side routing; every screen's `<h1>` takes `{@attach pageHeading}` (focus after navigation). `screens/`: page components
 (`Now`, `Diary`, `Projects`, `Project`, `Task`, `ParkingLot`, `NotFound`). `components/`: reusable
 pieces. Tests sit next to the code as `*.test.ts`.
 

@@ -85,6 +85,7 @@ describe('Task screen', () => {
   it('says the task is not here for an unknown id', async () => {
     await render(new Response(JSON.stringify({ error: { code: 'not_found', message: 'not found' } }), { status: 404 }), () => !target.textContent?.includes('Loading…'))
     expect(target.textContent).toContain("This task isn't here.")
+    expect(target.querySelector('h1')?.textContent).toBe('Task')
   })
 
   it("reloads after a changeset touches the task's project, and on reconnect", async () => {

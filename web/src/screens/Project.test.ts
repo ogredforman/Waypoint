@@ -168,3 +168,22 @@ describe('Project screen live updates', () => {
     expect(target.querySelector<HTMLInputElement>('#task-1-title')?.value).toBe('Write the docs')
   })
 })
+
+describe('Project screen headings', () => {
+  it('keeps an <h1> while the title is being edited', async () => {
+    await render()
+    const edit = [...target.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Edit' && !b.closest('li'))
+    if (!edit) throw new Error('no project Edit button')
+    edit.click()
+    flushSync()
+    expect(target.querySelector('#edit-project-title')).not.toBeNull()
+    expect(target.querySelector('h1')?.textContent).toBe('Waypoint')
+  })
+
+  it("has an <h1> when the project can't be loaded", async () => {
+    routes.delete('/api/projects/7')
+    await render()
+    expect(text()).toContain('Try again')
+    expect(target.querySelector('h1')?.textContent).toBe('Project')
+  })
+})

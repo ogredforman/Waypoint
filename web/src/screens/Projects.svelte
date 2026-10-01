@@ -6,6 +6,7 @@
   import { ApiError, getJSON } from '../lib/api/client'
   import type { Project, Settings } from '../lib/api/types.gen'
   import { latest, liveReload } from '../lib/live'
+  import { pageHeading } from '../lib/navigation.svelte'
   import { countActive, groupByStatus } from '../lib/projects'
   import { paths } from '../lib/router'
 
@@ -53,7 +54,7 @@
 
 <section class="space-y-6">
   <div class="flex items-center justify-between gap-4">
-    <h1 class="text-title font-semibold tracking-tight">Projects</h1>
+    <h1 class="text-title font-semibold tracking-tight" {@attach pageHeading}>Projects</h1>
     {#if projects && projects.length > 0 && !formOpen}
       <Button onclick={() => (formOpen = true)}>New project</Button>
     {/if}

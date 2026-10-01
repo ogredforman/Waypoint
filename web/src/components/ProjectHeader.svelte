@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ApiError, patchJSON } from '../lib/api/client'
   import type { Project } from '../lib/api/types.gen'
+  import { pageHeading } from '../lib/navigation.svelte'
   import { projectFields, projectPatch } from '../lib/projects'
   import Button from './ui/Button.svelte'
   import Card from './ui/Card.svelte'
@@ -61,6 +62,8 @@
 </script>
 
 {#if editing}
+  <!-- The screen keeps its <h1> while the title is being edited. -->
+  <h1 class="sr-only">{project.title}</h1>
   <Card>
     <form class="space-y-4" onsubmit={save} novalidate>
       <div>
@@ -103,7 +106,7 @@
 {:else}
   <header>
     <div class="flex items-start justify-between gap-4">
-      <h1 class="text-title font-semibold tracking-tight">{project.title}</h1>
+      <h1 class="text-title font-semibold tracking-tight" {@attach pageHeading}>{project.title}</h1>
       <Button variant="secondary" onclick={edit}>Edit</Button>
     </div>
     <dl class="mt-3 space-y-3">

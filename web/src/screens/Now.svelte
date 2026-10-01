@@ -5,6 +5,7 @@
   import type { Briefing, Project } from '../lib/api/types.gen'
   import { on, onReconnect } from '../lib/events'
   import { activeProjects } from '../lib/projects'
+  import { pageHeading } from '../lib/navigation.svelte'
   import { paths } from '../lib/router'
 
   // The home screen (SPEC §11): a briefing per active project, kept current by server events.
@@ -86,7 +87,7 @@
 </script>
 
 <section class="space-y-8">
-  <h1 class="text-title font-semibold tracking-tight">Now</h1>
+  <h1 class="text-title font-semibold tracking-tight" {@attach pageHeading}>Now</h1>
 
   {#if loadError}
     <p class="text-ink-muted">

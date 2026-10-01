@@ -5,6 +5,7 @@
   import { latest, liveReload } from '../lib/live'
   import type { Project, TaskDetail } from '../lib/api/types.gen'
   import { kindLabel } from '../lib/entries'
+  import { pageHeading } from '../lib/navigation.svelte'
   import { paths } from '../lib/router'
   import { observationTimeline, statusLabels } from '../lib/tasks'
 
@@ -58,8 +59,10 @@
 <section data-task-id={id} class="space-y-6">
   {#if missing}
     <a href={paths.projects} class="text-sm text-ink-muted hover:text-ink">← Projects</a>
+    <h1 class="text-title font-semibold tracking-tight text-ink" {@attach pageHeading}>Task</h1>
     <p class="text-ink-muted">This task isn't here. Its project's page has the ones that are.</p>
   {:else if loadError}
+    <h1 class="text-title font-semibold tracking-tight text-ink" {@attach pageHeading}>Task</h1>
     <p class="text-ink-muted">
       {loadError}
       <button type="button" class="ml-1 text-accent underline underline-offset-2" onclick={load}>Try again</button>
@@ -70,7 +73,7 @@
     <a href={paths.project(task.project_id)} class="text-sm text-ink-muted hover:text-ink">← {projectTitle ?? 'Project'}</a>
 
     <header class="space-y-2">
-      <h1 class="text-title font-semibold tracking-tight text-ink">{task.title}</h1>
+      <h1 class="text-title font-semibold tracking-tight text-ink" {@attach pageHeading}>{task.title}</h1>
       <p class="flex flex-wrap gap-x-3 text-sm text-ink-muted">
         <span>{status}</span>
         {#if task.size}<span>Size {task.size}</span>{/if}
