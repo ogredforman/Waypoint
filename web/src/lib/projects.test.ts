@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import type { ProjectStatus } from './api/enums.gen'
 import type { Project } from './api/types.gen'
-import { activeProjects, atCap, capMessage, countActive, groupByStatus, newProjectRequest } from './projects'
+import {
+  activateCapMessage,
+  activeProjects,
+  atCap,
+  capMessage,
+  countActive,
+  groupByStatus,
+  newProjectRequest,
+  projectFields,
+  projectPatch,
+  statusOptions,
+} from './projects'
 
 function project(id: number, status: ProjectStatus): Project {
   return { id, title: `P${id}`, why: '', definition_of_done: '', status, created_at: '', updated_at: '' }
@@ -60,5 +71,44 @@ describe('newProjectRequest', () => {
 describe('activeProjects', () => {
   it('keeps only active projects, in order', () => {
     expect(activeProjects([project(1, 'active'), project(2, 'parked'), project(3, 'active')]).map((p) => p.id)).toEqual([1, 3])
+  })
+})
+
+describe('projectPatch', () => {
+  const p: Project = { ...project(1, 'active'), title: 'Garden', why: 'Fresh food', definition_of_done: 'Beds planted' }
+
+  it('is null when nothing changed, ignoring surrounding space', () => {
+    expect(projectPatch(p, projectFields(p))).toBeNull()
+    expect(projectPatch(p, { title: ' Garden ', why: 'Fresh food  ', definitionOfDone: 'Beds planted' })).toBeNull()
+  })
+
+  it('sends only the changed fields, trimmed', () => {
+    expect(projectPatch(p, { title: ' Allotment ', why: 'Fresh food', definitionOfDone: 'Beds planted' })).toEqual({ title: 'Allotment' })
+  })
+
+  it('clears why and definition of done to empty', () => {
+    expect(projectPatch(p, { title: 'Garden', why: '  ', definitionOfDone: '' })).toEqual({ why: '', definition_of_done: '' })
+  })
+})
+
+describe('statusOptions', () => {
+  const disabled = (opts: ReturnType<typeof statusOptions>) => opts.filter((o) => o.disabled).map((o) => o.status)
+
+  it('lists every status in section order', () => {
+    expect(statusOptions('parked', 0, 3).map((o) => o.status)).toEqual(['active', 'paused', 'parked', 'done'])
+  })
+
+  it('disables active at the cap for a project that is not active', () => {
+    expect(disabled(statusOptions('parked', 3, 3))).toEqual(['active'])
+    expect(disabled(statusOptions('paused', 2, 3))).toEqual([])
+  })
+
+  it('never disables anything for an active project or an unknown cap', () => {
+    expect(disabled(statusOptions('active', 3, 3))).toEqual([])
+    expect(disabled(statusOptions('parked', 9, null))).toEqual([])
+  })
+
+  it('explains the cap calmly', () => {
+    expect(activateCapMessage(1, 1)).toBe("You have 1 active project, and the limit is 1. Pause or finish one when you'd like to make this one active.")
   })
 })

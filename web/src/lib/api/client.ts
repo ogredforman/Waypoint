@@ -19,7 +19,8 @@ export class ApiError extends Error {
 const unreachableMessage = "Can't reach the Waypoint server."
 
 // request sends a JSON request to the API and returns the decoded response.
-// Anything but a 2xx with a JSON body throws an ApiError.
+// A 204 resolves to undefined; anything else but a 2xx with a JSON body
+// throws an ApiError.
 export async function request<T>(method: string, path: string, body?: unknown, fetchFn: typeof fetch = fetch): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' }
   const init: RequestInit = { method, headers }
@@ -34,6 +35,8 @@ export async function request<T>(method: string, path: string, body?: unknown, f
   } catch {
     throw new ApiError(0, 'unreachable', unreachableMessage)
   }
+
+  if (res.status === 204) return undefined as T
 
   let decoded: unknown
   try {
@@ -57,4 +60,12 @@ export function getJSON<T>(path: string, fetchFn?: typeof fetch): Promise<T> {
 
 export function postJSON<T>(path: string, body: unknown, fetchFn?: typeof fetch): Promise<T> {
   return request<T>('POST', path, body, fetchFn)
+}
+
+export function patchJSON<T>(path: string, body: unknown, fetchFn?: typeof fetch): Promise<T> {
+  return request<T>('PATCH', path, body, fetchFn)
+}
+
+export function deleteJSON(path: string, fetchFn?: typeof fetch): Promise<void> {
+  return request<void>('DELETE', path, undefined, fetchFn)
 }

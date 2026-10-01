@@ -1,5 +1,5 @@
 import type { ProjectStatus } from './api/enums.gen'
-import type { CreateProjectRequest, Project } from './api/types.gen'
+import type { CreateProjectRequest, Project, UpdateProjectRequest } from './api/types.gen'
 
 export interface ProjectGroup {
   status: ProjectStatus
@@ -60,4 +60,48 @@ export function newProjectRequest(form: NewProjectForm): CreateProjectRequest {
 // activeProjects are the projects the Now screen briefs, in their list order.
 export function activeProjects(projects: Project[]): Project[] {
   return projects.filter((p) => p.status === 'active')
+}
+
+export interface ProjectFields {
+  title: string
+  why: string
+  definitionOfDone: string
+}
+
+export function projectFields(p: Project): ProjectFields {
+  return { title: p.title, why: p.why, definitionOfDone: p.definition_of_done }
+}
+
+// projectPatch builds the PATCH /api/projects/{id} body from the edit form:
+// only the fields that changed, trimmed. Why and definition of done may be
+// cleared to empty. It returns null when nothing changed.
+export function projectPatch(p: Project, form: ProjectFields): UpdateProjectRequest | null {
+  const req: UpdateProjectRequest = {}
+  const title = form.title.trim()
+  const why = form.why.trim()
+  const dod = form.definitionOfDone.trim()
+  if (title !== p.title) req.title = title
+  if (why !== p.why) req.why = why
+  if (dod !== p.definition_of_done) req.definition_of_done = dod
+  return Object.keys(req).length > 0 ? req : null
+}
+
+export interface StatusOption {
+  status: ProjectStatus
+  label: string
+  disabled: boolean
+}
+
+// statusOptions lists the statuses a project can be set to. Active is
+// disabled at the cap unless the project is already active.
+export function statusOptions(current: ProjectStatus, activeCount: number, cap: number | null): StatusOption[] {
+  const full = current !== 'active' && atCap(activeCount, cap)
+  return groupOrder.map(({ status, label }) => ({ status, label, disabled: status === 'active' && full }))
+}
+
+// activateCapMessage explains why an existing project can't become active
+// right now, without making it a failure.
+export function activateCapMessage(activeCount: number, cap: number): string {
+  const projects = activeCount === 1 ? 'project' : 'projects'
+  return `You have ${activeCount} active ${projects}, and the limit is ${cap}. Pause or finish one when you'd like to make this one active.`
 }

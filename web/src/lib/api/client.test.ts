@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ApiError, getJSON, postJSON } from './client'
+import { ApiError, deleteJSON, getJSON, patchJSON, postJSON } from './client'
 
 function respond(status: number, body: string): typeof fetch {
   return async () => new Response(body, { status, headers: { 'Content-Type': 'application/json' } })
@@ -61,5 +61,33 @@ describe('request', () => {
     expect((await failure(getJSON('/api/projects', respond(502, 'Bad Gateway')))).code).toBe('unreachable')
     expect((await failure(getJSON('/api/projects', respond(500, '{"oops":true}')))).code).toBe('unreachable')
     expect((await failure(getJSON('/api/projects', respond(200, 'not json')))).code).toBe('unreachable')
+  })
+})
+
+describe('patchJSON and deleteJSON', () => {
+  it('sends a PATCH with a JSON body', async () => {
+    let seen: RequestInit | undefined
+    const spy: typeof fetch = async (_input, init) => {
+      seen = init
+      return new Response('{"id":3,"title":"Garden"}', { status: 200 })
+    }
+    expect(await patchJSON('/api/projects/3', { title: 'Garden' }, spy)).toEqual({ id: 3, title: 'Garden' })
+    expect(seen?.method).toBe('PATCH')
+    expect(seen?.body).toBe('{"title":"Garden"}')
+  })
+
+  it('resolves a 204 with no body', async () => {
+    let method: string | undefined
+    const spy: typeof fetch = async (_input, init) => {
+      method = init?.method
+      return new Response(null, { status: 204 })
+    }
+    await expect(deleteJSON('/api/tasks/4', spy)).resolves.toBeUndefined()
+    expect(method).toBe('DELETE')
+  })
+
+  it('still reports a failed DELETE', async () => {
+    const err = await failure(deleteJSON('/api/tasks/4', respond(404, '{"error":{"code":"not_found","message":"task not found"}}')))
+    expect(err.code).toBe('not_found')
   })
 })
