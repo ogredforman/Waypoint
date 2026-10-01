@@ -13,7 +13,7 @@ export CGO_ENABLED := 0
 HAVE_WEB  := $(wildcard web/package.json)
 HAVE_SQLC := $(wildcard sqlc.yaml)
 
-.PHONY: dev dev-api dev-web build web test lint sqlc gen
+.PHONY: dev dev-api dev-web build web test e2e lint sqlc gen
 
 ## dev: run the Go server and the Vite dev server (proxying /api to Go) side by side
 dev:
@@ -48,6 +48,12 @@ test:
 ifneq ($(HAVE_WEB),)
 	npm --prefix web test
 endif
+
+## e2e: Playwright smoke test of the full loop against the real binary (separate from test:
+## it needs a frontend build and a Chromium download)
+e2e: web
+	npm --prefix web exec -- playwright install chromium
+	npm --prefix web run e2e
 
 ## lint: go vet, staticcheck, generated code is current (sqlc diff, gen -check), svelte-check
 lint:

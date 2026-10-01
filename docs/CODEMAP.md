@@ -121,6 +121,8 @@ pieces. Tests sit next to the code as `*.test.ts`.
 - Component tests: `// @vitest-environment jsdom` at the top, then Svelte's `mount`/`flushSync` with a stubbed
   `fetch`; `components/ChangesetReview.test.ts` is the pattern. Svelte delegates events, so dispatch them
   with `bubbles: true`.
+- E2E: `web/e2e/smoke.spec.ts` (Playwright, `make e2e`) drives the real binary with the mock extractor;
+  `web/playwright.config.ts` starts it on port 7429 with a temp data dir and an empty config. Select by role and label.
 
 ## Test fixtures (reuse these; don't write new setup)
 

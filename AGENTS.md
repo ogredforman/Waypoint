@@ -27,6 +27,7 @@ These are created in Stage 0 task 0.1. Until then, they don't exist.
 
 - `make dev`: Go server + Vite dev server with `/api` proxy
 - `make test`: all Go and frontend tests. Must pass before a task is finished.
+- `make e2e`: Playwright smoke test of write → review → apply against the real binary (not part of `make test`)
 - `make lint`: `go vet`, `staticcheck`, generated code is current (`sqlc`, `gen`), `svelte-check`
 - `make sqlc`: regenerate query code after editing `internal/db/queries/`
 - `make gen`: regenerate the frontend's API types after editing `internal/api/apitypes` or the domain enums

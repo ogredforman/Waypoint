@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { defineConfig, type Plugin } from 'vite'
@@ -27,6 +28,10 @@ export default defineConfig({
   plugins: [tailwindcss(), svelte(), keepGitkeep()],
   // Component tests mount Svelte in jsdom, which needs Svelte's client build.
   resolve: process.env.VITEST ? { conditions: ['browser'] } : undefined,
+  // Vitest runs only the unit and component tests; e2e/ is Playwright's (`make e2e`).
+  test: {
+    include: ['src/**/*.test.ts'],
+  },
   build: {
     outDir,
     emptyOutDir: true,
