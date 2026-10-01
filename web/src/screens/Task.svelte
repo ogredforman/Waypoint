@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import Card from '../components/ui/Card.svelte'
   import { ApiError, getJSON } from '../lib/api/client'
+  import { latest, liveReload } from '../lib/live'
   import type { Project, TaskDetail } from '../lib/api/types.gen'
   import { kindLabel } from '../lib/entries'
   import { paths } from '../lib/router'
@@ -22,24 +23,36 @@
     return new Date(at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
   }
 
+  const loads = latest()
+
   async function load() {
-    loadError = ''
-    missing = false
+    const current = loads()
+    let d: TaskDetail
     try {
-      detail = await getJSON<TaskDetail>(`/api/tasks/${id}`)
+      d = await getJSON<TaskDetail>(`/api/tasks/${id}`)
     } catch (err) {
+      if (!current()) return
       if (err instanceof ApiError && err.code === 'not_found') missing = true
       else loadError = err instanceof ApiError ? err.message : "Couldn't load this task."
       return
     }
+    if (!current()) return
+    detail = d
+    loadError = ''
+    missing = false
     try {
-      projectTitle = (await getJSON<Project>(`/api/projects/${detail.task.project_id}`)).title
+      const title = (await getJSON<Project>(`/api/projects/${d.task.project_id}`)).title
+      if (current()) projectTitle = title
     } catch {
-      projectTitle = null // the back link still works without the name
+      if (current()) projectTitle = null // the back link still works without the name
     }
   }
 
-  onMount(load)
+  onMount(() => {
+    load()
+    // Until the task has loaded its project is unknown, so any changeset reloads it.
+    return liveReload(load, () => detail?.task.project_id)
+  })
 </script>
 
 <section data-task-id={id} class="space-y-6">

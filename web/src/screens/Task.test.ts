@@ -2,6 +2,8 @@
 import { flushSync, mount, unmount } from 'svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { LinkedObservation, Project, TaskDetail } from '../lib/api/types.gen'
+import { startEvents } from '../lib/events'
+import { FakeEventSource, fakeOpen } from '../lib/events.fake'
 import Task from './Task.svelte'
 
 const project: Project = { id: 7, title: 'Waypoint', why: '', definition_of_done: '', status: 'active', created_at: '', updated_at: '' }
@@ -83,5 +85,40 @@ describe('Task screen', () => {
   it('says the task is not here for an unknown id', async () => {
     await render(new Response(JSON.stringify({ error: { code: 'not_found', message: 'not found' } }), { status: 404 }), () => !target.textContent?.includes('Loading…'))
     expect(target.textContent).toContain("This task isn't here.")
+  })
+
+  it("reloads after a changeset touches the task's project, and on reconnect", async () => {
+    FakeEventSource.all = []
+    const stopEvents = startEvents(fakeOpen)
+    let current = detail()
+    const fetchMock = vi.fn(async (url: string) =>
+      new Response(JSON.stringify(url.startsWith('/api/tasks/') ? current : project), { status: 200 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    target = document.createElement('div')
+    document.body.append(target)
+    component = mount(Task, { target, props: { id: 3 } })
+    const shows = (title: string) =>
+      vi.waitFor(() => {
+        flushSync()
+        if (target.querySelector('h1')?.textContent !== title) throw new Error('not yet')
+      })
+    await shows('Write docs')
+    const taskLoads = () => fetchMock.mock.calls.filter(([u]) => u === '/api/tasks/3').length
+
+    const src = FakeEventSource.latest()
+    current = detail({ task: { ...detail().task, title: 'Write the docs' } })
+    src.emit('changeset.applied', { changeset_id: 2, project_ids: [8] })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(taskLoads()).toBe(1)
+    src.emit('changeset.applied', { changeset_id: 3, project_ids: [7] })
+    await shows('Write the docs')
+
+    src.open()
+    current = detail({ task: { ...detail().task, title: 'Docs written' } })
+    src.fail()
+    src.open()
+    await shows('Docs written')
+    stopEvents()
   })
 })

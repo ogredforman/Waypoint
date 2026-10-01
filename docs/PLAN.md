@@ -83,7 +83,7 @@ Tasks:
 - [x] **1.20** **Task detail:** origin entry and linked observations timeline.
 - [x] **1.21** **Parking lot:** ideas and parked projects; promote to task or project; activate a parked project (same cap handling as 1.16); delete an idea (with confirmation).
 - [x] **1.22a** Live updates, part 1: a `changeset.applied` SSE event after every applied changeset (`changeset.AfterApplies` runs the briefing service and the hub); one shared `EventSource` in `web/src/lib/events.ts` with reconnect handling; the diary timeline reloads entries as their runs finish and shows a new entry as "processing" straight away; the Now screen updates on `briefing.updated` and `changeset.applied`.
-- [ ] **1.22b** Live updates, part 2: the Project screen (header, tasks, blockers, ideas), Parking lot, Projects list, and Task detail reload on `changeset.applied` (for their project where it applies; ideas aren't in `project_ids`, so idea lists reload on any applied changeset) and on reconnect.
+- [x] **1.22b** Live updates, part 2: the Project screen (header, tasks, blockers, ideas), Parking lot, Projects list, and Task detail reload on `changeset.applied` (for their project where it applies; ideas aren't in `project_ids`, so idea lists reload on any applied changeset) and on reconnect.
 - [ ] **1.23** Playwright smoke test: create project → write entry with `todo:`/`blocked:` lines → apply → task and blocker appear → briefing updates.
 
 **Exit criteria:**

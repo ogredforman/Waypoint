@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { ApiError, getJSON } from '../lib/api/client'
+  import { latest, liveReload } from '../lib/live'
   import type { Blocker } from '../lib/api/types.gen'
   import { splitBlockers } from '../lib/blockers'
   import BlockerRow from './BlockerRow.svelte'
@@ -13,12 +14,17 @@
 
   const groups = $derived(blockers === null ? null : splitBlockers(blockers))
 
+  const loads = latest()
+
   async function load() {
-    loadError = ''
+    const current = loads()
     try {
-      blockers = await getJSON<Blocker[]>(`/api/projects/${projectId}/blockers`)
+      const list = await getJSON<Blocker[]>(`/api/projects/${projectId}/blockers`)
+      if (!current()) return
+      blockers = list
+      loadError = ''
     } catch (err) {
-      loadError = err instanceof ApiError ? err.message : "Couldn't load the blockers."
+      if (current()) loadError = err instanceof ApiError ? err.message : "Couldn't load the blockers."
     }
   }
 
@@ -30,7 +36,10 @@
     blockers = (blockers ?? []).filter((x) => x.id !== id)
   }
 
-  onMount(load)
+  onMount(() => {
+    load()
+    return liveReload(load, () => projectId)
+  })
 </script>
 
 <section aria-labelledby="blockers-heading" class="space-y-3">

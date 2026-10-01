@@ -5,6 +5,7 @@
   import Panel from '../components/ui/Panel.svelte'
   import { ApiError, getJSON } from '../lib/api/client'
   import type { Idea, Project, PromoteIdeaResponse, Settings } from '../lib/api/types.gen'
+  import { latest, liveReload } from '../lib/live'
   import { countActive, parkedProjects } from '../lib/projects'
 
   let ideas = $state<Idea[] | null>(null)
@@ -15,14 +16,18 @@
   const parked = $derived(parkedProjects(projects ?? []))
   const activeCount = $derived(countActive(projects ?? []))
 
+  const loads = latest()
+
   async function load() {
-    loadError = ''
+    const current = loads()
     try {
       const [i, p] = await Promise.all([getJSON<Idea[]>('/api/ideas'), getJSON<Project[]>('/api/projects')])
+      if (!current()) return
       ideas = i
       projects = p
+      loadError = ''
     } catch (err) {
-      loadError = err instanceof ApiError ? err.message : "Couldn't load the parking lot."
+      if (current()) loadError = err instanceof ApiError ? err.message : "Couldn't load the parking lot."
     }
   }
 
@@ -50,6 +55,8 @@
   onMount(() => {
     load()
     loadCap()
+    // Ideas aren't in a changeset's project_ids, so any applied changeset reloads.
+    return liveReload(load)
   })
 </script>
 

@@ -2,6 +2,8 @@
 import { flushSync, mount, tick, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Idea, Project } from '../lib/api/types.gen'
+import { startEvents } from '../lib/events'
+import { FakeEventSource, fakeOpen } from '../lib/events.fake'
 import ParkingLot from './ParkingLot.svelte'
 
 function project(id: number, status: Project['status'], extra: Partial<Project> = {}): Project {
@@ -213,5 +215,27 @@ describe('ParkingLot', () => {
     expect(listed('Parked projects')).toEqual(['P2'])
     expect(target.textContent).toContain('stays parked for now')
     expect(button('Activate').disabled).toBe(true)
+  })
+
+  it('reloads after any applied changeset and on reconnect', async () => {
+    FakeEventSource.all = []
+    const stopEvents = startEvents(fakeOpen)
+    ideas = [idea(1, null)]
+    projects = [project(2, 'parked')]
+    await render()
+    const src = FakeEventSource.latest()
+    ideas = [idea(1, null), idea(3, null)]
+    // An idea changeset touches no project.
+    src.emit('changeset.applied', { changeset_id: 2, project_ids: [] })
+    await settle()
+    expect(listed('Parked ideas')).toEqual(['I1', 'I3'])
+
+    src.open()
+    projects = [project(2, 'parked'), project(4, 'parked')]
+    src.fail()
+    src.open()
+    await settle()
+    expect(listed('Parked projects')).toEqual(['P2', 'P4'])
+    stopEvents()
   })
 })

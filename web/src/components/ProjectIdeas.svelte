@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { ApiError, getJSON } from '../lib/api/client'
+  import { latest, liveReload } from '../lib/live'
   import type { Idea, Project, PromoteIdeaResponse } from '../lib/api/types.gen'
   import IdeaRow from './IdeaRow.svelte'
   import Panel from './ui/Panel.svelte'
@@ -20,20 +21,29 @@
   let projects = $state<Project[] | null>(null)
   let loadError = $state('')
 
+  const loads = latest()
+
   async function load() {
-    loadError = ''
+    const current = loads()
     try {
-      ideas = await getJSON<Idea[]>(`/api/ideas?project_id=${projectId}`)
+      const list = await getJSON<Idea[]>(`/api/ideas?project_id=${projectId}`)
+      if (!current()) return
+      ideas = list
+      loadError = ''
     } catch (err) {
-      loadError = err instanceof ApiError ? err.message : "Couldn't load the ideas."
+      if (current()) loadError = err instanceof ApiError ? err.message : "Couldn't load the ideas."
     }
   }
 
+  const projectLoads = latest()
+
   async function loadProjects() {
+    const current = projectLoads()
     try {
-      projects = await getJSON<Project[]>('/api/projects')
+      const list = await getJSON<Project[]>('/api/projects')
+      if (current()) projects = list
     } catch {
-      projects = null // promoting to a new project still works
+      if (current()) projects = null // promoting to a new project still works
     }
   }
 
@@ -41,9 +51,15 @@
     ideas = (ideas ?? []).filter((i) => i.id !== id)
   }
 
-  onMount(() => {
+  function reload() {
     load()
     loadProjects()
+  }
+
+  onMount(() => {
+    reload()
+    // Ideas aren't in a changeset's project_ids, so any applied changeset reloads them.
+    return liveReload(reload)
   })
 </script>
 

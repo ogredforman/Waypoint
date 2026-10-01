@@ -5,6 +5,7 @@
   import Panel from '../components/ui/Panel.svelte'
   import { ApiError, getJSON } from '../lib/api/client'
   import type { Project, Settings } from '../lib/api/types.gen'
+  import { latest, liveReload } from '../lib/live'
   import { countActive, groupByStatus } from '../lib/projects'
   import { paths } from '../lib/router'
 
@@ -16,12 +17,17 @@
   const groups = $derived(groupByStatus(projects ?? []))
   const activeCount = $derived(countActive(projects ?? []))
 
+  const loads = latest()
+
   async function load() {
-    loadError = ''
+    const current = loads()
     try {
-      projects = await getJSON<Project[]>('/api/projects')
+      const list = await getJSON<Project[]>('/api/projects')
+      if (!current()) return
+      projects = list
+      loadError = ''
     } catch (err) {
-      loadError = err instanceof ApiError ? err.message : "Couldn't load your projects."
+      if (current()) loadError = err instanceof ApiError ? err.message : "Couldn't load your projects."
     }
   }
 
@@ -41,6 +47,7 @@
   onMount(() => {
     load()
     loadCap()
+    return liveReload(load)
   })
 </script>
 

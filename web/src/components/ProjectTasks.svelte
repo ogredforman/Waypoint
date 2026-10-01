@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { ApiError, getJSON, patchJSON, postJSON } from '../lib/api/client'
+  import { latest, liveReload } from '../lib/live'
   import { energyValues, taskSizeValues, type Energy, type TaskSize } from '../lib/api/enums.gen'
   import type { MoveTaskRequest, Task } from '../lib/api/types.gen'
   import { groupTasks, newTaskRequest, type Direction } from '../lib/tasks'
@@ -27,12 +28,17 @@
 
   const groups = $derived(tasks === null ? [] : groupTasks(tasks))
 
+  const loads = latest()
+
   async function load() {
-    loadError = ''
+    const current = loads()
     try {
-      tasks = await getJSON<Task[]>(`/api/projects/${projectId}/tasks`)
+      const list = await getJSON<Task[]>(`/api/projects/${projectId}/tasks`)
+      if (!current()) return
+      tasks = list
+      loadError = ''
     } catch (err) {
-      loadError = err instanceof ApiError ? err.message : "Couldn't load the tasks."
+      if (current()) loadError = err instanceof ApiError ? err.message : "Couldn't load the tasks."
     }
   }
 
@@ -76,8 +82,10 @@
       moved.forEach(replace)
     } catch (err) {
       moveNotice = err instanceof ApiError ? err.message : "Couldn't move the task."
+      const current = loads()
       try {
-        tasks = await getJSON<Task[]>(`/api/projects/${projectId}/tasks`)
+        const list = await getJSON<Task[]>(`/api/projects/${projectId}/tasks`)
+        if (current()) tasks = list
       } catch {
         // Keep the list as it is; the notice already says the move failed.
       }
@@ -86,7 +94,10 @@
     }
   }
 
-  onMount(load)
+  onMount(() => {
+    load()
+    return liveReload(load, () => projectId)
+  })
 </script>
 
 <section aria-labelledby="tasks-heading" class="space-y-3">

@@ -7,6 +7,7 @@
   import ProjectTasks from '../components/ProjectTasks.svelte'
   import { ApiError, getJSON } from '../lib/api/client'
   import type { Project, Settings } from '../lib/api/types.gen'
+  import { latest, liveReload } from '../lib/live'
   import { countActive } from '../lib/projects'
   import { paths } from '../lib/router'
 
@@ -23,24 +24,33 @@
 
   const activeCount = $derived(countActive(projects))
 
+  const loads = latest()
+  const capLoads = latest()
+
   async function load() {
-    loadError = ''
-    missing = false
+    const current = loads()
     try {
-      project = await getJSON<Project>(`/api/projects/${id}`)
+      const p = await getJSON<Project>(`/api/projects/${id}`)
+      if (!current()) return
+      project = p
+      loadError = ''
+      missing = false
     } catch (err) {
+      if (!current()) return
       if (err instanceof ApiError && err.code === 'not_found') missing = true
       else loadError = err instanceof ApiError ? err.message : "Couldn't load this project."
     }
   }
 
   async function loadCapInfo() {
+    const current = capLoads()
     try {
       const [list, settings] = await Promise.all([getJSON<Project[]>('/api/projects'), getJSON<Settings>('/api/settings')])
+      if (!current()) return
       projects = list
       cap = settings.active_project_cap
     } catch {
-      cap = null // an unknown cap never blocks; the server still enforces it
+      if (current()) cap = null // an unknown cap never blocks; the server still enforces it
     }
   }
 
@@ -52,6 +62,13 @@
   onMount(() => {
     load()
     loadCapInfo()
+    // The tasks, blockers, and ideas below keep themselves current.
+    const offs = [
+      liveReload(load, () => id),
+      // Any project's status change moves the active count.
+      liveReload(loadCapInfo),
+    ]
+    return () => offs.forEach((off) => off())
   })
 </script>
 

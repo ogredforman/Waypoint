@@ -84,6 +84,8 @@ pieces. Tests sit next to the code as `*.test.ts`.
   `lib/diaryPanel.ts`: panel width limits, drag/key resizing, `localStorage` prefs.
 - Live updates: `lib/events.ts` is the app's one `EventSource` (`startEvents` in `App.svelte`; `on(name, handler)`,
   `onReconnect`). Screens subscribe in `onMount` and refetch; `lib/events.fake.ts` `FakeEventSource` for tests.
+  `lib/live.ts`: `liveReload` (reload on `changeset.applied`, optionally for one project, and on reconnect) and
+  `latest` (drop stale answers); used by the Project, Projects, Parking lot, and Task screens. `screens/Project.test.ts`.
 - Diary input: `components/DiaryInput.svelte` (in `DiaryContent`); `lib/diary.ts` (submit shortcut,
   default project scope from the route, `entryRequest`); `lib/diaryDraft.svelte.ts` (shared draft that
   outlives the panel/overlay).
