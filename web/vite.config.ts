@@ -25,6 +25,8 @@ function keepGitkeep(): Plugin {
 
 export default defineConfig({
   plugins: [tailwindcss(), svelte(), keepGitkeep()],
+  // Component tests mount Svelte in jsdom, which needs Svelte's client build.
+  resolve: process.env.VITEST ? { conditions: ['browser'] } : undefined,
   build: {
     outDir,
     emptyOutDir: true,

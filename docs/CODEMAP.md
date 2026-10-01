@@ -88,6 +88,10 @@ pieces. Tests sit next to the code as `*.test.ts`.
 - Diary timeline: `components/EntryTimeline.svelte` → `EntryCard.svelte` (highlights, run state) →
   `FollowUpQuestion.svelte` (answer/dismiss). `lib/timeline.svelte.ts`: shared timeline state (`loadTimeline`,
   `loadOlder`, `loadEntry`, `addEntry`). `lib/entries.ts`: `segments`, `observationHref`, detail helpers.
+- Changeset review: `EntryCard` → `components/ChangesetReview.svelte` (one per pending changeset; project
+  picker, Apply / Accept all) → `ChangeOpRow.svelte` (accept/reject/edit). `lib/review.ts`: pure logic
+  (`reject`/`accept` cascades over `$new:N`, `guessedProject`, `noProject`, `applyRequest`, `describe` using
+  the op's `refs`, `editFields`).
 - Now: `screens/Now.svelte` loads active projects' briefings into `components/BriefingCard.svelte`.
   `lib/projects.ts`: grouping, `activeProjects`, cap helpers.
 - Theme: named tokens in `app.css` `@theme` (`canvas`/`surface`/`raised`/`line`, `ink`/`ink-muted`/
@@ -96,6 +100,9 @@ pieces. Tests sit next to the code as `*.test.ts`.
   `lib/theme.test.ts` checks AA contrast for the text pairs.
 - `components/ui/`: `Button` (`primary`/`secondary`/`quiet`), `Input`, `Textarea` (`bind:value`),
   `Card` (`glow` for the one thing to notice), `Panel` (row container). `npm --prefix web test`, `npm --prefix web run check`.
+- Component tests: `// @vitest-environment jsdom` at the top, then Svelte's `mount`/`flushSync` with a stubbed
+  `fetch`; `components/ChangesetReview.test.ts` is the pattern. Svelte delegates events, so dispatch them
+  with `bubbles: true`.
 
 ## Test fixtures (reuse these; don't write new setup)
 

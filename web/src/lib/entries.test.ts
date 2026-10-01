@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Entry, EntryDetail, Observation, ObservationLink } from './api/types.gen'
-import { observationHref, pendingOpCount, repliedQuestion, runState, segments, shownQuestions } from './entries'
+import { observationHref, pendingChangesets, repliedQuestion, runState, segments, shownQuestions } from './entries'
 
 function obs(id: number, start: number, end: number, links: ObservationLink[] = []): Observation {
   return { id, kind: 'note', summary: `obs ${id}`, span_start: start, span_end: end, links }
@@ -84,8 +84,8 @@ describe('entry detail helpers', () => {
     expect(shownQuestions(detail({ questions: [q(1, 'open'), q(2, 'answered'), q(3, 'dismissed')] })).map((x) => x.id)).toEqual([1, 2])
   })
 
-  it('counts pending ops in pending changesets', () => {
-    const op = (status: 'pending' | 'applied') => ({
+  it('lists pending changesets with ops left to decide', () => {
+    const op = (status: 'pending' | 'applied' | 'rejected') => ({
       id: 1,
       position: 1,
       op_type: 'create_task' as const,
@@ -94,9 +94,10 @@ describe('entry detail helpers', () => {
       confidence: null,
       status,
       applied_payload: null,
+      refs: {},
     })
-    const cs = (status: 'pending' | 'applied', ops: ReturnType<typeof op>[]) => ({
-      id: 1,
+    const cs = (id: number, status: 'pending' | 'applied', ops: ReturnType<typeof op>[]) => ({
+      id,
       source: 'extraction' as const,
       entry_id: 1,
       parent_changeset_id: null,
@@ -105,8 +106,10 @@ describe('entry detail helpers', () => {
       created_at: '',
       resolved_at: null,
     })
-    const d = detail({ changesets: [cs('pending', [op('pending'), op('pending')]), cs('applied', [op('pending'), op('applied')])] })
-    expect(pendingOpCount(d)).toBe(2)
+    const d = detail({
+      changesets: [cs(1, 'pending', [op('pending'), op('pending')]), cs(2, 'applied', [op('applied')]), cs(3, 'pending', [op('rejected')])],
+    })
+    expect(pendingChangesets(d).map((c) => c.id)).toEqual([1])
   })
 
   it('reads the run state', () => {

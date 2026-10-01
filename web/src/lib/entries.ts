@@ -1,5 +1,5 @@
 import type { ObservationKind } from './api/enums.gen'
-import type { Entry, EntryDetail, Observation, Question } from './api/types.gen'
+import type { Changeset, Entry, EntryDetail, Observation, Question } from './api/types.gen'
 import { paths } from './router'
 
 // Segment is a run of an entry's body: plain text, or the part an observation points at.
@@ -64,11 +64,10 @@ export function shownQuestions(detail: EntryDetail): Question[] {
   return detail.questions.filter((q) => q.status !== 'dismissed')
 }
 
-// pendingOpCount is how many proposed changes from the entry wait for review.
-export function pendingOpCount(detail: EntryDetail): number {
-  return detail.changesets
-    .filter((c) => c.status === 'pending')
-    .reduce((n, c) => n + c.ops.filter((op) => op.status === 'pending').length, 0)
+// pendingChangesets are the entry's changesets still waiting for review,
+// with at least one op to decide.
+export function pendingChangesets(detail: EntryDetail): Changeset[] {
+  return detail.changesets.filter((c) => c.status === 'pending' && c.ops.some((op) => op.status === 'pending'))
 }
 
 // RunState is how far Waypoint has got with reading an entry.

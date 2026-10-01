@@ -34,6 +34,7 @@
           {item}
           projectTitle={item.entry.project_id === null ? null : (titles.get(item.entry.project_id) ?? null)}
           replyTo={repliedQuestion(item.entry, details)}
+          projects={timeline.projects}
         />
       </li>
     {/each}

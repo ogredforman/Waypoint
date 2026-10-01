@@ -2,11 +2,15 @@ package api
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"unicode/utf16"
 
 	"github.com/ogredforman/waypoint/internal/api/apitypes"
 	"github.com/ogredforman/waypoint/internal/briefing"
 	"github.com/ogredforman/waypoint/internal/domain"
+	"github.com/ogredforman/waypoint/internal/store"
 )
 
 // Conversions from domain values to wire DTOs. Lists are never nil, so they
@@ -136,6 +140,10 @@ func briefingDTO(v briefing.View) apitypes.Briefing {
 type changesetReads interface {
 	ListChangeOps(ctx context.Context, changesetID int64) ([]domain.ChangeOp, error)
 	ChangesetEntryID(ctx context.Context, cs domain.Changeset) (*int64, error)
+	GetProject(ctx context.Context, id int64) (domain.Project, error)
+	GetTask(ctx context.Context, id int64) (domain.Task, error)
+	GetBlocker(ctx context.Context, id int64) (domain.Blocker, error)
+	GetIdea(ctx context.Context, id int64) (domain.Idea, error)
 }
 
 func changesetDTO(ctx context.Context, r changesetReads, cs domain.Changeset) (apitypes.Changeset, error) {
@@ -147,13 +155,20 @@ func changesetDTO(ctx context.Context, r changesetReads, cs domain.Changeset) (a
 	if err != nil {
 		return apitypes.Changeset{}, err
 	}
+	dtos := make([]apitypes.ChangeOp, len(ops))
+	for i, op := range ops {
+		dtos[i] = changeOpDTO(op)
+		if dtos[i].Refs, err = opRefs(ctx, r, op.Payload); err != nil {
+			return apitypes.Changeset{}, err
+		}
+	}
 	return apitypes.Changeset{
 		ID:                cs.ID,
 		Source:            cs.Source,
 		EntryID:           entryID,
 		ParentChangesetID: cs.ParentChangesetID,
 		Status:            cs.Status,
-		Ops:               mapSlice(ops, changeOpDTO),
+		Ops:               dtos,
 		CreatedAt:         cs.CreatedAt,
 		ResolvedAt:        cs.ResolvedAt,
 	}, nil
@@ -169,6 +184,60 @@ func changeOpDTO(op domain.ChangeOp) apitypes.ChangeOp {
 		Confidence:     op.Confidence,
 		Status:         op.Status,
 		AppliedPayload: op.AppliedPayload,
+		Refs:           map[string]string{},
+	}
+}
+
+// refFields are the payload fields that refer to an existing row (SPEC §6.2),
+// and the kind of row each names.
+var refFields = map[string]string{
+	"project_id":         "project",
+	"task_id":            "task",
+	"parent_task_id":     "task",
+	"blocked_by_task_id": "task",
+	"blocker_id":         "blocker",
+	"idea_id":            "idea",
+}
+
+// opRefs names the existing rows an op payload refers to, keyed "kind:id".
+// Temporary IDs ("$new:N"), nulls, and rows that no longer exist are skipped.
+func opRefs(ctx context.Context, r changesetReads, payload json.RawMessage) (map[string]string, error) {
+	refs := map[string]string{}
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(payload, &fields) != nil {
+		return refs, nil
+	}
+	for field, kind := range refFields {
+		var id *int64
+		if raw, ok := fields[field]; !ok || json.Unmarshal(raw, &id) != nil || id == nil {
+			continue
+		}
+		name, err := refName(ctx, r, kind, *id)
+		if errors.Is(err, store.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("name %s %d: %w", kind, *id, err)
+		}
+		refs[fmt.Sprintf("%s:%d", kind, *id)] = name
+	}
+	return refs, nil
+}
+
+func refName(ctx context.Context, r changesetReads, kind string, id int64) (string, error) {
+	switch kind {
+	case "project":
+		p, err := r.GetProject(ctx, id)
+		return p.Title, err
+	case "task":
+		t, err := r.GetTask(ctx, id)
+		return t.Title, err
+	case "blocker":
+		b, err := r.GetBlocker(ctx, id)
+		return b.Description, err
+	default:
+		i, err := r.GetIdea(ctx, id)
+		return i.Title, err
 	}
 }
 

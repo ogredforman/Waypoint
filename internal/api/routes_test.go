@@ -670,3 +670,31 @@ func TestUTF16Offset(t *testing.T) {
 		}
 	}
 }
+
+func TestChangeOpRefsNameExistingRows(t *testing.T) {
+	s := newServer(t)
+	s.runWorker()
+	p := s.project("Waypoint", domain.ProjectActive)
+	task := ok[apitypes.Task](s, http.StatusCreated, "POST", fmt.Sprintf("/api/projects/%d/tasks", p.ID), `{"title": "Set up CI"}`)
+
+	body := "done: Set up CI\ntodo: Write docs\ndone: Something brand new"
+	created := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/entries", map[string]any{"body": body, "project_id": p.ID})
+	d := s.waitProcessed(created.Entry.ID)
+	if len(d.Changesets) != 1 {
+		t.Fatalf("changesets = %+v, want one", d.Changesets)
+	}
+	var got []map[string]string
+	for _, op := range d.Changesets[0].Ops {
+		got = append(got, op.Refs)
+	}
+	taskKey, projectKey := fmt.Sprintf("task:%d", task.ID), fmt.Sprintf("project:%d", p.ID)
+	want := []map[string]string{
+		{taskKey: "Set up CI"},   // set_task_status on the existing task
+		{projectKey: "Waypoint"}, // create_task "Write docs"
+		{projectKey: "Waypoint"}, // create_task "Something brand new"
+		{},                       // set_task_status on $new: no row yet
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("refs = %v, want %v", got, want)
+	}
+}

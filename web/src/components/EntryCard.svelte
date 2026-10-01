@@ -1,28 +1,33 @@
 <script lang="ts">
-  import type { Question } from '../lib/api/types.gen'
-  import { observationHref, observationLabel, pendingOpCount, runState, segments, shownQuestions } from '../lib/entries'
+  import type { Project, Question } from '../lib/api/types.gen'
+  import { observationHref, observationLabel, pendingChangesets, runState, segments, shownQuestions } from '../lib/entries'
   import { paths } from '../lib/router'
   import type { TimelineItem } from '../lib/timeline.svelte'
+  import ChangesetReview from './ChangesetReview.svelte'
   import FollowUpQuestion from './FollowUpQuestion.svelte'
   import Card from './ui/Card.svelte'
 
   // One diary entry in the timeline: when it was written, what it's about, its text with the parts
   // Waypoint picked up highlighted (each opens what it's about), and its follow-up questions: open ones
   // to answer or set aside, answered ones as a quiet line (the answer is a newer entry, above this one).
+  // Changes proposed from it wait underneath for review.
 
   let {
     item,
     projectTitle,
     replyTo,
-  }: { item: TimelineItem; projectTitle: string | null; replyTo: Question | null } = $props()
+    projects,
+  }: { item: TimelineItem; projectTitle: string | null; replyTo: Question | null; projects: Project[] } = $props()
 
   const entry = $derived(item.entry)
   const detail = $derived(item.detail)
   const segs = $derived(segments(entry.body, detail?.observations ?? []))
   const when = $derived(new Date(entry.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }))
-  const pending = $derived(detail ? pendingOpCount(detail) : 0)
+  const pending = $derived(detail ? pendingChangesets(detail) : [])
   const questions = $derived(detail ? shownQuestions(detail) : [])
   const run = $derived(detail ? runState(detail) : 'done')
+  // What applying a review had to say after the review itself went away, e.g. ops held back by the cap.
+  let reviewNotice = $state('')
 </script>
 
 <Card class="space-y-3">
@@ -50,8 +55,11 @@
     <p class="text-xs text-ink-muted">Waypoint couldn't read this entry. It's saved as written.</p>
   {/if}
 
-  {#if pending > 0}
-    <p class="text-xs text-ink-muted">{pending === 1 ? '1 proposed change' : `${pending} proposed changes`} to review</p>
+  {#each pending as cs (cs.id)}
+    <ChangesetReview changeset={cs} {entry} {projects} onnotice={(m) => (reviewNotice = m)} />
+  {/each}
+  {#if reviewNotice}
+    <p class="text-xs text-ink-muted" aria-live="polite">{reviewNotice}</p>
   {/if}
 
   {#each questions as q (q.id)}

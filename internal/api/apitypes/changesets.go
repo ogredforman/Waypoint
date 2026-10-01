@@ -23,6 +23,9 @@ type Changeset struct {
 
 // ChangeOp is one proposed mutation. Payload's shape depends on OpType (SPEC
 // §6.2). AppliedPayload is what was applied instead, if the user edited it.
+// Refs names the existing rows the payload refers to, keyed "kind:id" (kind
+// is project, task, blocker, or idea), so the review UI can say what an op
+// touches; rows that no longer exist are left out.
 type ChangeOp struct {
 	ID             int64                 `json:"id"`
 	Position       int64                 `json:"position"`
@@ -32,6 +35,7 @@ type ChangeOp struct {
 	Confidence     *float64              `json:"confidence" tstype:"number | null,required"`
 	Status         domain.ChangeOpStatus `json:"status"`
 	AppliedPayload json.RawMessage       `json:"applied_payload" tstype:"{ [key: string]: unknown } | null"`
+	Refs           map[string]string     `json:"refs" tstype:"{ [key: string]: string }"`
 }
 
 // Decision is the user's call on one op.

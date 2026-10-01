@@ -49,6 +49,9 @@ export interface Changeset {
 /**
  * ChangeOp is one proposed mutation. Payload's shape depends on OpType (SPEC
  * §6.2). AppliedPayload is what was applied instead, if the user edited it.
+ * Refs names the existing rows the payload refers to, keyed "kind:id" (kind
+ * is project, task, blocker, or idea), so the review UI can say what an op
+ * touches; rows that no longer exist are left out.
  */
 export interface ChangeOp {
   id: number /* int64 */;
@@ -59,6 +62,7 @@ export interface ChangeOp {
   confidence: number | null;
   status: domain.ChangeOpStatus;
   applied_payload: { [key: string]: unknown } | null;
+  refs: { [key: string]: string };
 }
 /**
  * Decision is the user's call on one op.
