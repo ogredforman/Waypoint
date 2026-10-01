@@ -74,7 +74,7 @@ is either a *prefixed line* or a *note*.
 
 | Prefix | Observation (highlight) | Proposed op(s) |
 |---|---|---|
-| `todo: <title>` | none | `create_task` in the entry's project |
+| `todo: <title>` | `plan` (its own highlight colour) | `create_task` in the entry's project |
 | `doing: <title>` | `progress` | `set_task_status → in_progress` on the best-matching open task; if none matches, `create_task` and then `set_task_status` on it |
 | `done: <title>` | `progress` | `set_task_status → done` on the best match; if none matches, `create_task` and then `set_task_status` on it |
 | `blocked: <description>` | `blocker` | `create_blocker` (project-wide) in the entry's project |
@@ -271,7 +271,7 @@ picking the project in the diary input.
    idea: a little window box
    feel: excited, a bit overwhelmed
    ```
-3. Watch: processing → highlights (note, blocker, idea, feeling; `todo:` lines have none) → a
+3. Watch: processing → highlights (note, two plans in their own colour, blocker, idea, feeling) → a
    changeset with 2 `create_task`, `create_blocker`, `park_idea`. No questions (it has `todo:`).
 4. Accept all, Apply. The Project screen, Parking lot, and Now card update without a reload. Next
    action: *order lumber*.

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { Entry, EntryDetail, Observation, ObservationLink } from './api/types.gen'
 import {
   canReprocess,
+  highlightClass,
+  kindLabel,
   observationHref,
   pendingChangesets,
   repliedQuestion,
@@ -63,6 +65,16 @@ describe('segments', () => {
       ['é 🌱 ', null],
       ['ok', 1],
     ])
+  })
+})
+
+describe('highlightClass', () => {
+  it('gives plans their own tint and every other kind the accent', () => {
+    expect(highlightClass('plan', false)).toBe('bg-plan/15')
+    expect(highlightClass('plan', true)).toContain('decoration-plan/50')
+    expect(highlightClass('note', false)).toBe('bg-accent/15')
+    expect(highlightClass('progress', true)).toContain('hover:bg-accent/25')
+    expect(kindLabel('plan')).toBe('Plan')
   })
 })
 

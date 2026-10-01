@@ -18,7 +18,7 @@ export type ExtractionRunStatus = (typeof extractionRunStatusValues)[number];
 export const questionStatusValues = ["open", "answered", "dismissed"] as const;
 export type QuestionStatus = (typeof questionStatusValues)[number];
 
-export const observationKindValues = ["progress", "blocker", "idea", "feeling", "decision", "question", "note"] as const;
+export const observationKindValues = ["progress", "plan", "blocker", "idea", "feeling", "decision", "question", "note"] as const;
 export type ObservationKind = (typeof observationKindValues)[number];
 
 export const targetTypeValues = ["project", "milestone", "task", "blocker", "idea"] as const;

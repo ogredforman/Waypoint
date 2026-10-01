@@ -3,6 +3,7 @@
   import type { Project, Question } from '../lib/api/types.gen'
   import {
     canReprocess,
+    highlightClass,
     observationHref,
     observationLabel,
     pendingChangesets,
@@ -100,7 +101,7 @@
     </p>
   {/if}
 
-  <p class="text-sm leading-relaxed break-words whitespace-pre-wrap text-ink">{#each segs as s, i (i)}{@const href = s.observation && observationHref(s.observation)}{#if !s.observation}{s.text}{:else if href}<a {href} title={observationLabel(s.observation)} class="rounded-sm bg-accent/15 underline decoration-accent/50 underline-offset-2 hover:bg-accent/25">{s.text}</a>{:else}<mark title={observationLabel(s.observation)} class="rounded-sm bg-accent/15 text-ink">{s.text}</mark>{/if}{/each}</p>
+  <p class="text-sm leading-relaxed break-words whitespace-pre-wrap text-ink">{#each segs as s, i (i)}{@const href = s.observation && observationHref(s.observation)}{#if !s.observation}{s.text}{:else if href}<a {href} title={observationLabel(s.observation)} class="rounded-sm underline underline-offset-2 {highlightClass(s.observation.kind, true)}">{s.text}</a>{:else}<mark title={observationLabel(s.observation)} class="rounded-sm text-ink {highlightClass(s.observation.kind, false)}">{s.text}</mark>{/if}{/each}</p>
 
   {#if item.error}
     <p class="text-xs text-ink-muted">{item.error}</p>

@@ -27,6 +27,23 @@ const textPairs: [string, string][] = [
   ['on-accent', 'accent-deep'],
 ]
 
+// blend paints fg at the given opacity over bg in sRGB, close to what a `bg-plan/15` tint renders.
+function blend(fg: string, bg: string, alpha: number): string {
+  const channel = (hex: string, i: number) => parseInt(hex.slice(i, i + 2), 16)
+  return (
+    '#' +
+    [1, 3, 5]
+      .map((i) => Math.round(alpha * channel(fg, i) + (1 - alpha) * channel(bg, i)))
+      .map((c) => c.toString(16).padStart(2, '0'))
+      .join('')
+  )
+}
+
+// Highlights tint the text's background at 15% (25% on hover); the text on them must stay readable.
+const highlightPairs: [string, string, number][] = ['accent', 'plan'].flatMap((tint) =>
+  ['canvas', 'surface', 'raised'].flatMap((bg) => [0.15, 0.25].map((a): [string, string, number] => [tint, bg, a])),
+)
+
 describe('theme tokens', () => {
   it('computes contrast the WCAG way', () => {
     expect(contrast('#000000', '#ffffff')).toBeCloseTo(21)
@@ -36,5 +53,10 @@ describe('theme tokens', () => {
     expect(tokens[fg], `--color-${fg}`).toBeDefined()
     expect(tokens[bg], `--color-${bg}`).toBeDefined()
     expect(contrast(tokens[fg], tokens[bg])).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it.each(highlightPairs)('ink on a %s highlight over %s at %s meets WCAG AA', (tint, bg, alpha) => {
+    expect(tokens[tint], `--color-${tint}`).toBeDefined()
+    expect(contrast(tokens.ink, blend(tokens[tint], tokens[bg], alpha))).toBeGreaterThanOrEqual(4.5)
   })
 })

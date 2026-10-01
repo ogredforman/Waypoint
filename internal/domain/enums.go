@@ -122,6 +122,7 @@ type ObservationKind string
 
 const (
 	ObservationProgress ObservationKind = "progress"
+	ObservationPlan     ObservationKind = "plan"
 	ObservationBlocker  ObservationKind = "blocker"
 	ObservationIdea     ObservationKind = "idea"
 	ObservationFeeling  ObservationKind = "feeling"
@@ -132,7 +133,7 @@ const (
 
 func ObservationKinds() []ObservationKind {
 	return []ObservationKind{
-		ObservationProgress, ObservationBlocker, ObservationIdea, ObservationFeeling,
+		ObservationProgress, ObservationPlan, ObservationBlocker, ObservationIdea, ObservationFeeling,
 		ObservationDecision, ObservationQuestion, ObservationNote,
 	}
 }

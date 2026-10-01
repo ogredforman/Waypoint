@@ -114,7 +114,7 @@ pieces. Tests sit next to the code as `*.test.ts`.
   `ParkedProjectRow.svelte` (activate, calm cap handling). `lib/ideas.ts`: `promoteTargets`, `defaultTarget`, `projectName`;
   `lib/projects.ts` `parkedProjects`.
 - Theme: named tokens in `app.css` `@theme` (`canvas`/`surface`/`raised`/`line`, `ink`/`ink-muted`/
-  `ink-faint`, `accent`/`accent-strong`/`accent-deep`/`on-accent`, `shadow-glow`/`focus`/`edge`,
+  `ink-faint`, `accent`/`accent-strong`/`accent-deep`/`on-accent`, `plan` (plan highlights; `lib/entries.ts` `highlightClass`), `shadow-glow`/`focus`/`edge`,
   `text-title`, `px-gutter`, `rounded-card`). Use these, not raw Tailwind colours.
   `lib/theme.test.ts` checks AA contrast for the text pairs.
 - `components/ui/`: `Button` (`primary`/`secondary`/`quiet`), `Input`, `Textarea` (`bind:value`),

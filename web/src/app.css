@@ -27,6 +27,9 @@
   --color-ok: #34d399;
   --color-caution: #fbbf24;
 
+  /* Highlight tint for plan observations (things the user means to do), apart from the accent other kinds use. */
+  --color-plan: #7dd3fc;
+
   --text-title: 1.5rem;
   --text-title--line-height: 2rem;
   --text-label: 0.8125rem;
