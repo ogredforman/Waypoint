@@ -33,6 +33,7 @@ const closed = 2 // EventSource.CLOSED, which isn't defined outside the browser
 // Handlers are stored untyped; on() ties each to its event's payload type.
 const handlers = new Map<EventName, Set<(data: unknown) => void>>()
 const reconnectHandlers = new Set<() => void>()
+const disconnectHandlers = new Set<() => void>()
 
 // on calls handler with the data of each event named name, until the returned
 // function is called.
@@ -51,6 +52,13 @@ export function onReconnect(handler: () => void): () => void {
   return () => reconnectHandlers.delete(handler)
 }
 
+// onDisconnect calls handler each time an open stream drops (not again while it
+// stays down), until the returned function is called.
+export function onDisconnect(handler: () => void): () => void {
+  disconnectHandlers.add(handler)
+  return () => disconnectHandlers.delete(handler)
+}
+
 function dispatch(name: EventName, raw: string) {
   let data: unknown
   try {
@@ -67,6 +75,7 @@ export function startEvents(open: (url: string) => EventSource = (url) => new Ev
   let source: EventSource | null = null
   let retry: ReturnType<typeof setTimeout> | undefined
   let opened = false
+  let up = false
   let stopped = false
 
   function connect() {
@@ -76,9 +85,13 @@ export function startEvents(open: (url: string) => EventSource = (url) => new Ev
     s.addEventListener('open', () => {
       if (opened) for (const h of reconnectHandlers) h()
       opened = true
+      up = true
     })
     s.addEventListener('error', () => {
-      if (s.readyState !== closed || stopped) return
+      if (stopped) return
+      if (up) for (const h of disconnectHandlers) h()
+      up = false
+      if (s.readyState !== closed) return
       retry = setTimeout(connect, retryDelay)
     })
   }

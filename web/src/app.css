@@ -23,8 +23,7 @@
   --color-accent-deep: #5b21b6;
   --color-on-accent: #ffffff;
 
-  /* Status dots. Calm by design: there is no red (SPEC §5). */
-  --color-ok: #34d399;
+  /* Status dot. Calm by design: there is no red (SPEC §5). */
   --color-caution: #fbbf24;
 
   --text-title: 1.5rem;
@@ -53,6 +52,16 @@
     background-color: var(--color-canvas);
     background-image: radial-gradient(ellipse 80% 50% at 0% 0%, rgb(124 58 237 / 0.12), transparent 70%);
     color: var(--color-ink);
+  }
+
+  /* Thin scrollbars in theme colours. Hovering brightens the scrollbars of the areas under the pointer. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line) transparent;
+  }
+
+  *:hover {
+    scrollbar-color: var(--color-ink-faint) transparent;
   }
 
   :focus-visible {

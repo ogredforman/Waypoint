@@ -70,7 +70,7 @@
         <div class="space-y-1">
           <label for="op-{op.id}-{f.key}" class="text-xs text-ink-muted">{f.label}</label>
           {#if f.long}
-            <Textarea id="op-{op.id}-{f.key}" rows={2} class="resize-y text-sm" bind:value={values[f.key]} />
+            <Textarea id="op-{op.id}-{f.key}" rows={2} class="text-sm" bind:value={values[f.key]} />
           {:else}
             <Input id="op-{op.id}-{f.key}" class="text-sm" bind:value={values[f.key]} />
           {/if}
