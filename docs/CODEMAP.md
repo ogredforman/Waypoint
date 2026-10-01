@@ -119,6 +119,8 @@ pieces. Tests sit next to the code as `*.test.ts`.
   `lib/theme.test.ts` checks AA contrast for the text pairs.
 - `components/ui/`: `Button` (`primary`/`secondary`/`quiet`), `Input`, `Textarea` (`bind:value`),
   `Card` (`glow` for the one thing to notice), `Panel` (row container). `npm --prefix web test`, `npm --prefix web run check`.
+- Icons: `@lucide/svelte`, imported one per path (`import BookOpen from '@lucide/svelte/icons/book-open'`) so only
+  used icons are bundled; decorative icons get `aria-hidden="true"`, and icon-only buttons an `aria-label`.
 - Component tests: `// @vitest-environment jsdom` at the top, then Svelte's `mount`/`flushSync` with a stubbed
   `fetch`; `components/ChangesetReview.test.ts` is the pattern. Svelte delegates events, so dispatch them
   with `bubbles: true`.

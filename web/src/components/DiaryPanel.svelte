@@ -1,4 +1,5 @@
 <script lang="ts">
+  import BookOpen from '@lucide/svelte/icons/book-open'
   import {
     browserStorage,
     loadPrefs,
@@ -107,14 +108,22 @@
     </div>
   </aside>
 {:else}
-  <div class="flex shrink-0 flex-col items-center border-l border-line bg-surface/80 py-4">
+  <div class="flex shrink-0 flex-col items-center border-l border-line bg-surface/80 px-1.5 py-4">
+    <!-- The label names the button; the tooltip shows it on hover and keyboard focus. -->
     <button
       type="button"
-      class="rounded-control px-2 py-3 text-label font-medium text-ink-muted [writing-mode:vertical-rl] hover:text-accent"
+      class="group relative rounded-control p-2 text-ink-muted hover:text-accent focus-visible:text-accent"
+      aria-label="Open the diary"
       aria-expanded="false"
       onclick={() => (open = true)}
     >
-      Open the diary
+      <BookOpen size={20} aria-hidden="true" />
+      <span
+        aria-hidden="true"
+        class="pointer-events-none absolute top-1/2 right-full mr-2 -translate-y-1/2 rounded-control border border-line bg-surface px-2 py-1 text-label whitespace-nowrap text-ink opacity-0 shadow-edge transition group-hover:opacity-100 group-focus-visible:opacity-100"
+      >
+        Open the diary
+      </span>
     </button>
   </div>
 {/if}

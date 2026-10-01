@@ -102,7 +102,7 @@ Tasks:
 **Goal:** settle the base the rest of the app builds on (appearance, settings, profiles, deletion, and the shape of tasks) now that the Stage 1 frontend is close to its finished form, so Stage 2 and later don't redo it. Comes from the owner's Stage 1 review (`docs/Stage-1-Review.md`). The core loop keeps working throughout: `make e2e` passes after every task.
 
 ### 1.5A. Fixes and visual basics
-- [ ] **1.5.1** Icons via `lucide-svelte` (only the icons used are bundled). The collapsed diary sidebar shows an icon with a tooltip instead of sideways text. The diary's "Save" button becomes "Write Entry".
+- [x] **1.5.1** Icons via `@lucide/svelte` (only the icons used are bundled). The collapsed diary sidebar shows an icon with a tooltip instead of sideways text. The diary's "Save" button becomes "Write Entry".
 - [ ] **1.5.2** Button variants as shared components: `primary` (filled accent), `secondary` (outlined, e.g. Edit), `quiet` (subtle background, for actions that are bare text today such as "more" and "read again"), and `danger` (red, for delete and remove). Apply them on every screen. Add to SPEC §11: red marks destructive buttons only, never state.
 - [ ] **1.5.3** Text areas grow with their content up to a maximum height and scroll only past it, with no resize handle. A thin scrollbar styled from theme tokens everywhere. Remove the health footer; show a calm banner only when the server can't be reached.
 - [ ] **1.5.4** A `plan` observation kind (new migration rebuilding the `observations.kind` CHECK) with its own highlight colour. The mock's `todo:` lines produce one, so a new task is visible in the timeline, not only in the changeset. Update SPEC §6.1 and §10.4 and MOCK-TESTING.md.

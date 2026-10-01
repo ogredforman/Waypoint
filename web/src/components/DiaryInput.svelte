@@ -97,7 +97,7 @@
         {/each}
       </select>
     </label>
-    <Button type="submit" disabled={saving || draft.body.trim() === ''}>{saving ? 'Saving…' : 'Save'}</Button>
+    <Button type="submit" disabled={saving || draft.body.trim() === ''}>{saving ? 'Writing…' : 'Write Entry'}</Button>
   </div>
 
   <p class="text-xs text-ink-muted" aria-live="polite">
@@ -106,7 +106,7 @@
     {:else if saved}
       Saved. Waypoint is reading it now.
     {:else}
-      Ctrl+Enter or ⌘+Enter to save.
+      Ctrl+Enter or ⌘+Enter to write it.
     {/if}
   </p>
 </form>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import BookOpen from '@lucide/svelte/icons/book-open'
   import DiaryContent from './DiaryContent.svelte'
 
   // The diary on narrow windows (below lg): a floating button that opens a full-height overlay
@@ -17,10 +18,11 @@
 
 <button
   type="button"
-  class="fixed right-5 bottom-5 z-20 rounded-full bg-linear-to-b from-accent-strong to-accent-deep px-5 py-3 text-sm font-medium text-on-accent shadow-glow hover:brightness-110"
+  class="fixed right-5 bottom-5 z-20 flex items-center gap-2 rounded-full bg-linear-to-b from-accent-strong to-accent-deep px-5 py-3 text-sm font-medium text-on-accent shadow-glow hover:brightness-110"
   aria-haspopup="dialog"
   onclick={show}
 >
+  <BookOpen size={18} aria-hidden="true" />
   Diary
 </button>
 
