@@ -1,12 +1,13 @@
 import { ApiError, getJSON } from './api/client'
-import type { Entry, EntryDetail, EntryPage, Project } from './api/types.gen'
+import type { Entry, EntryDetail, EntryPage, ExtractionRun, Project } from './api/types.gen'
+import { on, onReconnect } from './events'
 
 // The diary timeline, shared by every copy of the diary (panel, overlay, and
 // /diary) so it survives them closing (ADR 0004). Entries load a page at a
 // time, newest first; each entry's detail (observations, questions,
 // changesets) loads on its own, so one that fails doesn't hide the others.
-// Live updates arrive in 1.22; until then the timeline reloads when a diary
-// opens and after the user acts on it.
+// followEvents keeps it current: an entry reloads when its run finishes, so
+// "Waypoint is reading this…" turns into the result without a page reload.
 
 export interface TimelineItem {
   entry: Entry
@@ -27,6 +28,10 @@ export const timeline = $state<{
 
 // Bumped by each loadTimeline, so answers meant for a replaced list are dropped.
 let generation = 0
+// The latest loadEntry request per entry, so a slow answer can't overwrite a
+// newer one (e.g. "still reading" arriving after "done").
+const entryLoads = new Map<number, number>()
+let entryLoadSeq = 0
 
 function message(err: unknown, fallback: string): string {
   return err instanceof ApiError ? err.message : fallback
@@ -86,22 +91,57 @@ export async function loadOlder(): Promise<void> {
 
 // loadEntry (re)loads one entry's detail, if the entry is in the timeline.
 export async function loadEntry(id: number): Promise<void> {
+  const seq = ++entryLoadSeq
+  entryLoads.set(id, seq)
   try {
     const detail = await getJSON<EntryDetail>(`/api/entries/${id}`)
+    if (entryLoads.get(id) !== seq) return
     const item = timeline.items.find((i) => i.entry.id === id)
     if (item) {
       item.detail = detail
       item.error = ''
     }
   } catch (err) {
+    if (entryLoads.get(id) !== seq) return
     const item = timeline.items.find((i) => i.entry.id === id)
     if (item) item.error = message(err, "Couldn't load this entry's details.")
   }
 }
 
-// addEntry puts a just-saved entry at the top of the timeline.
-export async function addEntry(entry: Entry): Promise<void> {
+// addEntry puts a just-saved entry at the top of the timeline. With the run
+// the save queued, it shows as being read straight away, before its detail
+// loads.
+export async function addEntry(entry: Entry, run?: ExtractionRun): Promise<void> {
   if (timeline.items.some((i) => i.entry.id === entry.id)) return
-  timeline.items.unshift({ entry, detail: null, error: '' })
+  const detail = run ? { entry, run, observations: [], questions: [], changesets: [] } : null
+  timeline.items.unshift({ entry, detail, error: '' })
   await loadEntry(entry.id)
+}
+
+// entryChanged reloads an entry the server says changed. An entry newer than
+// any shown (e.g. one written in another tab) reloads the newest page instead.
+function entryChanged(id: number) {
+  if (timeline.status === 'idle') return
+  if (timeline.items.some((i) => i.entry.id === id)) void loadEntry(id)
+  else if (id > (timeline.items[0]?.entry.id ?? 0)) void loadTimeline()
+}
+
+// followEvents keeps the timeline current from server events until the
+// returned function is called. Nothing loads until a diary first opens.
+export function followEvents(): () => void {
+  const offs = [
+    on('entry.processed', (e) => entryChanged(e.entry_id)),
+    on('changeset.ready', (e) => entryChanged(e.entry_id)),
+    on('run.failed', (e) => entryChanged(e.entry_id)),
+    // A changeset applied elsewhere (e.g. another tab) is no longer pending here.
+    on('changeset.applied', (e) => {
+      for (const i of timeline.items) {
+        if (i.detail?.changesets.some((c) => c.id === e.changeset_id)) void loadEntry(i.entry.id)
+      }
+    }),
+    onReconnect(() => {
+      if (timeline.status !== 'idle') void loadTimeline()
+    }),
+  ]
+  return () => offs.forEach((off) => off())
 }

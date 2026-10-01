@@ -95,7 +95,7 @@ func run() int {
 	st := store.New(sqlDB, time.Now)
 	snapshots := pipeline.NewSnapshotBuilder(st, time.Now, cfg.SnapshotRecentEntries)
 	briefings := briefing.NewService(st, briefing.Heuristic{}, time.Now, hub, logger)
-	applier := changeset.NewApplier(st, cfg.ActiveProjectCap, briefings)
+	applier := changeset.NewApplier(st, cfg.ActiveProjectCap, changeset.AfterApplies{briefings, hub})
 	extractor := mock.New(cfg.MockLatency)
 	worker := pipeline.NewWorker(st, snapshots, extractor, hub, briefings, logger)
 	workerDone := make(chan struct{})

@@ -50,7 +50,10 @@
   {#if item.error}
     <p class="text-xs text-ink-muted">{item.error}</p>
   {:else if run === 'reading'}
-    <p class="text-xs text-ink-muted">Waypoint is reading this…</p>
+    <p class="flex items-center gap-2 text-xs text-ink-muted">
+      <span class="size-1.5 rounded-full bg-accent motion-safe:animate-pulse" aria-hidden="true"></span>
+      Waypoint is reading this…
+    </p>
   {:else if run === 'failed'}
     <p class="text-xs text-ink-muted">Waypoint couldn't read this entry. It's saved as written.</p>
   {/if}

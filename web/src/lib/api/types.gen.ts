@@ -294,6 +294,15 @@ export interface RunFailedEvent {
 export interface BriefingUpdatedEvent {
   project_id: number /* int64 */;
 }
+/**
+ * ChangesetAppliedEvent is the data of a "changeset.applied" event: a
+ * changeset, manual or from an entry, was applied. ProjectIDs lists the
+ * projects whose own row, tasks, or blockers it changed; ideas don't count.
+ */
+export interface ChangesetAppliedEvent {
+  changeset_id: number /* int64 */;
+  project_ids: number /* int64 */[];
+}
 
 //////////
 // source: ideas.go

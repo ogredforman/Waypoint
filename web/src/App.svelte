@@ -2,9 +2,11 @@
   import { onMount } from 'svelte'
   import DiaryOverlay from './components/DiaryOverlay.svelte'
   import DiaryPanel from './components/DiaryPanel.svelte'
+  import { startEvents } from './lib/events'
   import { fetchHealth, type Health } from './lib/health'
   import { current, startRouting } from './lib/navigation.svelte'
   import { pageTitle, paths, sectionOf, type Section } from './lib/router'
+  import { followEvents } from './lib/timeline.svelte'
   import Diary from './screens/Diary.svelte'
   import NotFound from './screens/NotFound.svelte'
   import Now from './screens/Now.svelte'
@@ -46,9 +48,14 @@
     const onWidth = () => (wide = wideQuery.matches)
     wideQuery.addEventListener('change', onWidth)
     const stopRouting = startRouting()
+    // Subscribe before connecting, so no event slips past the timeline.
+    const stopTimeline = followEvents()
+    const stopEvents = startEvents()
     return () => {
       wideQuery.removeEventListener('change', onWidth)
       stopRouting()
+      stopEvents()
+      stopTimeline()
     }
   })
 </script>

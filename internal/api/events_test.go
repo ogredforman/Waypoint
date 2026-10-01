@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/ogredforman/waypoint/internal/api/apitypes"
+	"github.com/ogredforman/waypoint/internal/changeset"
+	"github.com/ogredforman/waypoint/internal/domain"
 	"github.com/ogredforman/waypoint/internal/pipeline"
 )
 
@@ -186,6 +188,23 @@ func TestEventsNotifyFansOutInOrder(t *testing.T) {
 			if got := s.next(t); got != w {
 				t.Errorf("stream %d: frame = %+v, want %+v", i, got, w)
 			}
+		}
+	}
+}
+
+func TestEventsApplied(t *testing.T) {
+	hub, srv := newEventsServer(t)
+	s := openStream(t, srv)
+	s.next(t)
+
+	hub.Applied(context.Background(), changeset.Result{Changeset: domain.Changeset{ID: 7}, Projects: []int64{2, 3}})
+	hub.Applied(context.Background(), changeset.Result{Changeset: domain.Changeset{ID: 8}})
+	for _, w := range []frame{
+		{event: "changeset.applied", data: `{"changeset_id":7,"project_ids":[2,3]}`},
+		{event: "changeset.applied", data: `{"changeset_id":8,"project_ids":[]}`},
+	} {
+		if got := s.next(t); got != w {
+			t.Errorf("frame = %+v, want %+v", got, w)
 		}
 	}
 }

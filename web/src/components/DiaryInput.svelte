@@ -38,7 +38,7 @@
     try {
       const res = await postJSON<CreateEntryResponse>('/api/entries', req)
       saved = true
-      addEntry(res.entry)
+      addEntry(res.entry, res.run)
     } catch (err) {
       if (draft.body.trim() === '') {
         draft.body = body

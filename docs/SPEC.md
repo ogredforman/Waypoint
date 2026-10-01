@@ -164,7 +164,7 @@ Two implementations exist behind one interface:
 - *Heuristic*, used in the prototype and as a fallback: prefer in-progress tasks, then unblocked todo tasks by `position`, preferring smaller sizes. Only tasks that can be started now count: no open blocker on the task, no dependency on an open task, and no open subtasks (the subtasks are the steps to start instead). The most recently updated in-progress task wins; otherwise the smallest of the first 3 such todo tasks by position (an unsized task counts as `m`; ties go to position). The recap is one sentence per recent entry about the project, built from its observation summaries.
 - *LLM*: selects and explains using the snapshot. It must return a task ID that exists; otherwise the heuristic is used.
 
-Only the next action, its reason, and the recap are cached (the `briefings` table). Open blockers, low-energy alternatives, and the entry excerpt (the text of the newest observation linked to the next task) are facts about current state, read fresh each time the briefing is shown. Active projects' briefings are regenerated after every applied changeset that touches the project (manual edits included) and after an entry about it is processed (every active project's, for an unscoped entry); each regeneration emits `briefing.updated`. "Entries about a project" are those scoped to it plus unscoped ones with an observation linked to the project or one of its tasks or blockers.
+Only the next action, its reason, and the recap are cached (the `briefings` table). Open blockers, low-energy alternatives, and the entry excerpt (the text of the newest observation linked to the next task) are facts about current state, read fresh each time the briefing is shown. Active projects' briefings are regenerated after every applied changeset that touches the project (manual edits included) and after an entry about it is processed (every active project's, for an unscoped entry); each regeneration emits `briefing.updated`. Every applied changeset, manual or from an entry, also emits `changeset.applied` with the IDs of the projects whose own row, tasks, or blockers it changed, so screens of non-active projects and the parking lot can refresh. "Entries about a project" are those scoped to it plus unscoped ones with an observation linked to the project or one of its tasks or blockers.
 
 ### 7.4 Manual editing
 
@@ -352,7 +352,7 @@ POST   /api/questions/{id}/dismiss
 GET    /api/projects/{id}/briefing    POST /api/projects/{id}/briefing/refresh
 GET    /api/settings                  PATCH /api/settings
 GET    /api/export
-GET    /api/events                    (SSE: entry.processed, changeset.ready, briefing.updated, run.failed)
+GET    /api/events                    (SSE: entry.processed, changeset.ready, briefing.updated, run.failed, changeset.applied)
 ```
 
 Request and response bodies are the DTOs in `internal/api/apitypes`, with TypeScript types generated from them (ADR 0001). Notes:

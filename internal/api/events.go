@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ogredforman/waypoint/internal/api/apitypes"
+	"github.com/ogredforman/waypoint/internal/changeset"
 	"github.com/ogredforman/waypoint/internal/pipeline"
 )
 
@@ -23,8 +25,13 @@ const (
 	defaultKeepalive = 25 * time.Second
 )
 
-// eventBriefingUpdated is the SSE event name for a regenerated briefing.
-const eventBriefingUpdated = "briefing.updated"
+// SSE event names for events that don't come from the worker.
+const (
+	// eventBriefingUpdated: a project's briefing was regenerated.
+	eventBriefingUpdated = "briefing.updated"
+	// eventChangesetApplied: a changeset was applied.
+	eventChangesetApplied = "changeset.applied"
+)
 
 // Hub fans server events out to every connected /api/events stream (SPEC
 // §10.5). Publishing never blocks: a client whose buffer is full is
@@ -98,6 +105,16 @@ func (h *Hub) Notify(e pipeline.Event) {
 // briefing.Notifier.
 func (h *Hub) BriefingUpdated(projectID int64) {
 	h.Publish(eventBriefingUpdated, apitypes.BriefingUpdatedEvent{ProjectID: projectID})
+}
+
+// Applied publishes a "changeset.applied" event. It makes the hub a
+// changeset.AfterApply.
+func (h *Hub) Applied(_ context.Context, res changeset.Result) {
+	ids := res.Projects
+	if ids == nil {
+		ids = []int64{}
+	}
+	h.Publish(eventChangesetApplied, apitypes.ChangesetAppliedEvent{ChangesetID: res.Changeset.ID, ProjectIDs: ids})
 }
 
 // Close ends every open stream and refuses new ones. The server calls it

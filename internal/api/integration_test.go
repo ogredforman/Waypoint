@@ -62,7 +62,7 @@ func startApp(t *testing.T, dbPath string, ext extract.Extractor) *app {
 	st := store.New(sqlDB, time.Now)
 	snapshots := pipeline.NewSnapshotBuilder(st, time.Now, 5)
 	briefings := briefing.NewService(st, briefing.Heuristic{}, time.Now, hub, logger)
-	applier := changeset.NewApplier(st, activeCap, briefings)
+	applier := changeset.NewApplier(st, activeCap, changeset.AfterApplies{briefings, hub})
 	worker := pipeline.NewWorker(st, snapshots, ext, hub, briefings, logger)
 	srv := httptest.NewServer(NewRouter(Deps{
 		DB: sqlDB, Logger: logger, Hub: hub,
@@ -310,6 +310,18 @@ func TestE2ECoreLoop(t *testing.T) {
 	}
 
 	a.noLeaks(body)
+}
+
+func TestE2EManualEditPublishesApplied(t *testing.T) {
+	a := startApp(t, filepath.Join(t.TempDir(), "waypoint.db"), mock.New(0))
+	p := newProject(a, "Waypoint")
+	if e := event[apitypes.ChangesetAppliedEvent](a, eventChangesetApplied); !slices.Equal(e.ProjectIDs, []int64{p.ID}) || e.ChangesetID == 0 {
+		t.Errorf("after create: event = %+v, want project %d", e, p.ID)
+	}
+	send[apitypes.Project](a, http.StatusOK, "PATCH", fmt.Sprintf("/api/projects/%d", p.ID), map[string]any{"title": "Waypoint v1"})
+	if e := event[apitypes.ChangesetAppliedEvent](a, eventChangesetApplied); !slices.Equal(e.ProjectIDs, []int64{p.ID}) {
+		t.Errorf("after edit: event = %+v, want project %d", e, p.ID)
+	}
 }
 
 func TestE2EFollowUpEntryWithGuessedProject(t *testing.T) {

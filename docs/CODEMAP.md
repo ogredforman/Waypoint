@@ -48,7 +48,7 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
   map[opID]Decision)` → `Result{Changeset, Created, SplitOff, HeldByCap, Projects}`; one
   transaction, full rollback, undecided/capped ops split into a new pending changeset (ADR 0003);
   calls `AfterApply.Applied`. `manual.go`: `Applier.ApplyManual(ctx, ops ...Payload)` for
-  `source=manual`. `reject.go`: `RejectPending`.
+  `source=manual`. `reject.go`: `RejectPending`. `AfterApplies` chains hooks (briefings, then the SSE hub).
 - **extract**: provider-neutral boundary. `Extractor{Extract, Name}`, `ExtractInput` (entry, snapshot, `ReplyTo` question),
   `ExtractionResult` (observations, links, `ChangeOpDraft`s, `QuestionDraft`s), `StateSnapshot`
   (`Has`), `Validate` (shared validator, `MaxQuestions = 2`).
@@ -64,7 +64,7 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
   (`projects.go`, `tasks.go`, `blockers.go`, `ideas.go`, `entries.go`, `changesets.go`),
   `convert.go` (domain → apitypes), `respond.go` (JSON encode/decode, `h.fail` maps errors to the
   single error shape, `badRequest`), `events.go` (`Hub`: SSE `/api/events`, `Publish`, `Notify`,
-  `BriefingUpdated`), `serve.go`. Handlers are thin: decode, call a service, encode.
+  `BriefingUpdated`, `Applied` → `changeset.applied`), `serve.go`. Handlers are thin: decode, call a service, encode.
   **api/apitypes**: request/response/event DTOs; `gen/` generates `web/src/lib/api/*.gen.ts`
   (`make gen`, checked by `make lint`).
 - **config**: `Load(args, env, goos, stderr)` (flags > env > `config.toml`), `EnsureDataDir`.
@@ -82,12 +82,14 @@ pieces. Tests sit next to the code as `*.test.ts`.
 - Layout (ADR 0004): `App.svelte` mounts `DiaryPanel` (lg and up) or `DiaryOverlay` (below lg), never
   both, and neither on `/diary`. Both wrap `DiaryContent`, which `screens/Diary` also shows full-page.
   `lib/diaryPanel.ts`: panel width limits, drag/key resizing, `localStorage` prefs.
+- Live updates: `lib/events.ts` is the app's one `EventSource` (`startEvents` in `App.svelte`; `on(name, handler)`,
+  `onReconnect`). Screens subscribe in `onMount` and refetch; `lib/events.fake.ts` `FakeEventSource` for tests.
 - Diary input: `components/DiaryInput.svelte` (in `DiaryContent`); `lib/diary.ts` (submit shortcut,
   default project scope from the route, `entryRequest`); `lib/diaryDraft.svelte.ts` (shared draft that
   outlives the panel/overlay).
 - Diary timeline: `components/EntryTimeline.svelte` → `EntryCard.svelte` (highlights, run state) →
   `FollowUpQuestion.svelte` (answer/dismiss). `lib/timeline.svelte.ts`: shared timeline state (`loadTimeline`,
-  `loadOlder`, `loadEntry`, `addEntry`). `lib/entries.ts`: `segments`, `observationHref`, detail helpers.
+  `loadOlder`, `loadEntry`, `addEntry`, `followEvents`). `lib/entries.ts`: `segments`, `observationHref`, detail helpers.
 - Changeset review: `EntryCard` → `components/ChangesetReview.svelte` (one per pending changeset; project
   picker, Apply / Accept all) → `ChangeOpRow.svelte` (accept/reject/edit). `lib/review.ts`: pure logic
   (`reject`/`accept` cascades over `$new:N`, `guessedProject`, `noProject`, `applyRequest`, `describe` using

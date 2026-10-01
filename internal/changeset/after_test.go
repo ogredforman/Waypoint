@@ -142,3 +142,12 @@ func TestAfterApply(t *testing.T) {
 		}
 	})
 }
+
+func TestAfterApplies(t *testing.T) {
+	var a, b recorder
+	res := Result{Projects: []int64{4}}
+	AfterApplies{&a, &b}.Applied(context.Background(), res)
+	if len(a.got) != 1 || len(b.got) != 1 || !slices.Equal(b.got[0].Projects, []int64{4}) {
+		t.Errorf("hooks got %+v and %+v, want the result once each", a.got, b.got)
+	}
+}

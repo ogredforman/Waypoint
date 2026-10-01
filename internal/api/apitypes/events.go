@@ -31,3 +31,11 @@ type RunFailedEvent struct {
 type BriefingUpdatedEvent struct {
 	ProjectID int64 `json:"project_id"`
 }
+
+// ChangesetAppliedEvent is the data of a "changeset.applied" event: a
+// changeset, manual or from an entry, was applied. ProjectIDs lists the
+// projects whose own row, tasks, or blockers it changed; ideas don't count.
+type ChangesetAppliedEvent struct {
+	ChangesetID int64   `json:"changeset_id"`
+	ProjectIDs  []int64 `json:"project_ids"`
+}

@@ -74,6 +74,16 @@ type AfterApply interface {
 	Applied(ctx context.Context, res Result)
 }
 
+// AfterApplies is an AfterApply that calls each of its hooks in order.
+type AfterApplies []AfterApply
+
+// Applied calls Applied on each hook in turn.
+func (hs AfterApplies) Applied(ctx context.Context, res Result) {
+	for _, h := range hs {
+		h.Applied(ctx, res)
+	}
+}
+
 // Applier applies changesets. It is the only writer of projects, tasks,
 // blockers, and ideas.
 type Applier struct {

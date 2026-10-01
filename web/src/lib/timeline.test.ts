@@ -1,5 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Entry, EntryDetail, EntryPage } from './api/types.gen'
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Changeset, Entry, EntryDetail, EntryPage, ExtractionRun } from './api/types.gen'
+import { startEvents } from './events'
+import { FakeEventSource, fakeOpen } from './events.fake'
 
 // A fake API: routes holds the answer (or a promise of one) for each GET path.
 const routes = new Map<string, unknown>()
@@ -16,7 +18,26 @@ vi.mock('./api/client', async (importOriginal) => {
   }
 })
 
-const { addEntry, loadOlder, loadTimeline, pageSize, timeline } = await import('./timeline.svelte')
+const { addEntry, followEvents, loadEntry, loadOlder, loadTimeline, pageSize, timeline } = await import('./timeline.svelte')
+
+const stopFollowing = followEvents()
+const stopEvents = startEvents(fakeOpen)
+afterAll(() => {
+  stopEvents()
+  stopFollowing()
+})
+
+// settle lets the loads an event started finish.
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+function run(status: ExtractionRun['status']): ExtractionRun {
+  return { id: 1, entry_id: 1, status, error: null, created_at: '', updated_at: '' }
+}
+
+// changeset is a stand-in with only the fields the timeline reads.
+function changeset(id: number, status: Changeset['status']): Changeset {
+  return { id, status } as Changeset
+}
 
 function entry(id: number): Entry {
   return { id, body: `entry ${id}`, project_id: null, reply_to_question_id: null, created_at: '' }
@@ -104,5 +125,78 @@ describe('timeline', () => {
     await addEntry(entry(2))
     expect(ids()).toEqual([2, 1])
     expect(timeline.items[0].detail).not.toBeNull()
+  })
+
+  it('shows a saved entry as being read before its detail loads', async () => {
+    let release: (d: EntryDetail) => void = () => {}
+    routes.set('/api/entries/2', new Promise<EntryDetail>((resolve) => (release = resolve)))
+    const adding = addEntry(entry(2), run('pending'))
+    expect(timeline.items[0].detail?.run?.status).toBe('pending')
+    release({ ...detail(2), run: run('succeeded') })
+    await adding
+    expect(timeline.items[0].detail?.run?.status).toBe('succeeded')
+  })
+
+  it("drops an entry's older detail answer once a newer one arrived", async () => {
+    routes.set(first, page([1], null))
+    await loadTimeline()
+    let release: (d: EntryDetail) => void = () => {}
+    routes.set('/api/entries/1', new Promise<EntryDetail>((resolve) => (release = resolve)))
+    const stale = loadEntry(1)
+    routes.set('/api/entries/1', { ...detail(1), run: run('succeeded') })
+    await loadEntry(1)
+    release({ ...detail(1), run: run('running') })
+    await stale
+    expect(timeline.items[0].detail?.run?.status).toBe('succeeded')
+  })
+
+  it('reloads an entry when its run finishes', async () => {
+    routes.set(first, page([1], null))
+    await loadTimeline()
+    routes.set('/api/entries/1', { ...detail(1), run: run('failed') })
+    FakeEventSource.latest().emit('run.failed', { entry_id: 1, run_id: 1 })
+    await settle()
+    expect(timeline.items[0].detail?.run?.status).toBe('failed')
+  })
+
+  it('reloads the newest page for an entry it has not seen', async () => {
+    routes.set(first, page([1], null))
+    await loadTimeline()
+    routes.set(first, page([2, 1], null))
+    FakeEventSource.latest().emit('entry.processed', { entry_id: 2, run_id: 2 })
+    await settle()
+    expect(ids()).toEqual([2, 1])
+  })
+
+  it('ignores events until a diary has opened', async () => {
+    routes.set(first, page([1], null))
+    FakeEventSource.latest().emit('entry.processed', { entry_id: 1, run_id: 1 })
+    await settle()
+    expect(timeline.status).toBe('idle')
+    expect(ids()).toEqual([])
+  })
+
+  it('reloads entries whose pending changeset was applied elsewhere', async () => {
+    routes.set(first, page([2, 1], null))
+    routes.set('/api/entries/1', { ...detail(1), changesets: [changeset(7, 'pending')] })
+    await loadTimeline()
+    routes.set('/api/entries/1', { ...detail(1), changesets: [changeset(7, 'applied')] })
+    routes.delete('/api/entries/2') // reloading entry 2 would set its error
+    FakeEventSource.latest().emit('changeset.applied', { changeset_id: 7, project_ids: [] })
+    await settle()
+    expect(timeline.items[1].detail?.changesets[0].status).toBe('applied')
+    expect(timeline.items[0].error).toBe('')
+  })
+
+  it('reloads after reconnecting', async () => {
+    routes.set(first, page([1], null))
+    await loadTimeline()
+    const src = FakeEventSource.latest()
+    src.open()
+    routes.set(first, page([2, 1], null))
+    src.fail()
+    src.open()
+    await settle()
+    expect(ids()).toEqual([2, 1])
   })
 })

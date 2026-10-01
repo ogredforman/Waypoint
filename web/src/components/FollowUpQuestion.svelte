@@ -25,7 +25,7 @@
       const res = await postJSON<CreateEntryResponse>('/api/entries', { ...req, reply_to_question_id: question.id })
       body = ''
       answering = false
-      await Promise.all([addEntry(res.entry), loadEntry(entry.id)])
+      await Promise.all([addEntry(res.entry, res.run), loadEntry(entry.id)])
     } catch (err) {
       notice = err instanceof ApiError ? err.message : "Couldn't save your answer. It's still in the box."
     } finally {
