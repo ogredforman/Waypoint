@@ -52,9 +52,14 @@ const kindLabels: Record<ObservationKind, string> = {
   note: 'Note',
 }
 
+// kindLabel names an observation's kind for display.
+export function kindLabel(kind: ObservationKind): string {
+  return kindLabels[kind]
+}
+
 // observationLabel describes a highlight for its tooltip.
 export function observationLabel(o: Observation): string {
-  return `${kindLabels[o.kind]}: ${o.summary}`
+  return `${kindLabel(o.kind)}: ${o.summary}`
 }
 
 // shownQuestions are the entry's follow-up questions the timeline shows: open

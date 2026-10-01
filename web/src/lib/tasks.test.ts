@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { TaskStatus } from './api/enums.gen'
-import type { Task } from './api/types.gen'
-import { groupTasks, newTaskRequest, taskFields, taskPatch } from './tasks'
+import type { LinkedObservation, Task } from './api/types.gen'
+import { groupTasks, newTaskRequest, observationTimeline, taskFields, taskPatch } from './tasks'
 
 function task(id: number, status: TaskStatus, position: number, extra: Partial<Task> = {}): Task {
   return {
@@ -62,5 +62,29 @@ describe('newTaskRequest', () => {
   it('leaves out unset size and energy', () => {
     expect(newTaskRequest({ title: ' Dig ', size: '', energy: '' })).toEqual({ title: 'Dig' })
     expect(newTaskRequest({ title: 'Dig', size: 'xs', energy: 'low' })).toEqual({ title: 'Dig', size: 'xs', energy: 'low' })
+  })
+})
+
+describe('observationTimeline', () => {
+  const obs = (id: number, entry_id: number): LinkedObservation => ({
+    id,
+    entry_id,
+    entry_created_at: `2026-09-0${entry_id}T10:00:00Z`,
+    kind: 'progress',
+    summary: `S${id}`,
+    quote: '',
+    confidence: 1,
+  })
+
+  it('groups consecutive observations by entry and keeps their order', () => {
+    const groups = observationTimeline([obs(1, 1), obs(2, 1), obs(3, 2)])
+    expect(groups.map((g) => [g.entryId, g.at, g.observations.map((o) => o.id)])).toEqual([
+      [1, '2026-09-01T10:00:00Z', [1, 2]],
+      [2, '2026-09-02T10:00:00Z', [3]],
+    ])
+  })
+
+  it('is empty for no observations', () => {
+    expect(observationTimeline([])).toEqual([])
   })
 })

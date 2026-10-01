@@ -1,5 +1,5 @@
 import type { Energy, TaskSize, TaskStatus } from './api/enums.gen'
-import type { CreateTaskRequest, MoveDirection, Task, UpdateTaskRequest } from './api/types.gen'
+import type { CreateTaskRequest, LinkedObservation, MoveDirection, Task, UpdateTaskRequest } from './api/types.gen'
 
 export interface TaskGroup {
   status: TaskStatus
@@ -65,4 +65,24 @@ export function newTaskRequest(form: Pick<TaskForm, 'title' | 'size' | 'energy'>
   if (form.size) req.size = form.size
   if (form.energy) req.energy = form.energy
   return req
+}
+
+// TimelineGroup is the observations one entry made about a task, under that entry's date.
+export interface TimelineGroup {
+  entryId: number
+  at: string
+  observations: LinkedObservation[]
+}
+
+// observationTimeline groups a task's linked observations by the entry they
+// came from, keeping the API's oldest-first order. An entry's observations
+// arrive together, so only consecutive ones are merged.
+export function observationTimeline(observations: LinkedObservation[]): TimelineGroup[] {
+  const groups: TimelineGroup[] = []
+  for (const o of observations) {
+    const last = groups[groups.length - 1]
+    if (last && last.entryId === o.entry_id) last.observations.push(o)
+    else groups.push({ entryId: o.entry_id, at: o.entry_created_at, observations: [o] })
+  }
+  return groups
 }

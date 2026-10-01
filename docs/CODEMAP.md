@@ -102,6 +102,8 @@ pieces. Tests sit next to the code as `*.test.ts`.
   `moveTask`, `movePositions`). `lib/tasks.ts`: `groupTasks`, `taskPatch`, `newTaskRequest`.
   Blockers: `components/ProjectBlockers.svelte` (open, then resolved) → `BlockerRow.svelte` (resolve, delete with confirmation);
   `lib/blockers.ts`: `splitBlockers`. Ideas: `components/ProjectIdeas.svelte` (this project's parked ideas, read-only).
+- Task detail: `screens/Task.svelte` (`GET /api/tasks/{id}`: fields, origin entry, linked observations grouped by entry
+  via `lib/tasks.ts` `observationTimeline`; read-only, edits live on the Project screen). `lib/entries.ts` `kindLabel`.
 - Theme: named tokens in `app.css` `@theme` (`canvas`/`surface`/`raised`/`line`, `ink`/`ink-muted`/
   `ink-faint`, `accent`/`accent-strong`/`accent-deep`/`on-accent`, `shadow-glow`/`focus`/`edge`,
   `text-title`, `px-gutter`, `rounded-card`). Use these, not raw Tailwind colours.
