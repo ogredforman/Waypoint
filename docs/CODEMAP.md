@@ -81,9 +81,10 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
 ## Frontend (`web/src`)
 
 Svelte 5 runes + TS + Tailwind, Vitest. `main.ts` → `App.svelte`. `lib/api/client.ts` is the
-typed API client (the only place that calls `fetch`), with generated `types.gen.ts`/`enums.gen.ts`.
+typed API client (the only place that calls `fetch`), with generated `types.gen.ts`/`enums.gen.ts`;
+named calls (`listProjects`, `getSettings`, `updateSettings`) are thin wrappers over `getJSON`/`patchJSON`, and new code uses them.
 `lib/router.ts` + `lib/navigation.svelte.ts`: client-side routing; every screen's `<h1>` takes `{@attach pageHeading}` (focus after navigation). `screens/`: page components
-(`Now`, `Diary`, `Projects`, `Project`, `Task`, `ParkingLot`, `NotFound`). `components/`: reusable
+(`Now`, `Diary`, `Projects`, `Project`, `Task`, `ParkingLot`, `Settings`, `NotFound`). `components/`: reusable
 pieces. Tests sit next to the code as `*.test.ts`.
 
 - Layout (ADR 0004): `App.svelte` mounts `DiaryPanel` (lg and up) or `DiaryOverlay` (below lg), never
@@ -122,6 +123,9 @@ pieces. Tests sit next to the code as `*.test.ts`.
   task in a chosen project or to a parked project, delete with confirmation; also used by `ProjectIdeas`) and
   `ParkedProjectRow.svelte` (activate, calm cap handling). `lib/ideas.ts`: `promoteTargets`, `defaultTarget`, `projectName`;
   `lib/projects.ts` `parkedProjects`.
+- Settings: `screens/Settings.svelte` (`/settings`, linked from the header; one `<section>` per group, "Focus" first:
+  active-project cap and questions per entry, saved as one PATCH of the changed fields). `lib/settings.ts`: `settingsPatch`,
+  `parseCap`, `capNote` (a cap below the active count pauses nothing), `fieldProblems` (422 → per-field). `screens/Settings.test.ts`.
 - Theme: named tokens in `app.css` `@theme` (`canvas`/`surface`/`raised`/`line`, `ink`/`ink-muted`/
   `ink-faint`, `accent`/`accent-strong`/`accent-deep`/`on-accent`, `plan` (plan highlights; `lib/entries.ts` `highlightClass`), `shadow-glow`/`focus`/`edge`,
   `text-title`, `px-gutter`, `rounded-card`). Use these, not raw Tailwind colours. Thin scrollbars from tokens in `@layer base`.

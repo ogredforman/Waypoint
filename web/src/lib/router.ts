@@ -8,10 +8,11 @@ export type Route =
   | { name: 'project'; id: number }
   | { name: 'task'; id: number }
   | { name: 'parkingLot' }
+  | { name: 'settings' }
   | { name: 'notFound' }
 
 // Section is a top-level area of the app: one per nav item.
-export type Section = 'now' | 'diary' | 'projects' | 'parkingLot'
+export type Section = 'now' | 'diary' | 'projects' | 'parkingLot' | 'settings'
 
 export const paths = {
   now: '/',
@@ -20,6 +21,7 @@ export const paths = {
   project: (id: number) => `/projects/${id}`,
   task: (id: number) => `/tasks/${id}`,
   parkingLot: '/parking-lot',
+  settings: '/settings',
 } as const
 
 // matchRoute finds the route for a URL path. A trailing slash is ignored.
@@ -35,6 +37,8 @@ export function matchRoute(pathname: string): Route {
       return { name: 'projects' }
     case paths.parkingLot:
       return { name: 'parkingLot' }
+    case paths.settings:
+      return { name: 'settings' }
   }
   const m = /^\/(projects|tasks)\/([^/]+)$/.exec(path)
   if (m) {
@@ -58,6 +62,7 @@ export function sectionOf(route: Route): Section | null {
     case 'diary':
     case 'projects':
     case 'parkingLot':
+    case 'settings':
       return route.name
     case 'project':
     case 'task':
@@ -74,6 +79,7 @@ const titles: Record<Route['name'], string> = {
   project: 'Project',
   task: 'Task',
   parkingLot: 'Parking lot',
+  settings: 'Settings',
   notFound: 'Not found',
 }
 

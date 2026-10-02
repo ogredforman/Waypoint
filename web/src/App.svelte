@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SettingsIcon from '@lucide/svelte/icons/settings'
   import { onMount } from 'svelte'
   import DiaryOverlay from './components/DiaryOverlay.svelte'
   import DiaryPanel from './components/DiaryPanel.svelte'
@@ -14,6 +15,7 @@
   import ParkingLot from './screens/ParkingLot.svelte'
   import Project from './screens/Project.svelte'
   import Projects from './screens/Projects.svelte'
+  import Settings from './screens/Settings.svelte'
   import Task from './screens/Task.svelte'
 
   const nav: { section: Section; label: string; href: string }[] = [
@@ -88,6 +90,17 @@
           {/each}
         </ul>
       </nav>
+      <a
+        href={paths.settings}
+        class={[
+          'ml-auto flex items-center gap-1.5 rounded-control px-3 py-1.5 text-sm transition',
+          section === 'settings' ? 'bg-raised text-ink shadow-glow' : 'text-ink-muted hover:text-ink',
+        ]}
+        aria-current={section === 'settings' ? 'page' : undefined}
+      >
+        <SettingsIcon size={16} aria-hidden="true" />
+        Settings
+      </a>
     </div>
   </header>
 
@@ -108,6 +121,8 @@
           {#key route.id}<Task id={route.id} />{/key}
         {:else if route.name === 'parkingLot'}
           <ParkingLot />
+        {:else if route.name === 'settings'}
+          <Settings />
         {:else}
           <NotFound />
         {/if}

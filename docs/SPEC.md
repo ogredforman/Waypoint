@@ -373,7 +373,7 @@ Request and response bodies are the DTOs in `internal/api/apitypes`, with TypeSc
 3. **Project**: header (why, definition of done), task list grouped by status, blockers, ideas for this project, and recent entries.
 4. **Task detail**: fields, origin entry, and a chronological list of every linked observation ("everything I've thought about this").
 5. **Parking lot**: ideas and parked projects.
-6. **Settings**: provider, model, keys, caps.
+6. **Settings**: the caps (active projects at once, follow-up questions per entry); later profiles, appearance, and the provider, model, and keys. Lowering the active-project cap below the number of active projects pauses nothing, and the screen says so.
 
 UX notes: keyboard-first diary input (Ctrl/Cmd+Enter to submit); calm visual design (a dark theme with a purple accent and restrained gradients and glows; glow draws attention, never alarm); no red "overdue" states; empty states that encourage starting small; text areas grow with their content to a maximum height, then scroll; the server's status appears only as a calm banner when it can't be reached (or can't reach its database), never as a permanent indicator. Buttons come in four variants: primary (the one main action), secondary (outlined alternatives such as Edit), quiet (subtle, for cancel and small in-line actions), and danger; red marks destructive buttons only (delete, remove), never state.
 

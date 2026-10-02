@@ -1,4 +1,4 @@
-import type { ErrorBody, FieldProblem } from './types.gen'
+import type { ErrorBody, FieldProblem, Project, Settings, UpdateSettingsRequest } from './types.gen'
 
 // ApiError is a failed API request. code is the server's error code (SPEC
 // §10.5), or "unreachable" when no API answered at all.
@@ -68,4 +68,19 @@ export function patchJSON<T>(path: string, body: unknown, fetchFn?: typeof fetch
 
 export function deleteJSON(path: string, fetchFn?: typeof fetch): Promise<void> {
   return request<void>('DELETE', path, undefined, fetchFn)
+}
+
+// Named calls. New code calls these rather than building /api/ paths itself.
+
+export function listProjects(fetchFn?: typeof fetch): Promise<Project[]> {
+  return getJSON<Project[]>('/api/projects', fetchFn)
+}
+
+export function getSettings(fetchFn?: typeof fetch): Promise<Settings> {
+  return getJSON<Settings>('/api/settings', fetchFn)
+}
+
+// updateSettings changes the settings present in req and answers with all of them.
+export function updateSettings(req: UpdateSettingsRequest, fetchFn?: typeof fetch): Promise<Settings> {
+  return patchJSON<Settings>('/api/settings', req, fetchFn)
 }

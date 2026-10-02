@@ -7,6 +7,7 @@ describe('matchRoute', () => {
     expect(matchRoute('/diary')).toEqual({ name: 'diary' })
     expect(matchRoute('/projects')).toEqual({ name: 'projects' })
     expect(matchRoute('/parking-lot')).toEqual({ name: 'parkingLot' })
+    expect(matchRoute('/settings')).toEqual({ name: 'settings' })
   })
 
   it('ignores a trailing slash', () => {
@@ -37,6 +38,7 @@ describe('matchRoute', () => {
     expect(matchRoute(paths.project(42))).toEqual({ name: 'project', id: 42 })
     expect(matchRoute(paths.task(5))).toEqual({ name: 'task', id: 5 })
     expect(matchRoute(paths.parkingLot)).toEqual({ name: 'parkingLot' })
+    expect(matchRoute(paths.settings)).toEqual({ name: 'settings' })
   })
 })
 
@@ -50,6 +52,7 @@ describe('sectionOf', () => {
     expect(sectionOf({ name: 'now' })).toBe('now')
     expect(sectionOf({ name: 'diary' })).toBe('diary')
     expect(sectionOf({ name: 'parkingLot' })).toBe('parkingLot')
+    expect(sectionOf({ name: 'settings' })).toBe('settings')
     expect(sectionOf({ name: 'notFound' })).toBeNull()
   })
 })
@@ -58,6 +61,7 @@ describe('pageTitle', () => {
   it('names the screen', () => {
     expect(pageTitle({ name: 'now' })).toBe('Waypoint')
     expect(pageTitle({ name: 'parkingLot' })).toBe('Parking lot · Waypoint')
+    expect(pageTitle({ name: 'settings' })).toBe('Settings · Waypoint')
   })
 })
 
