@@ -139,6 +139,13 @@ type PendingObservationLink struct {
 	CreatedAt     int64
 }
 
+type Profile struct {
+	ID        int64
+	Name      string
+	CreatedAt int64
+	UpdatedAt int64
+}
+
 type Project struct {
 	ID               int64
 	Title            string

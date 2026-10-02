@@ -31,7 +31,7 @@ export default defineConfig({
   webServer: {
     command: 'go run ./cmd/waypoint',
     cwd: '..',
-    url: `http://127.0.0.1:${port}/api/projects`,
+    url: `http://127.0.0.1:${port}/api/health`,
     reuseExistingServer: false,
     timeout: 180_000,
     env: {

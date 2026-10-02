@@ -13,7 +13,7 @@ import (
 var coreTables = []string{
 	"blockers", "briefings", "change_ops", "changesets", "entries", "extraction_runs",
 	"follow_up_questions", "ideas", "milestones", "observation_links", "observations",
-	"pending_observation_links", "projects", "settings", "task_dependencies", "tasks",
+	"pending_observation_links", "profile", "projects", "settings", "task_dependencies", "tasks",
 }
 
 // migrated returns a temp DB with the embedded migrations applied.
@@ -109,8 +109,8 @@ func TestCoreSchema(t *testing.T) {
 	if err := sqlDB.QueryRowContext(ctx, "SELECT max(version_id) FROM goose_db_version").Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != 6 {
-		t.Errorf("schema version %d, want 6", version)
+	if version != 7 {
+		t.Errorf("schema version %d, want 7", version)
 	}
 	if got := appTables(t, sqlDB); !slices.Equal(got, coreTables) {
 		t.Errorf("tables %v, want %v", got, coreTables)
@@ -176,6 +176,8 @@ func TestCoreSchemaRejects(t *testing.T) {
 		{"settings cap below 1", check, `INSERT INTO settings (id, active_project_cap, questions_per_entry, created_at, updated_at) VALUES (1, 0, 2, 1, 1)`},
 		{"settings questions above 2", check, `INSERT INTO settings (id, active_project_cap, questions_per_entry, created_at, updated_at) VALUES (1, 3, 3, 1, 1)`},
 		{"settings questions negative", check, `INSERT INTO settings (id, active_project_cap, questions_per_entry, created_at, updated_at) VALUES (1, 3, -1, 1, 1)`},
+		{"profile second row", check, `INSERT INTO profile (id, name, created_at, updated_at) VALUES (2, 'x', 1, 1)`},
+		{"profile blank name", check, `UPDATE profile SET name = '  ' WHERE id = 1`},
 		{"idea status", check, `INSERT INTO ideas (title, status, created_at, updated_at) VALUES ('x', 'active', 1, 1)`},
 		{"extraction changeset without run", check, `INSERT INTO changesets (source, status, created_at, updated_at) VALUES ('extraction', 'pending', 1, 1)`},
 		{"manual changeset with run", check, `INSERT INTO changesets (source, extraction_run_id, status, created_at, updated_at) VALUES ('manual', 1, 'pending', 1, 1)`},

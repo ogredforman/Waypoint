@@ -1,7 +1,6 @@
 package api
 
 import (
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -17,14 +16,23 @@ import (
 	"github.com/ogredforman/waypoint/internal/store"
 )
 
-// Deps are the dependencies the HTTP handlers need.
+// Deps are the dependencies of the server's root router.
 type Deps struct {
-	DB     *sql.DB
 	Logger *slog.Logger
 	// Web serves everything outside /api (the embedded frontend). Nil means
 	// no frontend: those paths get chi's default 404.
 	Web http.Handler
-	// Hub serves /api/events. Nil leaves the route unmounted.
+	// Profiles serves /api/profiles and every profile's routes under
+	// /api/profiles/{profile}/ (ADR 0005), and backs /api/health. Nil leaves
+	// those routes unmounted and /api/health always ok.
+	Profiles Profiles
+}
+
+// ProfileDeps are one profile's dependencies: its database's store and the
+// services built on it.
+type ProfileDeps struct {
+	Logger *slog.Logger
+	// Hub serves the profile's /events. Nil leaves the route unmounted.
 	Hub *Hub
 
 	// Store, Applier, Worker, and Briefings back the data routes (SPEC
@@ -61,32 +69,14 @@ func newMux(d Deps) *chi.Mux {
 	r.Use(recoverPanics(d.Logger))
 
 	r.Route("/api", func(r chi.Router) {
-		r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-			writeError(w, http.StatusNotFound, "not_found", "no such endpoint")
-		})
-		r.MethodNotAllowed(func(w http.ResponseWriter, req *http.Request) {
-			// chi only sets Allow in its own 405 handler, so work it out
-			// again from the root router.
-			for _, m := range []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete} {
-				if root.Match(chi.NewRouteContext(), m, req.URL.Path) {
-					w.Header().Add("Allow", m)
-				}
-			}
-			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
-		})
-		r.Get("/health", handleHealth(d.DB, d.Logger))
-		if d.Hub != nil {
-			r.Get("/events", d.Hub.ServeHTTP)
-		}
-		if d.Store != nil {
-			h := &handlers{
-				store:     d.Store,
-				applier:   d.Applier,
-				worker:    d.Worker,
-				briefings: d.Briefings,
-				logger:    d.Logger,
-			}
-			h.routes(r)
+		r.NotFound(notFound)
+		// chi only sets Allow in its own 405 handler, so work it out again
+		// from the root router.
+		r.MethodNotAllowed(methodNotAllowed(root, func(req *http.Request) string { return req.URL.Path }))
+		r.Get("/health", handleHealth(d.Profiles, d.Logger))
+		if d.Profiles != nil {
+			h := &handlers{logger: d.Logger}
+			h.profileRoutes(r, d.Profiles)
 		}
 	})
 	if d.Web != nil {
@@ -95,7 +85,54 @@ func newMux(d Deps) *chi.Mux {
 	return r
 }
 
-// routes mounts the data routes from SPEC §10.5 on the /api router.
+// NewProfileHandler returns one profile's router: the data routes from SPEC
+// §10.5 and /events, at paths relative to /api/profiles/{profile}. The root
+// router hands requests to it with chi's route path set to that relative
+// path; it has no middleware of its own.
+func NewProfileHandler(d ProfileDeps) http.Handler {
+	r := chi.NewRouter()
+	r.NotFound(notFound)
+	r.MethodNotAllowed(methodNotAllowed(r, func(req *http.Request) string {
+		if rctx := chi.RouteContext(req.Context()); rctx != nil && rctx.RoutePath != "" {
+			return rctx.RoutePath
+		}
+		return req.URL.Path
+	}))
+	if d.Hub != nil {
+		r.Get("/events", d.Hub.ServeHTTP)
+	}
+	if d.Store != nil {
+		h := &handlers{
+			store:     d.Store,
+			applier:   d.Applier,
+			worker:    d.Worker,
+			briefings: d.Briefings,
+			logger:    d.Logger,
+		}
+		h.routes(r)
+	}
+	return r
+}
+
+func notFound(w http.ResponseWriter, _ *http.Request) {
+	writeError(w, http.StatusNotFound, "not_found", "no such endpoint")
+}
+
+// methodNotAllowed answers 405 with the Allow header listing the methods
+// router has for the request's path, as pathOf gives it.
+func methodNotAllowed(router chi.Routes, pathOf func(*http.Request) string) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		path := pathOf(req)
+		for _, m := range []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete} {
+			if router.Match(chi.NewRouteContext(), m, path) {
+				w.Header().Add("Allow", m)
+			}
+		}
+		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+	}
+}
+
+// routes mounts the data routes from SPEC §10.5 on a profile's router.
 func (h *handlers) routes(r chi.Router) {
 	r.Get("/projects", h.listProjects)
 	r.Post("/projects", h.createProject)

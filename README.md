@@ -52,9 +52,10 @@ variable, then `config.toml`, then the default. Run `waypoint -h` to list the fl
 | n/a | n/a | `snapshot_recent_entries` | `5` (how many earlier entries the extractor sees for context; `0` for none) |
 
 `active_project_cap` and `questions_per_entry` are preferences, stored in the database. The config
-values only seed a database that has no settings yet; after that, change them with `PATCH /api/settings`.
+values only seed a profile that has no settings yet (including every new profile); after that, change them with
+`PATCH /api/profiles/{profile}/settings`.
 
-| OS | Config folder | Data folder (holds `waypoint.db`) |
+| OS | Config folder | Data folder (holds `profiles/<id>.db`, one database per profile) |
 |---|---|---|
 | Windows | `%APPDATA%\Waypoint` | `%LOCALAPPDATA%\Waypoint` |
 | macOS | `~/Library/Application Support/Waypoint` | `~/Library/Application Support/Waypoint` |

@@ -347,6 +347,31 @@ export interface PromoteIdeaResponse {
 }
 
 //////////
+// source: profiles.go
+
+/**
+ * Profile is one of the user's profiles (ADR 0005): a separate database with
+ * a display name. ID names it in API paths (/api/profiles/{id}/...) and never
+ * changes; Name can be changed.
+ */
+export interface Profile {
+  id: string;
+  name: string;
+}
+/**
+ * CreateProfileRequest is the body of POST /api/profiles.
+ */
+export interface CreateProfileRequest {
+  name: string;
+}
+/**
+ * RenameProfileRequest is the body of PATCH /api/profiles/{profile}.
+ */
+export interface RenameProfileRequest {
+  name: string;
+}
+
+//////////
 // source: projects.go
 
 export interface Project {

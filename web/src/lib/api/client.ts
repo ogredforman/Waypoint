@@ -18,6 +18,24 @@ export class ApiError extends Error {
 
 const unreachableMessage = "Can't reach the Waypoint server."
 
+// The profile every data path is under (ADR 0005), set at startup by
+// lib/profile.ts. While none is set, paths go out as given.
+let profileID: string | null = null
+
+export function useProfile(id: string | null) {
+  profileID = id
+}
+
+// Paths that aren't a profile's: the profile list itself and the health check.
+const serverWide = /^\/api\/(profiles|health)(\/|\?|$)/
+
+// apiPath puts an /api/... path under the active profile, as
+// /api/profiles/{id}/....
+export function apiPath(path: string): string {
+  if (profileID === null || !path.startsWith('/api/') || serverWide.test(path)) return path
+  return `/api/profiles/${encodeURIComponent(profileID)}${path.slice('/api'.length)}`
+}
+
 // request sends a JSON request to the API and returns the decoded response.
 // A 204 resolves to undefined; anything else but a 2xx with a JSON body
 // throws an ApiError.
@@ -31,7 +49,7 @@ export async function request<T>(method: string, path: string, body?: unknown, f
 
   let res: Response
   try {
-    res = await fetchFn(path, init)
+    res = await fetchFn(apiPath(path), init)
   } catch {
     throw new ApiError(0, 'unreachable', unreachableMessage)
   }

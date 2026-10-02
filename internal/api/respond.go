@@ -66,6 +66,8 @@ func (h *handlers) fail(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, http.StatusBadRequest, "bad_request", bad.msg)
 	case errors.Is(err, store.ErrNotFound):
 		writeError(w, http.StatusNotFound, "not_found", "not found")
+	case errors.Is(err, domain.ErrLastProfile):
+		writeError(w, http.StatusConflict, "last_profile", "the last profile can't be deleted")
 	case errors.As(err, &ce):
 		writeError(w, http.StatusConflict, "active_cap", ce.Error())
 	case errors.As(err, &ve):
