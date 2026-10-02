@@ -87,15 +87,16 @@ func (hs AfterApplies) Applied(ctx context.Context, res Result) {
 // Applier applies changesets. It is the only writer of projects, tasks,
 // blockers, and ideas.
 type Applier struct {
-	store     *store.Store
-	activeCap int
-	after     AfterApply
+	store *store.Store
+	after AfterApply
 }
 
-// NewApplier returns an Applier over s that enforces activeCap on projects
-// becoming active and tells after about each apply. after may be nil.
-func NewApplier(s *store.Store, activeCap int, after AfterApply) *Applier {
-	return &Applier{store: s, activeCap: activeCap, after: after}
+// NewApplier returns an Applier over s that tells after about each apply.
+// after may be nil. The active-project cap comes from the database's settings,
+// read inside each apply transaction, so a changed cap applies to the next
+// activation.
+func NewApplier(s *store.Store, after AfterApply) *Applier {
+	return &Applier{store: s, after: after}
 }
 
 // applied tells the AfterApply hook, if any, about res.
@@ -160,7 +161,12 @@ func (a *Applier) apply(ctx context.Context, tx *store.Tx, id int64, decisions m
 		return Result{}, fmt.Errorf("apply changeset %d: %w", id, err)
 	}
 
-	w := writer{tx: tx, entryID: entryID, activeCap: a.activeCap, ids: TempIDs{}, projects: map[int64]bool{}}
+	settings, err := tx.GetSettings(ctx)
+	if err != nil {
+		return Result{}, fmt.Errorf("apply changeset %d: %w", id, err)
+	}
+
+	w := writer{tx: tx, entryID: entryID, activeCap: settings.ActiveProjectCap, ids: TempIDs{}, projects: map[int64]bool{}}
 	res := Result{Created: w.ids}
 	var carried []int // indexes into ops, in position order
 	var applied, rejected int

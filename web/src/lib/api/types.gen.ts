@@ -145,22 +145,6 @@ export interface FieldProblem {
 export interface Health {
   status: string; // "ok" or "unavailable"
 }
-/**
- * Settings is the body of GET /api/settings: the settings in effect, read
- * from config.toml. They can't be changed from the app yet.
- */
-export interface Settings {
-  /**
-   * Provider names the extractor turning entries into changesets.
-   */
-  provider: string;
-  active_project_cap: number /* int */;
-  snapshot_recent_entries: number /* int */;
-  /**
-   * MockLatencyMS is the mock extractor's artificial delay per run.
-   */
-  mock_latency_ms: number /* int64 */;
-}
 
 //////////
 // source: entries.go
@@ -427,6 +411,30 @@ export interface Excerpt {
   entry_id: number /* int64 */;
   created_at: string;
   text: string;
+}
+
+//////////
+// source: settings.go
+
+/**
+ * Settings is the body of GET and PATCH /api/settings: the user's preferences
+ * for this database. Technical settings (port, data dir, provider) stay in
+ * config.toml and aren't reported here.
+ */
+export interface Settings {
+  active_project_cap: number /* int */;
+  /**
+   * QuestionsPerEntry is how many follow-up questions one entry may get, 0 to 2.
+   */
+  questions_per_entry: number /* int */;
+}
+/**
+ * UpdateSettingsRequest is the body of PATCH /api/settings. Only the fields
+ * present change; neither may be null.
+ */
+export interface UpdateSettingsRequest {
+  active_project_cap?: number /* int */;
+  questions_per_entry?: number /* int */;
 }
 
 //////////

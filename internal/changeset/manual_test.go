@@ -22,7 +22,7 @@ func changesetCount(t *testing.T, f fixture) int {
 func TestApplyManual(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture(t)
-	res, err := NewApplier(f.s, 3, nil).ApplyManual(ctx,
+	res, err := NewApplier(f.s, nil).ApplyManual(ctx,
 		UpdateTask{TaskID: ID(f.a4), Title: ptr("Write the intro"), Size: To(domain.SizeS)},
 		SetTaskStatus{TaskID: ID(f.a4), Status: domain.TaskInProgress},
 		CreateTask{ProjectID: ID(f.projA), Title: "Outline"},
@@ -67,7 +67,7 @@ func TestApplyManual(t *testing.T) {
 func TestApplyManualCreatesActiveProject(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture(t)
-	res, err := NewApplier(f.s, 3, nil).ApplyManual(ctx,
+	res, err := NewApplier(f.s, nil).ApplyManual(ctx,
 		CreateProject{Title: "Garden"},
 		UpdateProject{ProjectID: Temp(1), Status: ptr(domain.ProjectActive)},
 	)
@@ -82,7 +82,7 @@ func TestApplyManualCreatesActiveProject(t *testing.T) {
 func TestApplyManualDeleteRecordsRow(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture(t)
-	res, err := NewApplier(f.s, 3, nil).ApplyManual(ctx, DeleteTask{TaskID: ID(f.a4)})
+	res, err := NewApplier(f.s, nil).ApplyManual(ctx, DeleteTask{TaskID: ID(f.a4)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +152,7 @@ func TestApplyManualStoresNothingOnFailure(t *testing.T) {
 			if f.projA != 1 {
 				t.Fatalf("project A has ID %d, want 1", f.projA)
 			}
-			_, err := NewApplier(f.s, tt.cap, nil).ApplyManual(ctx, tt.ops...)
+			_, err := withCap(t, f.s, tt.cap, nil).ApplyManual(ctx, tt.ops...)
 			if err == nil {
 				t.Fatal("got no error")
 			}
@@ -167,5 +167,38 @@ func TestApplyManualStoresNothingOnFailure(t *testing.T) {
 				t.Errorf("%d projects, want 2", len(ps))
 			}
 		})
+	}
+}
+
+// The cap is read from the settings at each apply, so a changed setting
+// applies to the next activation without a new Applier. Lowering it below the
+// number of active projects deactivates nothing.
+func TestApplyReadsCapFromSettings(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t) // projects A and B are active
+	a := NewApplier(f.s, nil)
+	active := domain.ProjectActive
+	res, err := a.ApplyManual(ctx, CreateProject{Title: "C"}, UpdateProject{ProjectID: Temp(1), Status: &active})
+	if err != nil {
+		t.Fatalf("activating a third project under the default cap of 3: %v", err)
+	}
+	projC := res.Created[1]
+
+	withCap(t, f.s, 1, nil)
+	if _, err := a.ApplyManual(ctx, UpdateProject{ProjectID: ID(projC), Title: ptr("C, renamed")}); err != nil {
+		t.Fatalf("editing an active project over the lowered cap: %v", err)
+	}
+	var n int
+	if err := f.db.QueryRowContext(ctx, `SELECT count(*) FROM projects WHERE status = 'active'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 3 {
+		t.Errorf("%d active projects after lowering the cap, want 3", n)
+	}
+
+	_, err = a.ApplyManual(ctx, CreateProject{Title: "D"}, UpdateProject{ProjectID: Temp(1), Status: &active})
+	var capErr *domain.ActiveCapError
+	if !errors.As(err, &capErr) || capErr.Cap != 1 || capErr.Active != 3 {
+		t.Errorf("got %v, want ActiveCapError 3 of 1", err)
 	}
 }

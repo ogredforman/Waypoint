@@ -50,7 +50,7 @@ func newFixture(t *testing.T) *fixture {
 	clock := func() time.Time { return f.now }
 	f.s = store.New(sqlDB, clock)
 	f.svc = NewService(f.s, Heuristic{}, clock, f.updates, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	f.applier = changeset.NewApplier(f.s, domain.DefaultActiveProjectCap, f.svc)
+	f.applier = changeset.NewApplier(f.s, f.svc)
 	return f
 }
 
@@ -365,7 +365,7 @@ func TestGetRefreshesStaleBriefing(t *testing.T) {
 
 	// Finish the next task without the hook, as if the refresh had failed.
 	done := domain.TaskDone
-	if _, err := changeset.NewApplier(f.s, domain.DefaultActiveProjectCap, nil).
+	if _, err := changeset.NewApplier(f.s, nil).
 		ApplyManual(ctx, changeset.SetTaskStatus{TaskID: changeset.ID(a), Status: done}); err != nil {
 		t.Fatal(err)
 	}

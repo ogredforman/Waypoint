@@ -47,7 +47,7 @@ These are requirements, not suggestions. Agents should treat violations as bugs.
 - **Propose, don't impose.** The AI never mutates state silently. All changes go through a reviewable changeset.
 - **One next action.** The primary view shows one recommended next action with a reason. Longer lists are secondary.
 - **No guilt mechanics.** No overdue counters, red badges, broken streaks, or shaming copy. Returning after a long gap gets a warm recap, not a backlog of failures.
-- **Questions are few and skippable.** Follow-up questions are capped (default 2 per entry) and can always be dismissed.
+- **Questions are few and skippable.** Follow-up questions are capped (at most 2 per entry, fewer if the user sets it lower) and can always be dismissed.
 - **Ideas get parked, not activated.** New ideas and project sparks are captured in a parking lot so they don't derail the current project.
 - **Limit active projects.** Unlimited parked projects, but a small cap on active ones (default 3). Activating another one is a deliberate action.
 - **Entries are immutable.** The user's words are never edited by the system. Corrections are new entries or manual edits to derived state.
@@ -177,7 +177,7 @@ Requirements are tagged by the stage in which they're first needed: **[P]** Prot
 
 **Projects**
 - [P] Create, view, edit, and change status of projects.
-- [P] Enforce the active-project cap (configurable, default 3). Any project status can change to any other; the cap only stops a project from *becoming* active when the cap is reached. Projects already active stay active if the cap is lowered. A manually created project may start active (if there is room) or parked; a project proposed by extraction (`create_project`) is always parked (§6.2).
+- [P] Enforce the active-project cap (a setting, default 3). Any project status can change to any other; the cap only stops a project from *becoming* active when the cap is reached. Projects already active stay active if the cap is lowered. A manually created project may start active (if there is room) or parked; a project proposed by extraction (`create_project`) is always parked (§6.2).
 - [L] Milestones.
 
 **Tasks**
@@ -363,7 +363,7 @@ Request and response bodies are the DTOs in `internal/api/apitypes`, with TypeSc
 - **Entries.** `POST /api/entries` answers 202 once the entry and its pending run are stored; SSE reports the outcome. An entry with `reply_to_question_id` marks that question answered in the same transaction; replying to a question that is no longer open is rejected. `GET /api/entries?project_id=` lists the entries *about* the project: those scoped to it and unscoped ones with an observation linked to it or to its tasks or blockers. Pages are newest first; `next_before` in the response is the `before` for the next page.
 - **Changesets.** Each op carries `refs`, the names of the existing rows its payload refers to, keyed `kind:id` (e.g. `task:7`), so the review UI can say what the op touches.
 - **Spans.** Observation spans in API responses are UTF-16 code unit offsets, converted from the stored UTF-8 byte offsets (§10.3), so the UI can slice the entry body directly.
-- **Settings.** `GET /api/settings` reports the settings in effect from `config.toml`. `PATCH /api/settings` and `GET /api/export` come later.
+- **Settings.** User preferences live in the database's `settings` table (one row): `active_project_cap` (at least 1, default 3) and `questions_per_entry` (0 to 2, default 2); later, theme and fonts. `GET /api/settings` returns them; `PATCH /api/settings` changes the fields present (neither may be null; an empty body, unknown field, or out-of-range value is `invalid`) and answers with all of them. Settings aren't projects, tasks, blockers, or ideas, so they are written directly, not as changesets. The applier reads the cap inside each apply transaction, so a new cap applies to the next activation; lowering it deactivates nothing. The worker stores only the first `questions_per_entry` questions of a run (the validator still fails a result with more than 2; the raw output keeps them all). `config.toml` keeps technical settings (port, data dir, log level, mock latency, snapshot size); its `active_project_cap` and `questions_per_entry` only seed the settings of a database that has none, at startup, and never overwrite stored ones. `GET /api/export` comes later.
 - **Errors** use one shape: `{"error": {"code", "message", "problems?"}}`. Codes: `bad_request` (400: malformed JSON or query), `not_found` (404), `method_not_allowed` (405, with `Allow`), `invalid` (422: validation failures and unknown fields, with per-field `problems`), `active_cap` (409), `not_pending` (409: the changeset was already resolved), `run_in_progress` (409: the entry is being processed), `internal` (500).
 
 ## 11. UI surfaces

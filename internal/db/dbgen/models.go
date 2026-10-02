@@ -149,6 +149,14 @@ type Project struct {
 	UpdatedAt        int64
 }
 
+type Setting struct {
+	ID                int64
+	ActiveProjectCap  int64
+	QuestionsPerEntry int64
+	CreatedAt         int64
+	UpdatedAt         int64
+}
+
 type Task struct {
 	ID            int64
 	ProjectID     int64

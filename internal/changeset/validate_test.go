@@ -288,3 +288,23 @@ func TestCheckRefsSeesEarlierOps(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// withCap stores limit as the active-project cap in s's settings and returns
+// an Applier over s.
+func withCap(t *testing.T, s *store.Store, limit int, after AfterApply) *Applier {
+	t.Helper()
+	ctx := context.Background()
+	err := s.InTx(ctx, func(tx *store.Tx) error {
+		set, err := tx.GetSettings(ctx)
+		if err != nil {
+			return err
+		}
+		set.ActiveProjectCap = limit
+		_, err = tx.UpdateSettings(ctx, set)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return NewApplier(s, after)
+}

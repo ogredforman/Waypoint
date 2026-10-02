@@ -46,9 +46,13 @@ variable, then `config.toml`, then the default. Run `waypoint -h` to list the fl
 | `-port` | `WAYPOINT_PORT` | `port` | `7420` |
 | `-data-dir` | `WAYPOINT_DATA_DIR` | `data_dir` | OS data folder (see below) |
 | `-log-level` | `WAYPOINT_LOG_LEVEL` | `log_level` | `info` |
-| n/a | n/a | `active_project_cap` | `3` (how many projects can be active at once) |
+| n/a | n/a | `active_project_cap` | `3` (how many projects can be active at once; seeds a new database only, see below) |
+| n/a | n/a | `questions_per_entry` | `2` (follow-up questions per entry, `0` to `2`; seeds a new database only) |
 | n/a | n/a | `mock_latency` | `0` (artificial delay per mock extraction, e.g. `"1500ms"`) |
 | n/a | n/a | `snapshot_recent_entries` | `5` (how many earlier entries the extractor sees for context; `0` for none) |
+
+`active_project_cap` and `questions_per_entry` are preferences, stored in the database. The config
+values only seed a database that has no settings yet; after that, change them with `PATCH /api/settings`.
 
 | OS | Config folder | Data folder (holds `waypoint.db`) |
 |---|---|---|

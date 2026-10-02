@@ -62,12 +62,14 @@ func startApp(t *testing.T, dbPath string, ext extract.Extractor) *app {
 	st := store.New(sqlDB, time.Now)
 	snapshots := pipeline.NewSnapshotBuilder(st, time.Now, 5)
 	briefings := briefing.NewService(st, briefing.Heuristic{}, time.Now, hub, logger)
-	applier := changeset.NewApplier(st, activeCap, changeset.AfterApplies{briefings, hub})
+	if err := st.SeedSettings(context.Background(), domain.Settings{ActiveProjectCap: activeCap, QuestionsPerEntry: domain.MaxQuestionsPerEntry}); err != nil {
+		t.Fatal(err)
+	}
+	applier := changeset.NewApplier(st, changeset.AfterApplies{briefings, hub})
 	worker := pipeline.NewWorker(st, snapshots, ext, hub, briefings, logger)
 	srv := httptest.NewServer(NewRouter(Deps{
 		DB: sqlDB, Logger: logger, Hub: hub,
 		Store: st, Applier: applier, Worker: worker, Briefings: briefings,
-		Settings: apitypes.Settings{Provider: ext.Name(), ActiveProjectCap: activeCap, SnapshotRecentEntries: 5},
 	}))
 	stream := openStream(t, srv)
 	waitCount(t, hub, 1)

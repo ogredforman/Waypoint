@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/ogredforman/waypoint/internal/api"
-	"github.com/ogredforman/waypoint/internal/api/apitypes"
 	"github.com/ogredforman/waypoint/internal/briefing"
 	"github.com/ogredforman/waypoint/internal/changeset"
 	"github.com/ogredforman/waypoint/internal/config"
@@ -52,7 +51,6 @@ func run() int {
 		"db", cfg.DBPath(),
 		"addr", cfg.Addr(),
 		"log_level", cfg.LogLevel.String(),
-		"active_project_cap", cfg.ActiveProjectCap,
 		"mock_latency", cfg.MockLatency.String(),
 		"snapshot_recent_entries", cfg.SnapshotRecentEntries,
 	)
@@ -77,6 +75,22 @@ func run() int {
 	}
 	logger.Info("database ready", "schema_version", version, "applied", applied)
 
+	st := store.New(sqlDB, time.Now)
+	// Config values only seed the settings of a database that has none.
+	if err := st.SeedSettings(ctx, cfg.SettingsDefaults()); err != nil {
+		logger.Error("startup failed", "err", err)
+		return 1
+	}
+	settings, err := st.GetSettings(ctx)
+	if err != nil {
+		logger.Error("startup failed", "err", err)
+		return 1
+	}
+	logger.Info("settings in effect",
+		"active_project_cap", settings.ActiveProjectCap,
+		"questions_per_entry", settings.QuestionsPerEntry,
+	)
+
 	ln, err := net.Listen("tcp", cfg.Addr())
 	if err != nil {
 		logger.Error("startup failed", "err", err)
@@ -92,10 +106,9 @@ func run() int {
 	}()
 
 	hub := api.NewHub(logger)
-	st := store.New(sqlDB, time.Now)
 	snapshots := pipeline.NewSnapshotBuilder(st, time.Now, cfg.SnapshotRecentEntries)
 	briefings := briefing.NewService(st, briefing.Heuristic{}, time.Now, hub, logger)
-	applier := changeset.NewApplier(st, cfg.ActiveProjectCap, changeset.AfterApplies{briefings, hub})
+	applier := changeset.NewApplier(st, changeset.AfterApplies{briefings, hub})
 	extractor := mock.New(cfg.MockLatency)
 	worker := pipeline.NewWorker(st, snapshots, extractor, hub, briefings, logger)
 	workerDone := make(chan struct{})
@@ -115,12 +128,6 @@ func run() int {
 		Applier:   applier,
 		Worker:    worker,
 		Briefings: briefings,
-		Settings: apitypes.Settings{
-			Provider:              extractor.Name(),
-			ActiveProjectCap:      cfg.ActiveProjectCap,
-			SnapshotRecentEntries: cfg.SnapshotRecentEntries,
-			MockLatencyMS:         cfg.MockLatency.Milliseconds(),
-		},
 	})
 	err = api.Serve(ctx, ln, router, logger, hub.Close)
 	stop() // stop the worker too if the server failed on its own

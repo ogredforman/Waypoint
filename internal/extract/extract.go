@@ -8,8 +8,9 @@ import (
 	"github.com/ogredforman/waypoint/internal/domain"
 )
 
-// MaxQuestions is the most follow-up questions one entry may get (SPEC §5).
-const MaxQuestions = 2
+// MaxQuestions is the most follow-up questions one entry may ever get (SPEC
+// §5). The worker keeps fewer when the questions-per-entry setting is lower.
+const MaxQuestions = domain.MaxQuestionsPerEntry
 
 // Extractor turns one diary entry into proposed observations, ops, and
 // questions. Its output is untrusted until Validate accepts it.

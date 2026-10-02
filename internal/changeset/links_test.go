@@ -85,7 +85,7 @@ func TestApplyResolvesPendingLinks(t *testing.T) {
 	obs := observeOps(t, f, entryID, runID, cs)
 	ideasBefore := must(f.s.ListIdeasByStatus(ctx, domain.IdeaParked))(t)
 
-	a := NewApplier(f.s, 3, nil)
+	a := NewApplier(f.s, nil)
 	res, err := a.Apply(ctx, cs, map[int64]Decision{
 		1: {Action: Accept},
 		2: {Action: Reject},

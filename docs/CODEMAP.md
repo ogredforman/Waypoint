@@ -17,9 +17,10 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
 
 ## Wiring (`cmd/waypoint/main.go`)
 
-`config.Load` → `db.Open` + `db.Migrate` → `api.NewHub` → `store.New(sqlDB, time.Now)` →
+`config.Load` → `db.Open` + `db.Migrate` → `store.New(sqlDB, time.Now)` →
+`st.SeedSettings(ctx, cfg.SettingsDefaults())` (only if the DB has no settings) → `api.NewHub` →
 `pipeline.NewSnapshotBuilder` → `briefing.NewService(st, briefing.Heuristic{}, …, hub, logger)` →
-`changeset.NewApplier(st, cfg.ActiveProjectCap, briefings)` → `mock.New(cfg.MockLatency)` →
+`changeset.NewApplier(st, briefings)` → `mock.New(cfg.MockLatency)` →
 `pipeline.NewWorker(st, snapshots, extractor, hub, briefings, logger)` (goroutine `worker.Run`) →
 `api.NewRouter(api.Deps{…})` → `api.Serve`. All dependencies are built here; no package globals.
 
@@ -30,6 +31,7 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
   `Milestone`) in `types.go`; string enums with `Xxxs()` lists in `enums.go` (must match SQL CHECKs;
   `db/enums_test.go` enforces it); validation, `ValidationError`/`FieldError`, project status rules
   (`CheckNewProjectStatus`, `CheckProjectStatusChange`, `ActiveCapError`) in `validate.go`.
+  `settings.go`: `Settings` (user preferences per database), `DefaultSettings`, `MaxQuestionsPerEntry`.
 - **db**: `Open` (modernc sqlite, WAL, FKs on), `Migrations`, `Migrate` (goose, embedded).
   `migrations/0000N_*.sql` (never edit committed ones), `queries/<entity>.sql` → sqlc output in
   `dbgen/` (generated; `make sqlc`).
@@ -39,7 +41,8 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
   `reader`, so both tx types have them; writes (`CreateX`, `UpdateX`, `DeleteX`, `CreateChangeset`,
   `ResolveChangeset`, `SetChangeOpResult`, `MoveChangeOp`, `ClaimNextExtractionRun`,
   `FinishExtractionRun`, `UpsertBriefing`, question answer/dismiss) are on `*Tx`. One file per entity.
-  `ErrNotFound` for missing rows. Entries are insert-only. Pending observation links (to `$new:N`,
+  `ErrNotFound` for missing rows. Entries are insert-only. Settings (`settings.go`): `GetSettings`
+  (defaults if no row), `Store.SeedSettings` (insert if missing), `Tx.UpdateSettings`. Pending observation links (to `$new:N`,
   keyed by change op): `CreatePendingLink`, `ListPendingLinksByOp`, `ResolvePendingLinks`, `DropPendingLinks`.
 - **changeset**: every mutation of projects/tasks/blockers/ideas. `ops.go`: one payload struct per
   op type (`CreateTask`, `UpdateTask`, `SplitTask`, `DeleteTask`, `ParkIdea`, …) implementing
@@ -47,7 +50,7 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
   `ref.go`: `Ref` (`ID(n)` or `Temp(pos)` for `$new:N`), `CheckRefs`. `validate.go`: cross-row
   rules (same project, no parent cycles). `apply.go`: `Applier.Apply(ctx, changesetID,
   map[opID]Decision)` → `Result{Changeset, Created, SplitOff, HeldByCap, Projects}`; one
-  transaction, full rollback, undecided/capped ops split into a new pending changeset (ADR 0003);
+  transaction, full rollback, active-project cap read from the settings in the apply tx, undecided/capped ops split into a new pending changeset (ADR 0003);
   resolves pending observation links on applied creating ops, drops them on rejected ones;
   calls `AfterApply.Applied`. `manual.go`: `Applier.ApplyManual(ctx, ops ...Payload)` for
   `source=manual`. `reject.go`: `RejectPending`. `AfterApplies` chains hooks (briefings, then the SSE hub).
@@ -58,19 +61,20 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
   **extract/mock**: deterministic line-prefix extractor (SPEC §10.4), `mock.New(latency)`.
 - **pipeline**: `SnapshotBuilder.Build(ctx, entry)`; `Worker`: `SaveEntry` (entry + pending run in
   one tx), `Reprocess`, `Wake`, `Run(ctx)` (claims runs, extracts, validates, stores result +
-  changeset, emits `Event`s via `Notifier`, calls `AfterRun.EntryProcessed`). Failures recorded on
+  changeset (keeping only `questions_per_entry` questions), emits `Event`s via `Notifier`, calls `AfterRun.EntryProcessed`). Failures recorded on
   the run, never partial state.
 - **briefing**: `Briefer` interface, `Heuristic` implementation (`heuristic.go`), `Service`
   (`Refresh`, `Get` → `View`; implements `changeset.AfterApply` and `pipeline.AfterRun`; notifies
   `BriefingUpdated`). Briefings are cached per project in the DB.
 - **api**: chi router (`router.go`, route list in `handlers.routes`), one file per resource
-  (`projects.go`, `tasks.go`, `blockers.go`, `ideas.go`, `entries.go`, `changesets.go`),
+  (`projects.go`, `tasks.go`, `blockers.go`, `ideas.go`, `entries.go`, `changesets.go`, `settings.go`),
   `convert.go` (domain → apitypes), `respond.go` (JSON encode/decode, `h.fail` maps errors to the
   single error shape, `badRequest`), `events.go` (`Hub`: SSE `/api/events`, `Publish`, `Notify`,
   `BriefingUpdated`, `Applied` → `changeset.applied`), `serve.go`. Handlers are thin: decode, call a service, encode.
   **api/apitypes**: request/response/event DTOs; `gen/` generates `web/src/lib/api/*.gen.ts`
   (`make gen`, checked by `make lint`).
-- **config**: `Load(args, env, goos, stderr)` (flags > env > `config.toml`), `EnsureDataDir`.
+- **config**: `Load(args, env, goos, stderr)` (flags > env > `config.toml`), `EnsureDataDir`,
+  `SettingsDefaults` (the preference values that seed a new database).
 - **web**: embeds `web/dist`, `NewHandler` serves the SPA with fallback.
 - `tools/hooks`: Claude Code hooks (edit guard, formatter, stop check). Not app code.
 
@@ -139,7 +143,7 @@ All use a real temp SQLite DB migrated with `db.Migrations()`.
 
 - `store/store_test.go`: `newTestStore(t) (*Store, *sql.DB, *clock)`, `inTx`, `exec`, `count`,
   `seedProject`, `seedTask`, `seedEntry`, `seedRun`.
-- `changeset/apply_test.go`: `newFixture(t) fixture`, `propose(t, f, runID, ops...)`, `newRun`,
+- `changeset/apply_test.go`: `newFixture(t) fixture` (in `validate_test.go`, with `withCap(t, s, limit, after)`), `propose(t, f, runID, ops...)`, `newRun`,
   `opStatuses`, `taskCount`, `dbSnapshot` (rollback checks). `links_test.go`: `observeOps` (pending
   links to every op's entity), `linkedFrom`, `pendingLinks`. `validate_test.go`: `fields(t, err)`.
 - `pipeline/snapshot_test.go`: `newFixture(t)` with `f.project/task/blocker/idea/entry/observe`.

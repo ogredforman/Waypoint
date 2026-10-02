@@ -333,6 +333,17 @@ func (w *Worker) process(ctx context.Context, run domain.ExtractionRun) {
 		return
 	}
 
+	// The raw output keeps every question; only as many as the settings
+	// allow are stored. Validate has already enforced the hard ceiling.
+	settings, err := w.store.GetSettings(ctx)
+	if err != nil {
+		w.fail(ctx, run, stageStore, err, raw, &latency)
+		return
+	}
+	if len(res.Questions) > settings.QuestionsPerEntry {
+		res.Questions = res.Questions[:settings.QuestionsPerEntry]
+	}
+
 	csID, err := w.storeResult(ctx, run, res, raw, latency)
 	if err != nil {
 		w.fail(ctx, run, stageStore, err, raw, &latency)

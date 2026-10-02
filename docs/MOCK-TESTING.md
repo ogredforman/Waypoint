@@ -43,8 +43,10 @@ Or build once and run the binary: `make build`, then
 
 - **Reset:** stop the server and delete `tmp/play/waypoint.db*` (the `-wal` and `-shm` files too).
 - **Config knobs worth turning:** `mock_latency` (`"0"` for instant, `"20s"` for restart tests),
-  `active_project_cap` (set to `1` to hit the cap constantly), `snapshot_recent_entries`.
-  All of these are read at startup, so restart after changing them.
+  `snapshot_recent_entries`. These are read at startup, so restart after changing them.
+- **Preferences** (`active_project_cap`, `questions_per_entry`) live in the database. The config values
+  only seed a fresh database; on an existing one, change them with `PATCH /api/settings`, e.g.
+  `curl -X PATCH localhost:7420/api/settings -d '{"active_project_cap": 1}'` (no restart needed).
 - Entry bodies are never logged at info level, but `debug` shows run and changeset activity.
 
 ---
@@ -313,7 +315,8 @@ shows this entry. Then try the edges:
    created, and the split-off one shows its line once applied.
 
 ### F. The active-project cap
-Set `active_project_cap = 1` and restart. Try to create a second active project, change a paused
+Set the cap to 1 (`curl -X PATCH localhost:7420/api/settings -d '{"active_project_cap": 1}'`, or
+`active_project_cap = 1` in the config of a fresh database). Try to create a second active project, change a paused
 one to active, or activate a parked project from the Parking lot. Each should explain calmly and
 offer to park instead, with no red error states. The mock never creates or activates projects, so
 the cap only comes up in manual flows here.

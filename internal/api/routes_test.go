@@ -52,12 +52,14 @@ func newServer(t *testing.T) *server {
 	logger, logs := jsonLogger()
 	st := store.New(sqlDB, time.Now)
 	briefings := briefing.NewService(st, briefing.Heuristic{}, time.Now, nil, logger)
-	applier := changeset.NewApplier(st, activeCap, briefings)
+	if err := st.SeedSettings(context.Background(), domain.Settings{ActiveProjectCap: activeCap, QuestionsPerEntry: domain.MaxQuestionsPerEntry}); err != nil {
+		t.Fatal(err)
+	}
+	applier := changeset.NewApplier(st, briefings)
 	worker := pipeline.NewWorker(st, pipeline.NewSnapshotBuilder(st, time.Now, 5), mock.New(0), nil, briefings, logger)
 	h := NewRouter(Deps{
 		DB: sqlDB, Logger: logger,
 		Store: st, Applier: applier, Worker: worker, Briefings: briefings,
-		Settings: apitypes.Settings{Provider: mock.Name, ActiveProjectCap: activeCap, SnapshotRecentEntries: 5, MockLatencyMS: 0},
 	})
 	return &server{t: t, h: h, store: st, applier: applier, worker: worker, logs: logs}
 }
@@ -663,7 +665,7 @@ func TestQuestionRoutes(t *testing.T) {
 	s.fails(http.StatusNotFound, "not_found", "POST", "/api/questions/999/dismiss", nil)
 }
 
-func TestBriefingAndSettingsRoutes(t *testing.T) {
+func TestBriefingRoutes(t *testing.T) {
 	s := newServer(t)
 	p := s.project("Waypoint", domain.ProjectActive)
 	task := ok[apitypes.Task](s, http.StatusCreated, "POST", fmt.Sprintf("/api/projects/%d/tasks", p.ID), `{"title": "Start small", "size": "s"}`)
@@ -679,14 +681,74 @@ func TestBriefingAndSettingsRoutes(t *testing.T) {
 	s.fails(http.StatusNotFound, "not_found", "GET", "/api/projects/999/briefing", nil)
 	s.fails(http.StatusNotFound, "not_found", "POST", "/api/projects/999/briefing/refresh", nil)
 
+}
+
+func TestSettingsRoutes(t *testing.T) {
+	s := newServer(t)
 	settings := ok[apitypes.Settings](s, http.StatusOK, "GET", "/api/settings", nil)
-	if settings.Provider != mock.Name || settings.ActiveProjectCap != activeCap {
-		t.Errorf("settings = %+v", settings)
+	if want := (apitypes.Settings{ActiveProjectCap: activeCap, QuestionsPerEntry: 2}); settings != want {
+		t.Errorf("settings = %+v, want %+v", settings, want)
 	}
-	rec := s.call("PATCH", "/api/settings", `{}`)
-	if rec.Code != http.StatusMethodNotAllowed || rec.Header().Get("Allow") != http.MethodGet {
-		t.Errorf("PATCH settings: %d, Allow %q; want 405 allowing GET", rec.Code, rec.Header().Get("Allow"))
+
+	// Absent fields stay as they are.
+	settings = ok[apitypes.Settings](s, http.StatusOK, "PATCH", "/api/settings", `{"questions_per_entry": 0}`)
+	if want := (apitypes.Settings{ActiveProjectCap: activeCap, QuestionsPerEntry: 0}); settings != want {
+		t.Errorf("after PATCH = %+v, want %+v", settings, want)
 	}
+	settings = ok[apitypes.Settings](s, http.StatusOK, "PATCH", "/api/settings", `{"active_project_cap": 5, "questions_per_entry": 1}`)
+	if want := (apitypes.Settings{ActiveProjectCap: 5, QuestionsPerEntry: 1}); settings != want {
+		t.Errorf("after PATCH = %+v, want %+v", settings, want)
+	}
+	if got := ok[apitypes.Settings](s, http.StatusOK, "GET", "/api/settings", nil); got != settings {
+		t.Errorf("GET after PATCH = %+v, want %+v", got, settings)
+	}
+
+	for _, body := range []string{
+		`{}`,
+		`{"active_project_cap": 0}`,
+		`{"questions_per_entry": 3}`,
+		`{"questions_per_entry": -1}`,
+		`{"active_project_cap": null}`,
+		`{"active_project_cap": 2.5}`,
+		`{"active_project_cap": "4"}`,
+		`{"theme": "forest"}`,
+		`{"active_project_cap": 4, "port": 80}`,
+	} {
+		e := s.fails(http.StatusUnprocessableEntity, "invalid", "PATCH", "/api/settings", body)
+		if len(e.Problems) == 0 {
+			t.Errorf("PATCH %s: no problems listed", body)
+		}
+	}
+	s.fails(http.StatusBadRequest, "bad_request", "PATCH", "/api/settings", `{"active_project_cap":`)
+	s.fails(http.StatusBadRequest, "bad_request", "PATCH", "/api/settings", `[1]`)
+	if got := ok[apitypes.Settings](s, http.StatusOK, "GET", "/api/settings", nil); got != settings {
+		t.Errorf("rejected PATCHes changed the settings: %+v, want %+v", got, settings)
+	}
+}
+
+// A lower cap deactivates nothing and applies to the next activation.
+func TestSettingsCapAppliesToNextActivation(t *testing.T) {
+	s := newServer(t)
+	a := s.project("A", domain.ProjectActive)
+	s.project("B", domain.ProjectActive)
+	parked := s.project("C", domain.ProjectParked)
+
+	ok[apitypes.Settings](s, http.StatusOK, "PATCH", "/api/settings", `{"active_project_cap": 1}`)
+	projects := ok[[]apitypes.Project](s, http.StatusOK, "GET", "/api/projects", nil)
+	active := 0
+	for _, p := range projects {
+		if p.Status == domain.ProjectActive {
+			active++
+		}
+	}
+	if active != 2 {
+		t.Errorf("%d active projects after lowering the cap, want 2", active)
+	}
+	ok[apitypes.Project](s, http.StatusOK, "PATCH", fmt.Sprintf("/api/projects/%d", a.ID), `{"title": "A, renamed"}`)
+	s.fails(http.StatusConflict, "active_cap", "PATCH", fmt.Sprintf("/api/projects/%d", parked.ID), `{"status": "active"}`)
+
+	ok[apitypes.Settings](s, http.StatusOK, "PATCH", "/api/settings", `{"active_project_cap": 3}`)
+	ok[apitypes.Project](s, http.StatusOK, "PATCH", fmt.Sprintf("/api/projects/%d", parked.ID), `{"status": "active"}`)
 }
 
 // TestRequestTypesMatchOps checks that each request DTO, which only exists

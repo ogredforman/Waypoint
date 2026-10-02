@@ -180,7 +180,3 @@ func (h *handlers) projectFromPath(r *http.Request) (int64, error) {
 	}
 	return id, nil
 }
-
-func (h *handlers) getSettings(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, h.settings)
-}

@@ -60,7 +60,7 @@ func TestLoadDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	dataHome, _ := env("XDG_DATA_HOME")
-	want := Config{Port: DefaultPort, DataDir: filepath.Join(dataHome, "waypoint"), LogLevel: slog.LevelInfo, ActiveProjectCap: 3, SnapshotRecentEntries: 5}
+	want := Config{Port: DefaultPort, DataDir: filepath.Join(dataHome, "waypoint"), LogLevel: slog.LevelInfo, ActiveProjectCap: 3, QuestionsPerEntry: 2, SnapshotRecentEntries: 5}
 	if cfg != want {
 		t.Errorf("got %+v, want %+v", cfg, want)
 	}
@@ -88,7 +88,16 @@ func TestLoadPrecedence(t *testing.T) {
 		wantMock  time.Duration
 		// wantRecent is SnapshotRecentEntries; nil means the default. 0 is a valid setting.
 		wantRecent *int
+		// wantQuestions is QuestionsPerEntry; nil means the default. 0 is a valid setting.
+		wantQuestions *int
 	}{
+		{
+			name:          "file sets questions per entry",
+			file:          "questions_per_entry = 0\n",
+			wantPort:      DefaultPort,
+			wantLevel:     slog.LevelInfo,
+			wantQuestions: ptr(0),
+		},
 		{
 			name:      "file overrides defaults",
 			file:      file + "active_project_cap = 5\nmock_latency = '1500ms'\n",
@@ -165,12 +174,16 @@ func TestLoadPrecedence(t *testing.T) {
 			if tt.wantRecent != nil {
 				wantRecent = *tt.wantRecent
 			}
+			wantQuestions := 2
+			if tt.wantQuestions != nil {
+				wantQuestions = *tt.wantQuestions
+			}
 			wantDir := tt.wantDir
 			if wantDir == "" {
 				dataHome, _ := env("XDG_DATA_HOME")
 				wantDir = filepath.Join(dataHome, "waypoint")
 			}
-			want := Config{Port: tt.wantPort, DataDir: wantDir, LogLevel: tt.wantLevel, ActiveProjectCap: wantCap, MockLatency: tt.wantMock, SnapshotRecentEntries: wantRecent, File: wantFile}
+			want := Config{Port: tt.wantPort, DataDir: wantDir, LogLevel: tt.wantLevel, ActiveProjectCap: wantCap, QuestionsPerEntry: wantQuestions, MockLatency: tt.wantMock, SnapshotRecentEntries: wantRecent, File: wantFile}
 			if cfg != want {
 				t.Errorf("got %+v, want %+v", cfg, want)
 			}

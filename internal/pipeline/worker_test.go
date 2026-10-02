@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -594,7 +595,7 @@ func TestReprocessLeavesResolvedChangesetsAlone(t *testing.T) {
 
 	// Accept the first op only: the second splits off into a pending child.
 	cs := f.stored(e.ID).changesets[0]
-	res, err := changeset.NewApplier(f.s, domain.DefaultActiveProjectCap, nil).
+	res, err := changeset.NewApplier(f.s, nil).
 		Apply(ctx, cs.ID, map[int64]changeset.Decision{1: {Action: changeset.Accept}})
 	if err != nil {
 		t.Fatal(err)
@@ -627,7 +628,7 @@ func TestProcessSkipsLinksToRowsDeletedDuringExtraction(t *testing.T) {
 		}}},
 		// The task is in the snapshot, then deleted before the result is stored.
 		during: func() {
-			_, err := changeset.NewApplier(f.s, domain.DefaultActiveProjectCap, nil).
+			_, err := changeset.NewApplier(f.s, nil).
 				ApplyManual(context.Background(), &changeset.DeleteTask{TaskID: changeset.ID(task.ID)})
 			if err != nil {
 				t.Error(err)
@@ -769,5 +770,45 @@ func TestProcessCallsAfterRunOnSuccessOnly(t *testing.T) {
 	processNext(t, failing)
 	if len(after.ids) != 0 {
 		t.Errorf("AfterRun called for a failed run: %v", after.ids)
+	}
+}
+
+// The worker keeps only as many questions as the settings allow; the raw
+// output keeps them all.
+func TestProcessKeepsQuestionsPerEntrySetting(t *testing.T) {
+	for _, limit := range []int{0, 1, 2} {
+		t.Run(strconv.Itoa(limit), func(t *testing.T) {
+			f := newFixture(t)
+			ctx := context.Background()
+			err := f.s.InTx(ctx, func(tx *store.Tx) error {
+				_, err := tx.UpdateSettings(ctx, domain.Settings{ActiveProjectCap: 3, QuestionsPerEntry: limit})
+				return err
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			x := &fakeExtractor{res: extract.ExtractionResult{
+				Questions: []extract.QuestionDraft{
+					{Text: "First?", Reason: "One"},
+					{Text: "Second?", Reason: "Two"},
+				},
+			}}
+			w := f.worker(x, newEvents())
+			e, _ := f.save(w, "note", nil)
+			run := f.run(processNext(t, w).ID)
+			if run.Status != domain.RunSucceeded {
+				t.Fatalf("run = %+v, want succeeded", run)
+			}
+			got := f.stored(e.ID).questions
+			if len(got) != limit {
+				t.Fatalf("%d questions stored, want %d", len(got), limit)
+			}
+			if limit > 0 && got[0].Text != "First?" {
+				t.Errorf("kept %q, want the first question", got[0].Text)
+			}
+			if run.RawOutput == nil || !strings.Contains(string(run.RawOutput), "Second?") {
+				t.Error("the raw output lost the dropped question")
+			}
+		})
 	}
 }

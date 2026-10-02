@@ -74,7 +74,7 @@ func TestResultProjects(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newFixture(t)
-			res, err := NewApplier(f.s, 3, nil).ApplyManual(context.Background(), tt.ops(f)...)
+			res, err := NewApplier(f.s, nil).ApplyManual(context.Background(), tt.ops(f)...)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -93,7 +93,7 @@ func TestAfterApply(t *testing.T) {
 		var r recorder
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
-		res, err := NewApplier(f.s, 3, &r).ApplyManual(ctx, SetTaskStatus{TaskID: ID(f.a1), Status: domain.TaskDone})
+		res, err := NewApplier(f.s, &r).ApplyManual(ctx, SetTaskStatus{TaskID: ID(f.a1), Status: domain.TaskDone})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -117,7 +117,7 @@ func TestAfterApply(t *testing.T) {
 			op(2, domain.OpSetTaskStatus, jsonf(`{"task_id":%d,"status":"done"}`, f.b1)),
 		)
 		var r recorder
-		if _, err := NewApplier(f.s, 3, &r).Apply(ctx, cs, acceptAll(1)); err != nil {
+		if _, err := NewApplier(f.s, &r).Apply(ctx, cs, acceptAll(1)); err != nil {
 			t.Fatal(err)
 		}
 		if len(r.got) != 1 || !slices.Equal(r.got[0].Projects, []int64{f.projA}) {
@@ -128,7 +128,7 @@ func TestAfterApply(t *testing.T) {
 	t.Run("not called when the apply fails", func(t *testing.T) {
 		f := newFixture(t)
 		var r recorder
-		a := NewApplier(f.s, 3, &r)
+		a := NewApplier(f.s, &r)
 		if _, err := a.ApplyManual(ctx, SetTaskStatus{TaskID: ID(999), Status: domain.TaskDone}); err == nil {
 			t.Fatal("apply of a missing task succeeded")
 		}

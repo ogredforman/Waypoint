@@ -11,7 +11,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/ogredforman/waypoint/internal/api/apitypes"
 	"github.com/ogredforman/waypoint/internal/briefing"
 	"github.com/ogredforman/waypoint/internal/changeset"
 	"github.com/ogredforman/waypoint/internal/pipeline"
@@ -35,8 +34,6 @@ type Deps struct {
 	Applier   *changeset.Applier
 	Worker    *pipeline.Worker
 	Briefings *briefing.Service
-	// Settings is what GET /api/settings reports.
-	Settings apitypes.Settings
 }
 
 // handlers serve the data routes. Every write to projects, tasks, blockers,
@@ -46,7 +43,6 @@ type handlers struct {
 	applier   *changeset.Applier
 	worker    *pipeline.Worker
 	briefings *briefing.Service
-	settings  apitypes.Settings
 	logger    *slog.Logger
 }
 
@@ -88,7 +84,6 @@ func newMux(d Deps) *chi.Mux {
 				applier:   d.Applier,
 				worker:    d.Worker,
 				briefings: d.Briefings,
-				settings:  d.Settings,
 				logger:    d.Logger,
 			}
 			h.routes(r)
@@ -136,6 +131,7 @@ func (h *handlers) routes(r chi.Router) {
 	r.Post("/changesets/{id}/apply", h.applyChangeset)
 
 	r.Get("/settings", h.getSettings)
+	r.Patch("/settings", h.patchSettings)
 }
 
 // logRequests logs one line per request. It records only the method, path,

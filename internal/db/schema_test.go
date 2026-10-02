@@ -13,7 +13,7 @@ import (
 var coreTables = []string{
 	"blockers", "briefings", "change_ops", "changesets", "entries", "extraction_runs",
 	"follow_up_questions", "ideas", "milestones", "observation_links", "observations",
-	"pending_observation_links", "projects", "task_dependencies", "tasks",
+	"pending_observation_links", "projects", "settings", "task_dependencies", "tasks",
 }
 
 // migrated returns a temp DB with the embedded migrations applied.
@@ -109,8 +109,8 @@ func TestCoreSchema(t *testing.T) {
 	if err := sqlDB.QueryRowContext(ctx, "SELECT max(version_id) FROM goose_db_version").Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != 5 {
-		t.Errorf("schema version %d, want 5", version)
+	if version != 6 {
+		t.Errorf("schema version %d, want 6", version)
 	}
 	if got := appTables(t, sqlDB); !slices.Equal(got, coreTables) {
 		t.Errorf("tables %v, want %v", got, coreTables)
@@ -172,6 +172,10 @@ func TestCoreSchemaRejects(t *testing.T) {
 		{"pending link target type", check, `INSERT INTO pending_observation_links (observation_id, change_op_id, target_type, confidence, created_at) VALUES (1, 2, 'entry', 0.5, 1)`},
 		{"pending link duplicate", unique, `INSERT INTO pending_observation_links (observation_id, change_op_id, target_type, confidence, created_at) VALUES (1, 1, 'task', 0.5, 1), (1, 1, 'task', 0.5, 1)`},
 		{"blocker status", check, `INSERT INTO blockers (project_id, description, status, created_at, updated_at) VALUES (1, 'x', 'stuck', 1, 1)`},
+		{"settings second row", check, `INSERT INTO settings (id, active_project_cap, questions_per_entry, created_at, updated_at) VALUES (2, 3, 2, 1, 1)`},
+		{"settings cap below 1", check, `INSERT INTO settings (id, active_project_cap, questions_per_entry, created_at, updated_at) VALUES (1, 0, 2, 1, 1)`},
+		{"settings questions above 2", check, `INSERT INTO settings (id, active_project_cap, questions_per_entry, created_at, updated_at) VALUES (1, 3, 3, 1, 1)`},
+		{"settings questions negative", check, `INSERT INTO settings (id, active_project_cap, questions_per_entry, created_at, updated_at) VALUES (1, 3, -1, 1, 1)`},
 		{"idea status", check, `INSERT INTO ideas (title, status, created_at, updated_at) VALUES ('x', 'active', 1, 1)`},
 		{"extraction changeset without run", check, `INSERT INTO changesets (source, status, created_at, updated_at) VALUES ('extraction', 'pending', 1, 1)`},
 		{"manual changeset with run", check, `INSERT INTO changesets (source, extraction_run_id, status, created_at, updated_at) VALUES ('manual', 1, 'pending', 1, 1)`},

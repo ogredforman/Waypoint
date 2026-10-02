@@ -32,9 +32,12 @@ type Config struct {
 	LogLevel slog.Level
 	File     string // config file that was read; empty if none was found
 
-	// ActiveProjectCap limits how many projects can be active at once. It is
+	// ActiveProjectCap and QuestionsPerEntry only seed the settings of a
+	// database that has none yet (SettingsDefaults); after that the stored
+	// settings, changed through PATCH /api/settings, are in effect. They are
 	// set in config.toml only (no env var or flag).
-	ActiveProjectCap int
+	ActiveProjectCap  int
+	QuestionsPerEntry int
 
 	// MockLatency is an artificial delay the mock extractor adds to each run,
 	// to exercise the async UI. It is set in config.toml only.
@@ -51,6 +54,11 @@ func (c Config) Addr() string {
 	return "127.0.0.1:" + strconv.Itoa(c.Port)
 }
 
+// SettingsDefaults are the settings a database without any is seeded with.
+func (c Config) SettingsDefaults() domain.Settings {
+	return domain.Settings{ActiveProjectCap: c.ActiveProjectCap, QuestionsPerEntry: c.QuestionsPerEntry}
+}
+
 // DBPath is the SQLite database file inside the data directory.
 func (c Config) DBPath() string {
 	return filepath.Join(c.DataDir, "waypoint.db")
@@ -62,8 +70,9 @@ type fileConfig struct {
 	DataDir  *string `toml:"data_dir"`
 	LogLevel *string `toml:"log_level"`
 
-	ActiveProjectCap *int    `toml:"active_project_cap"`
-	MockLatency      *string `toml:"mock_latency"`
+	ActiveProjectCap  *int    `toml:"active_project_cap"`
+	QuestionsPerEntry *int    `toml:"questions_per_entry"`
+	MockLatency       *string `toml:"mock_latency"`
 
 	SnapshotRecentEntries *int `toml:"snapshot_recent_entries"`
 }
@@ -90,7 +99,7 @@ func Load(args []string, env LookupEnv, goos string, stderr io.Writer) (Config, 
 
 	// DataDir stays empty until a source sets it; the OS default is filled in
 	// last, so a missing $HOME only matters when nothing else names the folder.
-	cfg := Config{Port: DefaultPort, LogLevel: slog.LevelInfo, ActiveProjectCap: domain.DefaultActiveProjectCap, SnapshotRecentEntries: DefaultSnapshotRecentEntries}
+	cfg := Config{Port: DefaultPort, LogLevel: slog.LevelInfo, ActiveProjectCap: domain.DefaultActiveProjectCap, QuestionsPerEntry: domain.MaxQuestionsPerEntry, SnapshotRecentEntries: DefaultSnapshotRecentEntries}
 
 	// Config file: an explicitly named file must exist. The default one is
 	// optional, and skipped if the OS config dir can't be determined.
@@ -225,6 +234,12 @@ func applyFile(cfg *Config, path string) error {
 			return fmt.Errorf("active_project_cap: must be at least 1, got %d", *fc.ActiveProjectCap)
 		}
 		cfg.ActiveProjectCap = *fc.ActiveProjectCap
+	}
+	if fc.QuestionsPerEntry != nil {
+		if q := *fc.QuestionsPerEntry; q < 0 || q > domain.MaxQuestionsPerEntry {
+			return fmt.Errorf("questions_per_entry: must be from 0 to %d, got %d", domain.MaxQuestionsPerEntry, q)
+		}
+		cfg.QuestionsPerEntry = *fc.QuestionsPerEntry
 	}
 	if fc.MockLatency != nil {
 		d, err := time.ParseDuration(*fc.MockLatency)
