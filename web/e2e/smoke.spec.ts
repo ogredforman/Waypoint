@@ -40,3 +40,40 @@ test('write → review → apply updates the project and the briefing', async ({
   await expect(page.getByRole('region', { name: 'Tasks' }).getByRole('link', { name: task })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Blockers' }).getByText(blocker, { exact: true })).toBeVisible()
 })
+
+// Profiles keep their data apart (ADR 0005): a project made in a new profile doesn't show in the
+// first, the browser remembers the profile in use, and deleting one takes typing its name.
+test('profiles keep their data apart', async ({ page }) => {
+  const project = 'Portfolio site'
+
+  await page.goto('/settings')
+  await page.getByLabel('New profile').fill('Work')
+  await page.getByRole('button', { name: 'Add profile' }).click()
+  const work = page.getByRole('listitem', { name: 'Work' })
+  await work.getByRole('button', { name: 'Switch to' }).click()
+  await expect(page.getByLabel('Profile', { exact: true })).toHaveValue('work')
+
+  await page.goto('/projects')
+  await expect(page.getByLabel('Profile', { exact: true })).toHaveValue('work')
+  await page.getByLabel('Title').fill(project)
+  await page.getByRole('button', { name: 'Create project' }).click()
+  await expect(page.getByRole('main').getByRole('link', { name: project })).toBeVisible()
+
+  await page.getByLabel('Profile', { exact: true }).selectOption({ label: 'Personal' })
+  await expect(page.getByRole('heading', { name: 'Projects', level: 1 })).toBeVisible()
+  await expect(page.getByRole('main').getByRole('link', { name: project })).toBeHidden()
+
+  await page.getByLabel('Profile', { exact: true }).selectOption({ label: 'Work' })
+  await expect(page.getByRole('main').getByRole('link', { name: project })).toBeVisible()
+
+  // Delete Work while it's in use: the app moves to Personal first.
+  await page.getByRole('link', { name: 'Settings' }).click()
+  await page.getByRole('button', { name: 'Delete Work…' }).click()
+  const confirm = page.getByRole('button', { name: 'Delete Work', exact: true })
+  await expect(confirm).toBeDisabled()
+  await page.getByLabel('Type Work to confirm').fill('Work')
+  await confirm.click()
+  await expect(page.getByText('Deleted Work.')).toBeVisible()
+  await expect(page.getByLabel('Profile', { exact: true })).toHaveValue('personal')
+  await expect(page.getByRole('listitem', { name: 'Work' })).toBeHidden()
+})

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import ProfileSettings from '../components/ProfileSettings.svelte'
   import Button from '../components/ui/Button.svelte'
   import Input from '../components/ui/Input.svelte'
   import Panel from '../components/ui/Panel.svelte'
@@ -7,6 +8,7 @@
   import type { Settings } from '../lib/api/types.gen'
   import { latest, liveReload } from '../lib/live'
   import { pageHeading } from '../lib/navigation.svelte'
+  import { profiles } from '../lib/profile.svelte'
   import { countActive } from '../lib/projects'
   import {
     capNote,
@@ -87,8 +89,9 @@
 </script>
 
 <!--
-  Each group of settings is its own <section> under the heading; later ones
-  (profiles, appearance, the extraction provider) go after "Focus".
+  Each group of settings is its own <section> under the heading: "Focus" (the
+  profile in use), then "Profiles". Later ones (appearance, the extraction
+  provider) go between them.
 -->
 <section class="space-y-8">
   <div>
@@ -105,7 +108,12 @@
     <p class="text-ink-muted">Loading…</p>
   {:else}
     <section aria-labelledby="focus-heading" class="space-y-3">
-      <h2 id="focus-heading" class="text-lg font-semibold">Focus</h2>
+      <div>
+        <h2 id="focus-heading" class="text-lg font-semibold">Focus</h2>
+        {#if profiles.active}
+          <p class="text-sm text-ink-muted">For the {profiles.active.name} profile.</p>
+        {/if}
+      </div>
       <Panel>
         <form class="space-y-6 p-5" onsubmit={save} oninput={edited} novalidate>
           <div>
@@ -157,4 +165,6 @@
       </Panel>
     </section>
   {/if}
+
+  <ProfileSettings />
 </section>

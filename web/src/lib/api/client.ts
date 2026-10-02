@@ -1,4 +1,4 @@
-import type { ErrorBody, FieldProblem, Project, Settings, UpdateSettingsRequest } from './types.gen'
+import type { ErrorBody, FieldProblem, Profile, Project, Settings, UpdateSettingsRequest } from './types.gen'
 
 // ApiError is a failed API request. code is the server's error code (SPEC
 // §10.5), or "unreachable" when no API answered at all.
@@ -19,7 +19,7 @@ export class ApiError extends Error {
 const unreachableMessage = "Can't reach the Waypoint server."
 
 // The profile every data path is under (ADR 0005), set at startup by
-// lib/profile.ts. While none is set, paths go out as given.
+// lib/profile.svelte.ts. While none is set, paths go out as given.
 let profileID: string | null = null
 
 export function useProfile(id: string | null) {
@@ -101,4 +101,23 @@ export function getSettings(fetchFn?: typeof fetch): Promise<Settings> {
 // updateSettings changes the settings present in req and answers with all of them.
 export function updateSettings(req: UpdateSettingsRequest, fetchFn?: typeof fetch): Promise<Settings> {
   return patchJSON<Settings>('/api/settings', req, fetchFn)
+}
+
+// Profiles (ADR 0005). These paths are server-wide, never under a profile.
+
+export function listProfiles(fetchFn?: typeof fetch): Promise<Profile[]> {
+  return getJSON<Profile[]>('/api/profiles', fetchFn)
+}
+
+export function createProfile(name: string, fetchFn?: typeof fetch): Promise<Profile> {
+  return postJSON<Profile>('/api/profiles', { name }, fetchFn)
+}
+
+export function renameProfile(id: string, name: string, fetchFn?: typeof fetch): Promise<Profile> {
+  return patchJSON<Profile>(`/api/profiles/${encodeURIComponent(id)}`, { name }, fetchFn)
+}
+
+// deleteProfile removes the profile and everything in it, for good.
+export function deleteProfile(id: string, fetchFn?: typeof fetch): Promise<void> {
+  return deleteJSON(`/api/profiles/${encodeURIComponent(id)}`, fetchFn)
 }

@@ -43,7 +43,7 @@ export function widthForKey(width: number, key: string, shift: boolean): number 
   }
 }
 
-type Store = Pick<Storage, 'getItem' | 'setItem'>
+export type Store = Pick<Storage, 'getItem' | 'setItem'>
 
 // browserStorage returns localStorage, or null where it's unavailable (blocked, some private modes).
 export function browserStorage(): Store | null {

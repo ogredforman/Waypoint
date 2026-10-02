@@ -3,7 +3,7 @@
   import { ApiError, getJSON, postJSON } from '../lib/api/client'
   import type { CreateEntryResponse, Project } from '../lib/api/types.gen'
   import { entryRequest, isSubmitShortcut, resolveScope, scopeOptions, screenProjectID } from '../lib/diary'
-  import { clearDraft, draft } from '../lib/diaryDraft.svelte'
+  import { clearDraft, draft, draftProfile, draftSession, restoreDraft } from '../lib/diaryDraft.svelte'
   import { current } from '../lib/navigation.svelte'
   import { addEntry } from '../lib/timeline.svelte'
   import Button from './ui/Button.svelte'
@@ -34,16 +34,17 @@
     saved = false
     // Clear the box straight away; if the save fails, put the text back so nothing is lost.
     const { body, choice } = draft
+    // The profile it's written in: if the user switches while it saves, it
+    // must not show up in, or come back to, the other profile's diary.
+    const profile = draftProfile()
+    const session = draftSession()
     clearDraft()
     try {
       const res = await postJSON<CreateEntryResponse>('/api/entries', req)
       saved = true
-      addEntry(res.entry, res.run)
+      if (draftSession() === session) addEntry(res.entry, res.run)
     } catch (err) {
-      if (draft.body.trim() === '') {
-        draft.body = body
-        draft.choice = choice
-      }
+      restoreDraft(profile, body, choice)
       notice = err instanceof ApiError ? err.message : "Couldn't save the entry. Your text is back in the box."
     } finally {
       saving = false

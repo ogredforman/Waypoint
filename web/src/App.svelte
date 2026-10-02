@@ -1,22 +1,14 @@
 <script lang="ts">
   import SettingsIcon from '@lucide/svelte/icons/settings'
   import { onMount } from 'svelte'
-  import DiaryOverlay from './components/DiaryOverlay.svelte'
-  import DiaryPanel from './components/DiaryPanel.svelte'
+  import ProfileSwitcher from './components/ProfileSwitcher.svelte'
+  import ProfileWorkspace from './components/ProfileWorkspace.svelte'
   import ServerBanner from './components/ServerBanner.svelte'
-  import { onDisconnect, onReconnect, startEvents } from './lib/events'
+  import { onDisconnect, onReconnect } from './lib/events'
   import { watchHealth, type Health } from './lib/health'
   import { current, startRouting } from './lib/navigation.svelte'
+  import { profiles } from './lib/profile.svelte'
   import { pageTitle, paths, sectionOf, type Section } from './lib/router'
-  import { followEvents } from './lib/timeline.svelte'
-  import Diary from './screens/Diary.svelte'
-  import NotFound from './screens/NotFound.svelte'
-  import Now from './screens/Now.svelte'
-  import ParkingLot from './screens/ParkingLot.svelte'
-  import Project from './screens/Project.svelte'
-  import Projects from './screens/Projects.svelte'
-  import Settings from './screens/Settings.svelte'
-  import Task from './screens/Task.svelte'
 
   const nav: { section: Section; label: string; href: string }[] = [
     { section: 'now', label: 'Now', href: paths.now },
@@ -47,14 +39,9 @@
     const onWidth = () => (wide = wideQuery.matches)
     wideQuery.addEventListener('change', onWidth)
     const stopRouting = startRouting()
-    // Subscribe before connecting, so no event slips past the timeline.
-    const stopTimeline = followEvents()
-    const stopEvents = startEvents()
     return () => {
       wideQuery.removeEventListener('change', onWidth)
       stopRouting()
-      stopEvents()
-      stopTimeline()
       offDown()
       offUp()
       healthWatch.stop()
@@ -65,6 +52,8 @@
 <!--
   Layout (ADR 0004): header over a row of the main pane and, on wide windows, the diary panel.
   Each scrolls on its own. /diary shows the diary full-page instead, so it has no panel beside it.
+  Everything showing a profile's data is in ProfileWorkspace, keyed by the active profile: switching
+  profiles remounts it, so the event stream reopens and every screen loads again (ADR 0005).
 -->
 <div class="flex h-dvh flex-col">
   <header class="shrink-0 border-b border-line bg-surface/60 backdrop-blur">
@@ -90,51 +79,26 @@
           {/each}
         </ul>
       </nav>
-      <a
-        href={paths.settings}
-        class={[
-          'ml-auto flex items-center gap-1.5 rounded-control px-3 py-1.5 text-sm transition',
-          section === 'settings' ? 'bg-raised text-ink shadow-glow' : 'text-ink-muted hover:text-ink',
-        ]}
-        aria-current={section === 'settings' ? 'page' : undefined}
-      >
-        <SettingsIcon size={16} aria-hidden="true" />
-        Settings
-      </a>
+      <div class="ml-auto flex items-center gap-3">
+        <ProfileSwitcher />
+        <a
+          href={paths.settings}
+          class={[
+            'flex items-center gap-1.5 rounded-control px-3 py-1.5 text-sm transition',
+            section === 'settings' ? 'bg-raised text-ink shadow-glow' : 'text-ink-muted hover:text-ink',
+          ]}
+          aria-current={section === 'settings' ? 'page' : undefined}
+        >
+          <SettingsIcon size={16} aria-hidden="true" />
+          Settings
+        </a>
+      </div>
     </div>
   </header>
 
   <ServerBanner {health} />
 
-  <div class="flex min-h-0 flex-1">
-    <div class="flex min-w-0 flex-1 flex-col overflow-y-auto">
-      <main class="mx-auto w-full max-w-3xl flex-1 px-gutter py-8">
-        {#if route.name === 'now'}
-          <Now />
-        {:else if route.name === 'diary'}
-          <Diary />
-        {:else if route.name === 'projects'}
-          <Projects />
-        {:else if route.name === 'project'}
-          {#key route.id}<Project id={route.id} />{/key}
-        {:else if route.name === 'task'}
-          {#key route.id}<Task id={route.id} />{/key}
-        {:else if route.name === 'parkingLot'}
-          <ParkingLot />
-        {:else if route.name === 'settings'}
-          <Settings />
-        {:else}
-          <NotFound />
-        {/if}
-      </main>
-    </div>
-
-    {#if wide && route.name !== 'diary'}
-      <DiaryPanel />
-    {/if}
-  </div>
+  {#key profiles.active?.id}
+    <ProfileWorkspace {route} {wide} />
+  {/key}
 </div>
-
-{#if !wide && route.name !== 'diary'}
-  <DiaryOverlay />
-{/if}

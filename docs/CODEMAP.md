@@ -89,17 +89,24 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
 ## Frontend (`web/src`)
 
 Svelte 5 runes + TS + Tailwind, Vitest. `main.ts` → `App.svelte`. `lib/api/client.ts` is the
-typed API client (the only place that calls `fetch`); `apiPath` puts `/api/…` under the profile set by `useProfile`
-(`lib/profile.ts` `chooseProfile`, awaited in `main.ts`: the first profile until 1.5.9), with generated `types.gen.ts`/`enums.gen.ts`;
-named calls (`listProjects`, `getSettings`, `updateSettings`) are thin wrappers over `getJSON`/`patchJSON`, and new code uses them.
+typed API client (the only place that calls `fetch`); `apiPath` puts `/api/…` under the profile set by `useProfile`,
+with generated `types.gen.ts`/`enums.gen.ts`; named calls (`listProjects`, `getSettings`, `updateSettings`,
+`listProfiles`/`createProfile`/`renameProfile`/`deleteProfile`) are thin wrappers over `getJSON`/`patchJSON`, and new code uses them.
 `lib/router.ts` + `lib/navigation.svelte.ts`: client-side routing; every screen's `<h1>` takes `{@attach pageHeading}` (focus after navigation). `screens/`: page components
 (`Now`, `Diary`, `Projects`, `Project`, `Task`, `ParkingLot`, `Settings`, `NotFound`). `components/`: reusable
 pieces. Tests sit next to the code as `*.test.ts`.
 
-- Layout (ADR 0004): `App.svelte` mounts `DiaryPanel` (lg and up) or `DiaryOverlay` (below lg), never
+- Profiles (ADR 0005, SPEC §11): `lib/profile.svelte.ts` holds `profiles` (`list`, `active`, `notice`); `chooseProfile`
+  (awaited in `main.ts`; remembered ID in `localStorage` if still listed, else the first), `switchProfile` (resets the timeline,
+  swaps the per-profile diary draft, leaves project/task pages), `createProfile`/`renameProfile`/`removeProfile` (switches away
+  first if active), `deleteConfirmed`, `nameProblem`. `App.svelte` keeps the header (`components/ProfileSwitcher.svelte`, a select)
+  and wraps `components/ProfileWorkspace.svelte` (screens, diary, event stream) in `{#key profiles.active?.id}`, so a switch
+  remounts all of it. Settings' Profiles section: `components/ProfileSettings.svelte` → `ProfileRow.svelte` (switch, rename,
+  delete after typing the name). Tests: `lib/profile.test.ts`, `lib/diaryDraft.test.ts`, `components/ProfileSettings.test.ts`.
+- Layout (ADR 0004): `ProfileWorkspace` mounts `DiaryPanel` (lg and up) or `DiaryOverlay` (below lg), never
   both, and neither on `/diary`. Both wrap `DiaryContent`, which `screens/Diary` also shows full-page.
   `lib/diaryPanel.ts`: panel width limits, drag/key resizing, `localStorage` prefs.
-- Live updates: `lib/events.ts` is the app's one `EventSource` (`startEvents` in `App.svelte`; `on(name, handler)`,
+- Live updates: `lib/events.ts` is the app's one `EventSource` (`startEvents` in `ProfileWorkspace.svelte`, once per profile; `on(name, handler)`,
   `onReconnect`, `onDisconnect`). Screens subscribe in `onMount` and refetch; `lib/events.fake.ts` `FakeEventSource` for tests.
   `lib/live.ts`: `liveReload` (reload on `changeset.applied`, optionally for one project, and on reconnect) and
   `latest` (drop stale answers); used by the Project, Projects, Parking lot, and Task screens. `screens/Project.test.ts`.
@@ -107,7 +114,7 @@ pieces. Tests sit next to the code as `*.test.ts`.
   re-polls only while unhealthy) → `components/ServerBanner.svelte` under the header in `App.svelte`; nothing shows while healthy.
 - Diary input: `components/DiaryInput.svelte` (in `DiaryContent`); `lib/diary.ts` (submit shortcut,
   default project scope from the route, `entryRequest`); `lib/diaryDraft.svelte.ts` (shared draft that
-  outlives the panel/overlay).
+  outlives the panel/overlay; one per profile: `switchDraft`, `restoreDraft`, `draftSession`).
 - Diary timeline: `components/EntryTimeline.svelte` → `EntryCard.svelte` (highlights, run state) →
   `FollowUpQuestion.svelte` (answer/dismiss). `lib/timeline.svelte.ts`: shared timeline state (`loadTimeline`,
   `loadOlder`, `loadEntry`, `addEntry`, `reprocessEntry`, `followEvents`). `lib/entries.ts`: `segments`, `observationHref`, detail helpers,
@@ -133,7 +140,7 @@ pieces. Tests sit next to the code as `*.test.ts`.
   `ParkedProjectRow.svelte` (activate, calm cap handling). `lib/ideas.ts`: `promoteTargets`, `defaultTarget`, `projectName`;
   `lib/projects.ts` `parkedProjects`.
 - Settings: `screens/Settings.svelte` (`/settings`, linked from the header; one `<section>` per group, "Focus" first:
-  active-project cap and questions per entry, saved as one PATCH of the changed fields). `lib/settings.ts`: `settingsPatch`,
+  active-project cap and questions per entry, saved as one PATCH of the changed fields; then "Profiles"). `lib/settings.ts`: `settingsPatch`,
   `parseCap`, `capNote` (a cap below the active count pauses nothing), `fieldProblems` (422 → per-field). `screens/Settings.test.ts`.
 - Theme: named tokens in `app.css` `@theme` (`canvas`/`surface`/`raised`/`line`, `ink`/`ink-muted`/
   `ink-faint`, `accent`/`accent-strong`/`accent-deep`/`on-accent`, `plan` (plan highlights; `lib/entries.ts` `highlightClass`), `shadow-glow`/`focus`/`edge`,

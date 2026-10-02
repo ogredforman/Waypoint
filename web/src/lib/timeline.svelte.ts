@@ -68,6 +68,19 @@ export async function loadTimeline(): Promise<void> {
   await Promise.all(page.entries.map((e) => loadEntry(e.id)))
 }
 
+// resetTimeline empties the timeline, e.g. when the profile changes, and drops
+// any answer still on its way for the old one.
+export function resetTimeline(): void {
+  generation++
+  entryLoads.clear()
+  timeline.items = []
+  timeline.projects = []
+  timeline.nextBefore = null
+  timeline.status = 'idle'
+  timeline.error = ''
+  timeline.loadingOlder = false
+}
+
 // loadOlder appends the next page of older entries.
 export async function loadOlder(): Promise<void> {
   const before = timeline.nextBefore
@@ -85,7 +98,7 @@ export async function loadOlder(): Promise<void> {
   } catch (err) {
     if (gen === generation) timeline.error = message(err, "Couldn't load older entries.")
   } finally {
-    timeline.loadingOlder = false
+    if (gen === generation) timeline.loadingOlder = false
   }
 }
 
