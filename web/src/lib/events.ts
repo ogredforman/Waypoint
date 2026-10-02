@@ -5,6 +5,7 @@ import type {
   EntryProcessedEvent,
   RunFailedEvent,
 } from './api/types.gen'
+import { apiPath } from './api/client'
 
 // Live updates from the server's /api/events stream (SPEC §10.5). The app keeps
 // one connection open; screens subscribe to the events they show. Events carry
@@ -79,7 +80,7 @@ export function startEvents(open: (url: string) => EventSource = (url) => new Ev
   let stopped = false
 
   function connect() {
-    const s = open('/api/events')
+    const s = open(apiPath('/api/events'))
     source = s
     for (const name of eventNames) s.addEventListener(name, (e) => dispatch(name, (e as MessageEvent).data))
     s.addEventListener('open', () => {

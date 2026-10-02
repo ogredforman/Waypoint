@@ -67,8 +67,8 @@ func startApp(t *testing.T, dbPath string, ext extract.Extractor) *app {
 	}
 	applier := changeset.NewApplier(st, changeset.AfterApplies{briefings, hub})
 	worker := pipeline.NewWorker(st, snapshots, ext, hub, briefings, logger)
-	srv := httptest.NewServer(NewRouter(Deps{
-		DB: sqlDB, Logger: logger, Hub: hub,
+	srv := httptest.NewServer(profileRouter(ProfileDeps{
+		Logger: logger, Hub: hub,
 		Store: st, Applier: applier, Worker: worker, Briefings: briefings,
 	}))
 	stream := openStream(t, srv)
@@ -187,7 +187,7 @@ func (a *app) acceptAll(cs apitypes.Changeset, projectID int64) apitypes.ApplyRe
 	for _, op := range cs.Ops {
 		req.Ops = append(req.Ops, apitypes.OpDecision{ID: op.ID, Decision: apitypes.DecisionAccept})
 	}
-	res := send[apitypes.ApplyResponse](a, http.StatusOK, "POST", fmt.Sprintf("/api/changesets/%d/apply", cs.ID), req)
+	res := send[apitypes.ApplyResponse](a, http.StatusOK, "POST", fmt.Sprintf("/api/profiles/t/changesets/%d/apply", cs.ID), req)
 	if res.Changeset.Status != domain.ChangesetApplied || res.SplitOff != nil {
 		a.t.Fatalf("apply = %+v, want applied with nothing split off", res)
 	}
@@ -217,7 +217,7 @@ func (a *app) noLeaks(bodies ...string) {
 
 func newProject(a *app, title string) apitypes.Project {
 	a.t.Helper()
-	return send[apitypes.Project](a, http.StatusCreated, "POST", "/api/projects",
+	return send[apitypes.Project](a, http.StatusCreated, "POST", "/api/profiles/t/projects",
 		apitypes.CreateProjectRequest{Title: title, Status: ptr(domain.ProjectActive)})
 }
 
@@ -237,14 +237,14 @@ func TestE2ECoreLoop(t *testing.T) {
 	event[apitypes.BriefingUpdatedEvent](a, eventBriefingUpdated)
 
 	body := "Good session on the pipeline.\ntodo: Write the API tests\ntodo: Draft the README\nblocked: waiting on review\nidea: nightly export\nfeel: steady"
-	created := send[apitypes.CreateEntryResponse](a, http.StatusAccepted, "POST", "/api/entries",
+	created := send[apitypes.CreateEntryResponse](a, http.StatusAccepted, "POST", "/api/profiles/t/entries",
 		apitypes.CreateEntryRequest{Body: body, ProjectID: &p.ID})
 	if created.Run.Status != domain.RunPending {
 		t.Errorf("new run status = %s, want pending", created.Run.Status)
 	}
 	csID := a.processed(created.Entry.ID, created.Run.ID, true, p.ID)
 
-	d := send[apitypes.EntryDetail](a, http.StatusOK, "GET", fmt.Sprintf("/api/entries/%d", created.Entry.ID), nil)
+	d := send[apitypes.EntryDetail](a, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/entries/%d", created.Entry.ID), nil)
 	if d.Run == nil || d.Run.Status != domain.RunSucceeded {
 		t.Fatalf("run = %+v, want succeeded", d.Run)
 	}
@@ -273,21 +273,21 @@ func TestE2ECoreLoop(t *testing.T) {
 	}
 
 	// Nothing changes until the changeset is applied.
-	if tasks := send[[]apitypes.Task](a, http.StatusOK, "GET", fmt.Sprintf("/api/projects/%d/tasks", p.ID), nil); len(tasks) != 0 {
+	if tasks := send[[]apitypes.Task](a, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/projects/%d/tasks", p.ID), nil); len(tasks) != 0 {
 		t.Errorf("tasks before apply = %v", taskTitles(tasks))
 	}
 	a.acceptAll(d.Changesets[0], p.ID)
 
-	tasks := send[[]apitypes.Task](a, http.StatusOK, "GET", fmt.Sprintf("/api/projects/%d/tasks", p.ID), nil)
+	tasks := send[[]apitypes.Task](a, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/projects/%d/tasks", p.ID), nil)
 	if got, want := taskTitles(tasks), []string{"Write the API tests (todo)", "Draft the README (todo)"}; !slices.Equal(got, want) {
 		t.Fatalf("tasks = %v, want %v", got, want)
 	}
-	blockers := send[[]apitypes.Blocker](a, http.StatusOK, "GET", fmt.Sprintf("/api/projects/%d/blockers", p.ID), nil)
+	blockers := send[[]apitypes.Blocker](a, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/projects/%d/blockers", p.ID), nil)
 	if len(blockers) != 1 || blockers[0].Description != "waiting on review" || blockers[0].Status != domain.BlockerOpen ||
 		blockers[0].OriginEntryID == nil || *blockers[0].OriginEntryID != created.Entry.ID {
 		t.Errorf("blockers = %+v", blockers)
 	}
-	ideas := send[[]apitypes.Idea](a, http.StatusOK, "GET", "/api/ideas?status=parked", nil)
+	ideas := send[[]apitypes.Idea](a, http.StatusOK, "GET", "/api/profiles/t/ideas?status=parked", nil)
 	if len(ideas) != 1 || ideas[0].Title != "nightly export" || ideas[0].ProjectID == nil || *ideas[0].ProjectID != p.ID {
 		t.Errorf("parked ideas = %+v", ideas)
 	}
@@ -295,7 +295,7 @@ func TestE2ECoreLoop(t *testing.T) {
 	// Every task shows the entry it came from, and the "todo:" line's plan
 	// observation, linked when the changeset was applied.
 	for _, task := range tasks {
-		td := send[apitypes.TaskDetail](a, http.StatusOK, "GET", fmt.Sprintf("/api/tasks/%d", task.ID), nil)
+		td := send[apitypes.TaskDetail](a, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/tasks/%d", task.ID), nil)
 		if td.OriginEntry == nil || td.OriginEntry.ID != created.Entry.ID || td.OriginEntry.Body != body {
 			t.Errorf("task %q origin = %+v, want entry %d", task.Title, td.OriginEntry, created.Entry.ID)
 		}
@@ -305,7 +305,7 @@ func TestE2ECoreLoop(t *testing.T) {
 		}
 	}
 
-	b := send[apitypes.Briefing](a, http.StatusOK, "GET", fmt.Sprintf("/api/projects/%d/briefing", p.ID), nil)
+	b := send[apitypes.Briefing](a, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/projects/%d/briefing", p.ID), nil)
 	if b.NextTask == nil || b.NextTask.ID != tasks[0].ID || b.NextReason == "" {
 		t.Errorf("briefing next = %+v (%q), want %q", b.NextTask, b.NextReason, tasks[0].Title)
 	}
@@ -325,7 +325,7 @@ func TestE2EManualEditPublishesApplied(t *testing.T) {
 	if e := event[apitypes.ChangesetAppliedEvent](a, eventChangesetApplied); !slices.Equal(e.ProjectIDs, []int64{p.ID}) || e.ChangesetID == 0 {
 		t.Errorf("after create: event = %+v, want project %d", e, p.ID)
 	}
-	send[apitypes.Project](a, http.StatusOK, "PATCH", fmt.Sprintf("/api/projects/%d", p.ID), map[string]any{"title": "Waypoint v1"})
+	send[apitypes.Project](a, http.StatusOK, "PATCH", fmt.Sprintf("/api/profiles/t/projects/%d", p.ID), map[string]any{"title": "Waypoint v1"})
 	if e := event[apitypes.ChangesetAppliedEvent](a, eventChangesetApplied); !slices.Equal(e.ProjectIDs, []int64{p.ID}) {
 		t.Errorf("after edit: event = %+v, want project %d", e, p.ID)
 	}
@@ -337,10 +337,10 @@ func TestE2EFollowUpEntryWithGuessedProject(t *testing.T) {
 	other := newProject(a, "Garden")
 
 	first := "todo: Write the API tests\ntodo: Draft the README\nblocked: waiting on review"
-	c1 := send[apitypes.CreateEntryResponse](a, http.StatusAccepted, "POST", "/api/entries",
+	c1 := send[apitypes.CreateEntryResponse](a, http.StatusAccepted, "POST", "/api/profiles/t/entries",
 		apitypes.CreateEntryRequest{Body: first, ProjectID: &p.ID})
 	cs1 := a.processed(c1.Entry.ID, c1.Run.ID, true, p.ID)
-	d1 := send[apitypes.EntryDetail](a, http.StatusOK, "GET", fmt.Sprintf("/api/entries/%d", c1.Entry.ID), nil)
+	d1 := send[apitypes.EntryDetail](a, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/entries/%d", c1.Entry.ID), nil)
 	if len(d1.Changesets) != 1 || d1.Changesets[0].ID != cs1 {
 		t.Fatalf("changesets = %+v, want %d", d1.Changesets, cs1)
 	}
@@ -349,10 +349,10 @@ func TestE2EFollowUpEntryWithGuessedProject(t *testing.T) {
 	// An unscoped entry naming Waypoint's task and blocker: the mock guesses
 	// Waypoint for the new idea, and matches the task and blocker there.
 	second := "done: write the api tests\nunblocked: waiting on review\nidea: nightly export"
-	c2 := send[apitypes.CreateEntryResponse](a, http.StatusAccepted, "POST", "/api/entries",
+	c2 := send[apitypes.CreateEntryResponse](a, http.StatusAccepted, "POST", "/api/profiles/t/entries",
 		apitypes.CreateEntryRequest{Body: second})
 	cs2 := a.processed(c2.Entry.ID, c2.Run.ID, true, p.ID, other.ID)
-	d2 := send[apitypes.EntryDetail](a, http.StatusOK, "GET", fmt.Sprintf("/api/entries/%d", c2.Entry.ID), nil)
+	d2 := send[apitypes.EntryDetail](a, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/entries/%d", c2.Entry.ID), nil)
 	if len(d2.Changesets) != 1 || d2.Changesets[0].ID != cs2 {
 		t.Fatalf("changesets = %+v, want %d", d2.Changesets, cs2)
 	}
@@ -382,36 +382,36 @@ func TestE2EFollowUpEntryWithGuessedProject(t *testing.T) {
 	}
 	a.acceptAll(d2.Changesets[0], p.ID)
 
-	tasks := send[[]apitypes.Task](a, http.StatusOK, "GET", fmt.Sprintf("/api/projects/%d/tasks", p.ID), nil)
+	tasks := send[[]apitypes.Task](a, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/projects/%d/tasks", p.ID), nil)
 	if got, want := taskTitles(tasks), []string{"Write the API tests (done)", "Draft the README (todo)"}; !slices.Equal(got, want) {
 		t.Errorf("tasks = %v, want %v", got, want)
 	}
-	blockers := send[[]apitypes.Blocker](a, http.StatusOK, "GET", fmt.Sprintf("/api/projects/%d/blockers", p.ID), nil)
+	blockers := send[[]apitypes.Blocker](a, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/projects/%d/blockers", p.ID), nil)
 	if len(blockers) != 1 || blockers[0].Status != domain.BlockerResolved ||
 		blockers[0].ResolvedEntryID == nil || *blockers[0].ResolvedEntryID != c2.Entry.ID {
 		t.Errorf("blockers = %+v, want resolved by entry %d", blockers, c2.Entry.ID)
 	}
-	ideas := send[[]apitypes.Idea](a, http.StatusOK, "GET", fmt.Sprintf("/api/ideas?project_id=%d", p.ID), nil)
+	ideas := send[[]apitypes.Idea](a, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/ideas?project_id=%d", p.ID), nil)
 	if len(ideas) != 1 || ideas[0].Title != "nightly export" {
 		t.Errorf("Waypoint's ideas = %+v", ideas)
 	}
-	if got := send[[]apitypes.Task](a, http.StatusOK, "GET", fmt.Sprintf("/api/projects/%d/tasks", other.ID), nil); len(got) != 0 {
+	if got := send[[]apitypes.Task](a, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/projects/%d/tasks", other.ID), nil); len(got) != 0 {
 		t.Errorf("Garden's tasks = %v, want none", taskTitles(got))
 	}
 
 	// The briefing moves on to the next task.
-	b := send[apitypes.Briefing](a, http.StatusOK, "GET", fmt.Sprintf("/api/projects/%d/briefing", p.ID), nil)
+	b := send[apitypes.Briefing](a, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/projects/%d/briefing", p.ID), nil)
 	if b.NextTask == nil || b.NextTask.Title != "Draft the README" || len(b.Blockers) != 0 {
 		t.Errorf("briefing = next %+v, blockers %+v; want Draft the README and no blockers", b.NextTask, b.Blockers)
 	}
 
 	// The unscoped entry is listed under the project it's about.
-	page := send[apitypes.EntryPage](a, http.StatusOK, "GET", fmt.Sprintf("/api/entries?project_id=%d", p.ID), nil)
+	page := send[apitypes.EntryPage](a, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/entries?project_id=%d", p.ID), nil)
 	if len(page.Entries) != 2 || page.Entries[0].ID != c2.Entry.ID {
 		t.Errorf("Waypoint's entries = %+v, want both, newest first", page.Entries)
 	}
 
-	q := send[apitypes.Question](a, http.StatusOK, "POST", fmt.Sprintf("/api/questions/%d/dismiss", d2.Questions[0].ID), nil)
+	q := send[apitypes.Question](a, http.StatusOK, "POST", fmt.Sprintf("/api/profiles/t/questions/%d/dismiss", d2.Questions[0].ID), nil)
 	if q.Status != domain.QuestionDismissed {
 		t.Errorf("dismissed question = %+v", q)
 	}
@@ -426,9 +426,9 @@ func TestE2EResumeAfterRestart(t *testing.T) {
 	a1 := startApp(t, path, mock.New(time.Hour))
 	p := newProject(a1, "Waypoint")
 	body := "todo: Survive a restart"
-	created := send[apitypes.CreateEntryResponse](a1, http.StatusAccepted, "POST", "/api/entries",
+	created := send[apitypes.CreateEntryResponse](a1, http.StatusAccepted, "POST", "/api/profiles/t/entries",
 		apitypes.CreateEntryRequest{Body: body, ProjectID: &p.ID})
-	target := fmt.Sprintf("/api/entries/%d", created.Entry.ID)
+	target := fmt.Sprintf("/api/profiles/t/entries/%d", created.Entry.ID)
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		d := send[apitypes.EntryDetail](a1, http.StatusOK, "GET", target, nil)
@@ -474,14 +474,14 @@ func TestE2EFailedRunThenReprocess(t *testing.T) {
 	a := startApp(t, filepath.Join(t.TempDir(), "waypoint.db"), &flakyExtractor{Extractor: mock.New(0)})
 	p := newProject(a, "Waypoint")
 	body := "todo: Try again"
-	created := send[apitypes.CreateEntryResponse](a, http.StatusAccepted, "POST", "/api/entries",
+	created := send[apitypes.CreateEntryResponse](a, http.StatusAccepted, "POST", "/api/profiles/t/entries",
 		apitypes.CreateEntryRequest{Body: body, ProjectID: &p.ID})
 
 	fe := event[apitypes.RunFailedEvent](a, string(pipeline.EventRunFailed))
 	if fe.EntryID != created.Entry.ID || fe.RunID != created.Run.ID {
 		t.Fatalf("run.failed = %+v, want entry %d run %d", fe, created.Entry.ID, created.Run.ID)
 	}
-	target := fmt.Sprintf("/api/entries/%d", created.Entry.ID)
+	target := fmt.Sprintf("/api/profiles/t/entries/%d", created.Entry.ID)
 	d := send[apitypes.EntryDetail](a, http.StatusOK, "GET", target, nil)
 	if d.Run == nil || d.Run.Status != domain.RunFailed || d.Run.Error == nil || len(d.Changesets) != 0 {
 		t.Fatalf("entry after failure = run %+v, changesets %+v", d.Run, d.Changesets)

@@ -67,8 +67,11 @@ func TestLoadDefaults(t *testing.T) {
 	if got := cfg.Addr(); got != "127.0.0.1:7420" {
 		t.Errorf("Addr() = %q", got)
 	}
-	if got, want := cfg.DBPath(), filepath.Join(want.DataDir, "waypoint.db"); got != want {
-		t.Errorf("DBPath() = %q, want %q", got, want)
+	if got, want := cfg.LegacyDBPath(), filepath.Join(want.DataDir, "waypoint.db"); got != want {
+		t.Errorf("LegacyDBPath() = %q, want %q", got, want)
+	}
+	if got, want := cfg.ProfilesDir(), filepath.Join(want.DataDir, "profiles"); got != want {
+		t.Errorf("ProfilesDir() = %q, want %q", got, want)
 	}
 }
 

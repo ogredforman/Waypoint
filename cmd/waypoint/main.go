@@ -12,16 +12,11 @@ import (
 	"os/signal"
 	"runtime"
 	"syscall"
-	"time"
 
 	"github.com/ogredforman/waypoint/internal/api"
-	"github.com/ogredforman/waypoint/internal/briefing"
-	"github.com/ogredforman/waypoint/internal/changeset"
 	"github.com/ogredforman/waypoint/internal/config"
-	"github.com/ogredforman/waypoint/internal/db"
 	"github.com/ogredforman/waypoint/internal/extract/mock"
-	"github.com/ogredforman/waypoint/internal/pipeline"
-	"github.com/ogredforman/waypoint/internal/store"
+	"github.com/ogredforman/waypoint/internal/profile"
 	"github.com/ogredforman/waypoint/internal/web"
 )
 
@@ -48,7 +43,7 @@ func run() int {
 	logger.Info("config loaded",
 		"config_file", cfg.File,
 		"data_dir", cfg.DataDir,
-		"db", cfg.DBPath(),
+		"profiles_dir", cfg.ProfilesDir(),
 		"addr", cfg.Addr(),
 		"log_level", cfg.LogLevel.String(),
 		"mock_latency", cfg.MockLatency.String(),
@@ -56,40 +51,27 @@ func run() int {
 	)
 
 	ctx := context.Background()
-	sqlDB, err := db.Open(ctx, cfg.DBPath())
+	// Every profile is its own database with its own store, worker, hub, and
+	// briefings (ADR 0005). Config values only seed the settings of a
+	// profile that has none.
+	profiles, err := profile.Open(ctx, profile.Options{
+		Dir:                   cfg.ProfilesDir(),
+		LegacyDB:              cfg.LegacyDBPath(),
+		Seed:                  cfg.SettingsDefaults(),
+		Extractor:             mock.New(cfg.MockLatency),
+		SnapshotRecentEntries: cfg.SnapshotRecentEntries,
+		Logger:                logger,
+	})
 	if err != nil {
 		logger.Error("startup failed", "err", err)
 		return 1
 	}
-	defer func() { _ = sqlDB.Close() }()
-
-	migrations, err := db.Migrations()
-	if err != nil {
-		logger.Error("startup failed", "err", err)
-		return 1
+	defer profiles.Close()
+	ids := make([]string, 0)
+	for _, p := range profiles.List() {
+		ids = append(ids, p.ID)
 	}
-	version, applied, err := db.Migrate(ctx, sqlDB, migrations)
-	if err != nil {
-		logger.Error("startup failed", "err", err, "applied", applied)
-		return 1
-	}
-	logger.Info("database ready", "schema_version", version, "applied", applied)
-
-	st := store.New(sqlDB, time.Now)
-	// Config values only seed the settings of a database that has none.
-	if err := st.SeedSettings(ctx, cfg.SettingsDefaults()); err != nil {
-		logger.Error("startup failed", "err", err)
-		return 1
-	}
-	settings, err := st.GetSettings(ctx)
-	if err != nil {
-		logger.Error("startup failed", "err", err)
-		return 1
-	}
-	logger.Info("settings in effect",
-		"active_project_cap", settings.ActiveProjectCap,
-		"questions_per_entry", settings.QuestionsPerEntry,
-	)
+	logger.Info("profiles ready", "profiles", ids)
 
 	ln, err := net.Listen("tcp", cfg.Addr())
 	if err != nil {
@@ -105,33 +87,12 @@ func run() int {
 		stop()
 	}()
 
-	hub := api.NewHub(logger)
-	snapshots := pipeline.NewSnapshotBuilder(st, time.Now, cfg.SnapshotRecentEntries)
-	briefings := briefing.NewService(st, briefing.Heuristic{}, time.Now, hub, logger)
-	applier := changeset.NewApplier(st, changeset.AfterApplies{briefings, hub})
-	extractor := mock.New(cfg.MockLatency)
-	worker := pipeline.NewWorker(st, snapshots, extractor, hub, briefings, logger)
-	workerDone := make(chan struct{})
-	go func() {
-		defer close(workerDone)
-		if err := worker.Run(ctx); err != nil {
-			logger.Error("extraction worker stopped", "err", err)
-		}
-	}()
-
 	router := api.NewRouter(api.Deps{
-		DB:        sqlDB,
-		Logger:    logger,
-		Web:       web.NewHandler(web.Dist()),
-		Hub:       hub,
-		Store:     st,
-		Applier:   applier,
-		Worker:    worker,
-		Briefings: briefings,
+		Logger:   logger,
+		Web:      web.NewHandler(web.Dist()),
+		Profiles: profiles,
 	})
-	err = api.Serve(ctx, ln, router, logger, hub.Close)
-	stop() // stop the worker too if the server failed on its own
-	<-workerDone
+	err = api.Serve(ctx, ln, router, logger, profiles.EndStreams)
 	if err != nil {
 		logger.Error("server stopped", "err", err)
 		return 1

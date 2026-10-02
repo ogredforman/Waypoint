@@ -59,8 +59,14 @@ func (c Config) SettingsDefaults() domain.Settings {
 	return domain.Settings{ActiveProjectCap: c.ActiveProjectCap, QuestionsPerEntry: c.QuestionsPerEntry}
 }
 
-// DBPath is the SQLite database file inside the data directory.
-func (c Config) DBPath() string {
+// ProfilesDir holds one SQLite database per profile (ADR 0005).
+func (c Config) ProfilesDir() string {
+	return filepath.Join(c.DataDir, "profiles")
+}
+
+// LegacyDBPath is the database from before profiles. If it exists at startup
+// it is moved into ProfilesDir as the profile "Personal".
+func (c Config) LegacyDBPath() string {
 	return filepath.Join(c.DataDir, "waypoint.db")
 }
 

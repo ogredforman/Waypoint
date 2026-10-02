@@ -45,7 +45,7 @@ type stream struct {
 func openStream(t *testing.T, srv *httptest.Server) *stream {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/api/events", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/api/profiles/t/events", nil)
 	if err != nil {
 		cancel()
 		t.Fatal(err)
@@ -130,7 +130,7 @@ func newEventsServer(t *testing.T) (*Hub, *httptest.Server) {
 	t.Helper()
 	logger, _ := jsonLogger()
 	hub := NewHub(logger)
-	srv := httptest.NewServer(NewRouter(Deps{DB: openDB(t), Logger: logger, Hub: hub}))
+	srv := httptest.NewServer(profileRouter(ProfileDeps{Logger: logger, Hub: hub}))
 	t.Cleanup(srv.Close)
 	t.Cleanup(hub.Close) // runs before srv.Close, so open streams end first
 	return hub, srv
@@ -296,7 +296,7 @@ func TestEventsCloseEndsStreams(t *testing.T) {
 	hub.Close()
 	s.waitEnd(t)
 
-	resp, err := srv.Client().Get(srv.URL + "/api/events")
+	resp, err := srv.Client().Get(srv.URL + "/api/profiles/t/events")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,8 +315,8 @@ func TestEventsCloseEndsStreams(t *testing.T) {
 
 func TestEventsRouteNeedsHub(t *testing.T) {
 	logger, _ := jsonLogger()
-	h := NewRouter(Deps{DB: openDB(t), Logger: logger})
-	if rec := do(t, h, http.MethodGet, "/api/events"); rec.Code != http.StatusNotFound {
+	h := profileRouter(ProfileDeps{Logger: logger})
+	if rec := do(t, h, http.MethodGet, "/api/profiles/t/events"); rec.Code != http.StatusNotFound {
 		t.Errorf("status without a hub = %d, want 404", rec.Code)
 	}
 }

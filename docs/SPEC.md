@@ -31,7 +31,7 @@ It is built for individuals who start ambitious projects but struggle with focus
 
 ## 4. Non-goals (for now)
 
-- Authentication, multiple users, sharing, or collaboration.
+- Authentication, multiple users, sharing, or collaboration. Profiles (§6.4) separate one person's areas of life (e.g. Personal, Portfolio); they are not accounts.
 - Cloud hosting, sync between devices, or mobile-native apps.
 - Calendars, time blocking, reminders, or notifications.
 - Team or project-management features (assignees, sprints, Gantt charts).
@@ -124,6 +124,16 @@ Changeset (source=manual, no run) 1─* ChangeOp
 Entry   1─* FollowUpQuestion ─(answer)→ Entry
 ```
 
+### 6.4 Profiles
+
+A **profile** is one of the user's separate areas (e.g. Personal, Portfolio), and each is its own
+SQLite database: everything in §6.1, plus the settings (§10.5), belongs to exactly one profile, and
+nothing links across profiles. A profile has an `id` (made from its name at creation, never changed;
+also its file name, `<data_dir>/profiles/<id>.db`) and a display `name` (trimmed, 1 to 60 characters,
+unique ignoring case), stored in the database's one-row `profile` table. There is always at least one
+profile; the database from before profiles became the one named "Personal". See
+[ADR 0005](./adr/0005-profiles.md).
+
 ## 7. Core flows
 
 ### 7.1 Entry processing pipeline
@@ -208,12 +218,12 @@ Requirements are tagged by the stage in which they're first needed: **[P]** Prot
 
 ## 9. Non-functional requirements
 
-- **Local-first:** runs entirely on the user's machine. Binds to `127.0.0.1` by default. All data lives in one SQLite file. The only network traffic is to the configured LLM endpoint, and none at all when using the mock or a local model.
+- **Local-first:** runs entirely on the user's machine. Binds to `127.0.0.1` by default. Each profile's data lives in one SQLite file (§6.4). The only network traffic is to the configured LLM endpoint, and none at all when using the mock or a local model.
 - **Portable:** a single binary per OS (linux/amd64, linux/arm64, darwin/arm64, darwin/amd64, windows/amd64) with the frontend embedded. No CGO. A Docker image is optional.
 - **Responsive:** saving an entry returns in under 100 ms locally. Extraction runs in the background.
 - **Resilient to AI failure:** invalid or failed extraction must never corrupt state. The entry is saved regardless; the run is marked failed and can be retried.
 - **Privacy:** diary content is sensitive. Never log entry bodies at info level. Keep API keys out of the DB export and out of logs.
-- **Portable data:** the user can export everything as JSON and back up the DB by copying the file.
+- **Portable data:** the user can export everything as JSON and back up a profile by copying its file.
 
 ## 10. Architecture
 
@@ -237,6 +247,11 @@ Requirements are tagged by the stage in which they're first needed: **[P]** Prot
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
+Everything below the HTTP layer exists once per profile (§6.4): each profile has its own database,
+store, worker, changeset applier, briefing service, and SSE hub, all started at launch by
+`internal/profile`. The HTTP layer routes `/api/profiles/{profile}/...` to that profile's instance;
+the extractor is shared.
+
 ### 10.1 Technology choices
 
 | Concern | Choice | Notes |
@@ -246,7 +261,7 @@ Requirements are tagged by the stage in which they're first needed: **[P]** Prot
 | Database | SQLite via `modernc.org/sqlite` | Pure Go, no CGO, so cross-compiling is trivial. WAL mode. |
 | Queries | `sqlc` | Type-safe generated code from SQL |
 | Migrations | `pressly/goose` with embedded SQL files | Run automatically at startup |
-| Background work | In-process worker goroutine + channel; jobs persisted as extraction runs with `status=pending` | Pending runs resume on restart |
+| Background work | In-process worker goroutine + channel, one per profile; jobs persisted as extraction runs with `status=pending` | Pending runs resume on restart, in every profile |
 | Realtime | Server-Sent Events | Simpler than WebSockets; one direction is enough |
 | Frontend | Svelte 5 + TypeScript + Vite, built as a static SPA | Embedded via `embed.FS`. Dev mode uses the Vite dev server proxying `/api`. |
 | Styling | Tailwind CSS | |
@@ -271,6 +286,7 @@ Requirements are tagged by the stage in which they're first needed: **[P]** Prot
 /internal/pipeline/       snapshot builder, worker, retries
 /internal/changeset/      op validation, temp-ID resolution, transactional apply
 /internal/briefing/       heuristic + LLM briefing
+/internal/profile/        profile manager: one database and set of services per profile (ADR 0005)
 /internal/api/            handlers, SSE hub
 /internal/api/apitypes/   wire DTOs + SSE payloads; source for generated TS types (ADR 0001)
 /internal/web/            embed.FS for built frontend
@@ -335,6 +351,19 @@ New tasks, blockers, and ideas go into the entry's project. For an entry with no
 
 ### 10.5 API outline
 
+Server-wide:
+
+```
+GET    /api/health
+GET    /api/profiles                  POST   /api/profiles             body: { name }
+PATCH  /api/profiles/{profile}        body: { name }
+DELETE /api/profiles/{profile}
+```
+
+Everything else belongs to one profile (§6.4) and sits under `/api/profiles/{profile}`, shortened to
+`/api` below (so `/api/projects` means `/api/profiles/{profile}/projects`). The profile is in the path,
+not a header, because `EventSource` can't send headers ([ADR 0005](./adr/0005-profiles.md)):
+
 ```
 GET    /api/projects                  POST /api/projects
 GET    /api/projects/{id}             PATCH /api/projects/{id}
@@ -363,8 +392,9 @@ Request and response bodies are the DTOs in `internal/api/apitypes`, with TypeSc
 - **Entries.** `POST /api/entries` answers 202 once the entry and its pending run are stored; SSE reports the outcome. An entry with `reply_to_question_id` marks that question answered in the same transaction; replying to a question that is no longer open is rejected. `GET /api/entries?project_id=` lists the entries *about* the project: those scoped to it and unscoped ones with an observation linked to it or to its tasks or blockers. Pages are newest first; `next_before` in the response is the `before` for the next page.
 - **Changesets.** Each op carries `refs`, the names of the existing rows its payload refers to, keyed `kind:id` (e.g. `task:7`), so the review UI can say what the op touches.
 - **Spans.** Observation spans in API responses are UTF-16 code unit offsets, converted from the stored UTF-8 byte offsets (§10.3), so the UI can slice the entry body directly.
-- **Settings.** User preferences live in the database's `settings` table (one row): `active_project_cap` (at least 1, default 3) and `questions_per_entry` (0 to 2, default 2); later, theme and fonts. `GET /api/settings` returns them; `PATCH /api/settings` changes the fields present (neither may be null; an empty body, unknown field, or out-of-range value is `invalid`) and answers with all of them. Settings aren't projects, tasks, blockers, or ideas, so they are written directly, not as changesets. The applier reads the cap inside each apply transaction, so a new cap applies to the next activation; lowering it deactivates nothing. The worker stores only the first `questions_per_entry` questions of a run (the validator still fails a result with more than 2; the raw output keeps them all). `config.toml` keeps technical settings (port, data dir, log level, mock latency, snapshot size); its `active_project_cap` and `questions_per_entry` only seed the settings of a database that has none, at startup, and never overwrite stored ones. `GET /api/export` comes later.
-- **Errors** use one shape: `{"error": {"code", "message", "problems?"}}`. Codes: `bad_request` (400: malformed JSON or query), `not_found` (404), `method_not_allowed` (405, with `Allow`), `invalid` (422: validation failures and unknown fields, with per-field `problems`), `active_cap` (409), `not_pending` (409: the changeset was already resolved), `run_in_progress` (409: the entry is being processed), `internal` (500).
+- **Settings.** User preferences live in each profile's `settings` table (one row): `active_project_cap` (at least 1, default 3) and `questions_per_entry` (0 to 2, default 2); later, theme and fonts. `GET /api/settings` returns them; `PATCH /api/settings` changes the fields present (neither may be null; an empty body, unknown field, or out-of-range value is `invalid`) and answers with all of them. Settings aren't projects, tasks, blockers, or ideas, so they are written directly, not as changesets. The applier reads the cap inside each apply transaction, so a new cap applies to the next activation; lowering it deactivates nothing. The worker stores only the first `questions_per_entry` questions of a run (the validator still fails a result with more than 2; the raw output keeps them all). `config.toml` keeps technical settings (port, data dir, log level, mock latency, snapshot size); its `active_project_cap` and `questions_per_entry` only seed the settings of a profile that has none (at startup, and when a profile is created) and never overwrite stored ones. `GET /api/export` comes later.
+- **Profiles.** `GET /api/profiles` lists `{id, name}` in creation order. `POST` creates a profile (201) with its settings seeded from `config.toml`; `PATCH` renames it (the `id` never changes). A blank, over-long, or already-used name (ignoring case) is `invalid`. `DELETE` (204) stops the profile and removes its database file with its `-wal` and `-shm`; its event streams end. The last profile can't be deleted (`last_profile`). An unknown `{profile}` in any path is `not_found`. `/api/health` checks every profile's database. On first start the database from before profiles (`<data_dir>/waypoint.db`) becomes the profile "Personal"; with no profiles at all, an empty "Personal" is created.
+- **Errors** use one shape: `{"error": {"code", "message", "problems?"}}`. Codes: `bad_request` (400: malformed JSON or query), `not_found` (404), `method_not_allowed` (405, with `Allow`), `invalid` (422: validation failures and unknown fields, with per-field `problems`), `active_cap` (409), `last_profile` (409: deleting the only profile), `not_pending` (409: the changeset was already resolved), `run_in_progress` (409: the entry is being processed), `internal` (500).
 
 ## 11. UI surfaces
 

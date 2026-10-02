@@ -13,16 +13,17 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
   §10.5 API, §11 UI surfaces, §12 testing.
 - PLAN: `grep -n '\[ \]' docs/PLAN.md | head` for the next tasks; read only the current stage's section.
 - ADRs: 0001 API types (Go DTOs → generated TS), 0002 deleting tasks/blockers/ideas,
-  0003 splitting changesets.
+  0003 splitting changesets, 0004 diary panel layout, 0005 profiles.
 
 ## Wiring (`cmd/waypoint/main.go`)
 
-`config.Load` → `db.Open` + `db.Migrate` → `store.New(sqlDB, time.Now)` →
-`st.SeedSettings(ctx, cfg.SettingsDefaults())` (only if the DB has no settings) → `api.NewHub` →
-`pipeline.NewSnapshotBuilder` → `briefing.NewService(st, briefing.Heuristic{}, …, hub, logger)` →
-`changeset.NewApplier(st, briefings)` → `mock.New(cfg.MockLatency)` →
-`pipeline.NewWorker(st, snapshots, extractor, hub, briefings, logger)` (goroutine `worker.Run`) →
-`api.NewRouter(api.Deps{…})` → `api.Serve`. All dependencies are built here; no package globals.
+`config.Load` → `profile.Open(ctx, profile.Options{Dir: cfg.ProfilesDir(), LegacyDB: cfg.LegacyDBPath(),
+Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRouter(api.Deps{Logger, Web, Profiles})` →
+`api.Serve(…, profiles.EndStreams)` → `profiles.Close()`. Per profile, `profile.Manager.start` builds (ADR 0005):
+`db.Open` + `db.Migrate` → `store.New` → `st.SeedSettings` (only if missing) → `api.NewHub` →
+`pipeline.NewSnapshotBuilder` → `briefing.NewService(st, …, hub, logger)` →
+`changeset.NewApplier(st, AfterApplies{briefings, hub})` → `pipeline.NewWorker(…)` (goroutine `worker.Run`) →
+`api.NewProfileHandler(api.ProfileDeps{…})`. All dependencies are built there; no package globals.
 
 ## Go packages (`internal/`)
 
@@ -32,6 +33,7 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
   `db/enums_test.go` enforces it); validation, `ValidationError`/`FieldError`, project status rules
   (`CheckNewProjectStatus`, `CheckProjectStatusChange`, `ActiveCapError`) in `validate.go`.
   `settings.go`: `Settings` (user preferences per database), `DefaultSettings`, `MaxQuestionsPerEntry`.
+  `profile.go`: `Profile` (ID, Name), `CleanProfileName`, `ProfileSlug`, `ValidProfileID`, `ErrLastProfile`.
 - **db**: `Open` (modernc sqlite, WAL, FKs on), `Migrations`, `Migrate` (goose, embedded).
   `migrations/0000N_*.sql` (never edit committed ones), `queries/<entity>.sql` → sqlc output in
   `dbgen/` (generated; `make sqlc`).
@@ -44,6 +46,7 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
   `ErrNotFound` for missing rows. Entries are insert-only. Settings (`settings.go`): `GetSettings`
   (defaults if no row), `Store.SeedSettings` (insert if missing), `Tx.UpdateSettings`. Pending observation links (to `$new:N`,
   keyed by change op): `CreatePendingLink`, `ListPendingLinksByOp`, `ResolvePendingLinks`, `DropPendingLinks`.
+  Profile row (`profile.go`): `GetProfile` (name, created), `Tx.SetProfileName`.
 - **changeset**: every mutation of projects/tasks/blockers/ideas. `ops.go`: one payload struct per
   op type (`CreateTask`, `UpdateTask`, `SplitTask`, `DeleteTask`, `ParkIdea`, …) implementing
   `Payload`; `DecodePayload`, `ValidateOps`; `Nullable[T]` (`To`, `Clear`) for PATCH-style fields.
@@ -66,14 +69,19 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
 - **briefing**: `Briefer` interface, `Heuristic` implementation (`heuristic.go`), `Service`
   (`Refresh`, `Get` → `View`; implements `changeset.AfterApply` and `pipeline.AfterRun`; notifies
   `BriefingUpdated`). Briefings are cached per project in the DB.
+- **profile**: `Manager` runs every profile (ADR 0005): `Open` (removes half-built `*.db.new`, moves the legacy
+  `waypoint.db` in as "Personal", starts each `profiles/<id>.db`), `List`, `Create`, `Rename`, `Delete`, `Serve`, `Ping`,
+  `EndStreams`, `Close`; implements `api.Profiles`. `files.go`: `prepare` (migrate, name, seed, checkpoint, close), `removeDB`.
 - **api**: chi router (`router.go`, route list in `handlers.routes`), one file per resource
   (`projects.go`, `tasks.go`, `blockers.go`, `ideas.go`, `entries.go`, `changesets.go`, `settings.go`),
+  `profiles.go` (`Profiles` interface, `/api/profiles` routes, hands `/api/profiles/{profile}/*` to `Profiles.Serve`);
+  `NewRouter(Deps{Logger, Web, Profiles})` is the root, `NewProfileHandler(ProfileDeps{…})` one profile's data routes and `/events`,
   `convert.go` (domain → apitypes), `respond.go` (JSON encode/decode, `h.fail` maps errors to the
   single error shape, `badRequest`), `events.go` (`Hub`: SSE `/api/events`, `Publish`, `Notify`,
   `BriefingUpdated`, `Applied` → `changeset.applied`), `serve.go`. Handlers are thin: decode, call a service, encode.
   **api/apitypes**: request/response/event DTOs; `gen/` generates `web/src/lib/api/*.gen.ts`
   (`make gen`, checked by `make lint`).
-- **config**: `Load(args, env, goos, stderr)` (flags > env > `config.toml`), `EnsureDataDir`,
+- **config**: `Load(args, env, goos, stderr)` (flags > env > `config.toml`), `EnsureDataDir`, `ProfilesDir`, `LegacyDBPath`,
   `SettingsDefaults` (the preference values that seed a new database).
 - **web**: embeds `web/dist`, `NewHandler` serves the SPA with fallback.
 - `tools/hooks`: Claude Code hooks (edit guard, formatter, stop check). Not app code.
@@ -81,7 +89,8 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
 ## Frontend (`web/src`)
 
 Svelte 5 runes + TS + Tailwind, Vitest. `main.ts` → `App.svelte`. `lib/api/client.ts` is the
-typed API client (the only place that calls `fetch`), with generated `types.gen.ts`/`enums.gen.ts`;
+typed API client (the only place that calls `fetch`); `apiPath` puts `/api/…` under the profile set by `useProfile`
+(`lib/profile.ts` `chooseProfile`, awaited in `main.ts`: the first profile until 1.5.9), with generated `types.gen.ts`/`enums.gen.ts`;
 named calls (`listProjects`, `getSettings`, `updateSettings`) are thin wrappers over `getJSON`/`patchJSON`, and new code uses them.
 `lib/router.ts` + `lib/navigation.svelte.ts`: client-side routing; every screen's `<h1>` takes `{@attach pageHeading}` (focus after navigation). `screens/`: page components
 (`Now`, `Diary`, `Projects`, `Project`, `Task`, `ParkingLot`, `Settings`, `NotFound`). `components/`: reusable
@@ -155,6 +164,9 @@ All use a real temp SQLite DB migrated with `db.Migrations()`.
   `fakeExtractor`, `events` notifier.
 - `briefing/service_test.go`: `newFixture(t)` with `f.manual(ops...)`, `f.project`, `f.task`,
   `f.entry`, `f.briefing`, `fixedBriefer`.
+- `api/profiles_test.go`: `oneProfile(h, db)` (fake `Profiles` with profile "t"), `profileRouter(ProfileDeps)`;
+  data paths in api tests are `/api/profiles/t/…`. `profile/manager_test.go`: `newEnv(t)`, `e.open()` (manager behind the
+  real router; open again to restart), `a.call`, `a.events(id)`, `legacyMigrations` (schema before 00007).
 - `api/routes_test.go`: `newServer(t)`; `api/integration_test.go`: `startApp(t, dbPath, extractor)`
   (full wiring over HTTP + SSE); `api/events_test.go`: `newEventsServer`, `openStream`.
 - `db/schema_test.go`: `migrated(t)`, `seed`, `noFKViolations`.

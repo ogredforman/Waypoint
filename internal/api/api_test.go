@@ -60,7 +60,7 @@ func do(t *testing.T, h http.Handler, method, target string) *httptest.ResponseR
 func TestHealth(t *testing.T) {
 	logger, buf := jsonLogger()
 	sqlDB := openDB(t)
-	h := NewRouter(Deps{DB: sqlDB, Logger: logger})
+	h := NewRouter(Deps{Logger: logger, Profiles: oneProfile(nil, sqlDB)})
 
 	rec := do(t, h, http.MethodGet, "/api/health")
 	if rec.Code != http.StatusOK {
@@ -105,7 +105,7 @@ func TestHealth(t *testing.T) {
 
 func TestRequestLogging(t *testing.T) {
 	logger, buf := jsonLogger()
-	h := NewRouter(Deps{DB: openDB(t), Logger: logger})
+	h := NewRouter(Deps{Logger: logger})
 
 	// The query string must not be logged: later endpoints may carry diary text in it.
 	do(t, h, http.MethodGet, "/api/health?secret=diary")
@@ -142,7 +142,7 @@ func TestRequestLogging(t *testing.T) {
 
 func TestPanicRecovery(t *testing.T) {
 	logger, buf := jsonLogger()
-	r := newMux(Deps{DB: openDB(t), Logger: logger})
+	r := newMux(Deps{Logger: logger})
 	// A panic value may be built from request data, so only its type is
 	// logged; a runtime error's message is the runtime's own.
 	r.Get("/api/boom", func(http.ResponseWriter, *http.Request) { panic("diary words") })
@@ -184,7 +184,7 @@ func TestPanicRecovery(t *testing.T) {
 
 func TestMethodNotAllowedSetsAllow(t *testing.T) {
 	logger, _ := jsonLogger()
-	r := newMux(Deps{DB: openDB(t), Logger: logger})
+	r := newMux(Deps{Logger: logger})
 	r.Post("/api/things/{id}", func(http.ResponseWriter, *http.Request) {})
 	r.Patch("/api/things/{id}", func(http.ResponseWriter, *http.Request) {})
 
@@ -204,7 +204,7 @@ func TestMethodNotAllowedSetsAllow(t *testing.T) {
 
 func TestErrorShape(t *testing.T) {
 	logger, _ := jsonLogger()
-	r := newMux(Deps{DB: openDB(t), Logger: logger})
+	r := newMux(Deps{Logger: logger})
 	r.Get("/api/boom", func(http.ResponseWriter, *http.Request) { panic("boom") })
 
 	tests := []struct {
@@ -241,7 +241,7 @@ func TestWebFallthrough(t *testing.T) {
 	web := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, "web:"+r.URL.Path)
 	})
-	h := NewRouter(Deps{DB: openDB(t), Logger: logger, Web: web})
+	h := NewRouter(Deps{Logger: logger, Web: web})
 
 	for _, target := range []string{"/", "/projects/3", "/assets/index-abc.js"} {
 		rec := do(t, h, http.MethodGet, target)

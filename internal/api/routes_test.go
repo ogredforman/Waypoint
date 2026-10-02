@@ -57,9 +57,9 @@ func newServer(t *testing.T) *server {
 	}
 	applier := changeset.NewApplier(st, briefings)
 	worker := pipeline.NewWorker(st, pipeline.NewSnapshotBuilder(st, time.Now, 5), mock.New(0), nil, briefings, logger)
-	h := NewRouter(Deps{
-		DB: sqlDB, Logger: logger,
-		Store: st, Applier: applier, Worker: worker, Briefings: briefings,
+	h := profileRouter(ProfileDeps{
+		Logger: logger,
+		Store:  st, Applier: applier, Worker: worker, Briefings: briefings,
 	})
 	return &server{t: t, h: h, store: st, applier: applier, worker: worker, logs: logs}
 }
@@ -130,7 +130,7 @@ func (s *server) fails(status int, code, method, target string, body any) apityp
 
 func (s *server) project(title string, status domain.ProjectStatus) apitypes.Project {
 	s.t.Helper()
-	return ok[apitypes.Project](s, http.StatusCreated, "POST", "/api/projects", map[string]any{"title": title, "status": status})
+	return ok[apitypes.Project](s, http.StatusCreated, "POST", "/api/profiles/t/projects", map[string]any{"title": title, "status": status})
 }
 
 // manualChangesets counts the applied manual changesets: every edit through
@@ -155,7 +155,7 @@ func (s *server) waitProcessed(entryID int64) apitypes.EntryDetail {
 	s.t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		d := ok[apitypes.EntryDetail](s, http.StatusOK, "GET", fmt.Sprintf("/api/entries/%d", entryID), nil)
+		d := ok[apitypes.EntryDetail](s, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/entries/%d", entryID), nil)
 		if d.Run != nil && (d.Run.Status == domain.RunSucceeded || d.Run.Status == domain.RunFailed) {
 			return d
 		}
@@ -169,11 +169,11 @@ func (s *server) waitProcessed(entryID int64) apitypes.EntryDetail {
 func TestProjectRoutes(t *testing.T) {
 	s := newServer(t)
 
-	parked := ok[apitypes.Project](s, http.StatusCreated, "POST", "/api/projects", `{"title": "Learn Go", "why": "fun"}`)
+	parked := ok[apitypes.Project](s, http.StatusCreated, "POST", "/api/profiles/t/projects", `{"title": "Learn Go", "why": "fun"}`)
 	if parked.Status != domain.ProjectParked || parked.Why != "fun" {
 		t.Errorf("created project = %+v, want parked with its why", parked)
 	}
-	active := ok[apitypes.Project](s, http.StatusCreated, "POST", "/api/projects",
+	active := ok[apitypes.Project](s, http.StatusCreated, "POST", "/api/profiles/t/projects",
 		`{"title": "Waypoint", "definition_of_done": "I use it", "status": "active"}`)
 	if active.Status != domain.ProjectActive || active.DefinitionOfDone != "I use it" {
 		t.Errorf("created active project = %+v", active)
@@ -182,42 +182,42 @@ func TestProjectRoutes(t *testing.T) {
 		t.Errorf("manual changesets = %d, want 2", n)
 	}
 
-	got := ok[apitypes.Project](s, http.StatusOK, "GET", fmt.Sprintf("/api/projects/%d", active.ID), nil)
+	got := ok[apitypes.Project](s, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/projects/%d", active.ID), nil)
 	if got != active {
 		t.Errorf("GET project = %+v, want %+v", got, active)
 	}
-	list := ok[[]apitypes.Project](s, http.StatusOK, "GET", "/api/projects", nil)
+	list := ok[[]apitypes.Project](s, http.StatusOK, "GET", "/api/profiles/t/projects", nil)
 	if len(list) != 2 {
 		t.Errorf("listed %d projects, want 2", len(list))
 	}
 
-	patched := ok[apitypes.Project](s, http.StatusOK, "PATCH", fmt.Sprintf("/api/projects/%d", parked.ID), `{"title": "Learn Go well", "status": "active"}`)
+	patched := ok[apitypes.Project](s, http.StatusOK, "PATCH", fmt.Sprintf("/api/profiles/t/projects/%d", parked.ID), `{"title": "Learn Go well", "status": "active"}`)
 	if patched.Title != "Learn Go well" || patched.Status != domain.ProjectActive {
 		t.Errorf("patched project = %+v", patched)
 	}
 	// The cap is 2, and both are active now.
-	e := s.fails(http.StatusConflict, "active_cap", "POST", "/api/projects", `{"title": "Third", "status": "active"}`)
+	e := s.fails(http.StatusConflict, "active_cap", "POST", "/api/profiles/t/projects", `{"title": "Third", "status": "active"}`)
 	if !strings.Contains(e.Message, "park") {
 		t.Errorf("cap message = %q, want it to suggest parking one", e.Message)
 	}
-	s.fails(http.StatusNotFound, "not_found", "GET", "/api/projects/999", nil)
-	s.fails(http.StatusNotFound, "not_found", "GET", "/api/projects/abc", nil)
-	s.fails(http.StatusNotFound, "not_found", "PATCH", "/api/projects/999", `{"title": "x"}`)
-	s.fails(http.StatusUnprocessableEntity, "invalid", "PATCH", fmt.Sprintf("/api/projects/%d", parked.ID), `{"project_id": 5}`)
-	s.fails(http.StatusUnprocessableEntity, "invalid", "PATCH", fmt.Sprintf("/api/projects/%d", parked.ID), `{"colour": "red"}`)
-	s.fails(http.StatusBadRequest, "bad_request", "PATCH", fmt.Sprintf("/api/projects/%d", parked.ID), `{"title": `)
-	s.fails(http.StatusBadRequest, "bad_request", "PATCH", fmt.Sprintf("/api/projects/%d", parked.ID), `[]`)
-	e = s.fails(http.StatusUnprocessableEntity, "invalid", "PATCH", fmt.Sprintf("/api/projects/%d", parked.ID), `{}`)
+	s.fails(http.StatusNotFound, "not_found", "GET", "/api/profiles/t/projects/999", nil)
+	s.fails(http.StatusNotFound, "not_found", "GET", "/api/profiles/t/projects/abc", nil)
+	s.fails(http.StatusNotFound, "not_found", "PATCH", "/api/profiles/t/projects/999", `{"title": "x"}`)
+	s.fails(http.StatusUnprocessableEntity, "invalid", "PATCH", fmt.Sprintf("/api/profiles/t/projects/%d", parked.ID), `{"project_id": 5}`)
+	s.fails(http.StatusUnprocessableEntity, "invalid", "PATCH", fmt.Sprintf("/api/profiles/t/projects/%d", parked.ID), `{"colour": "red"}`)
+	s.fails(http.StatusBadRequest, "bad_request", "PATCH", fmt.Sprintf("/api/profiles/t/projects/%d", parked.ID), `{"title": `)
+	s.fails(http.StatusBadRequest, "bad_request", "PATCH", fmt.Sprintf("/api/profiles/t/projects/%d", parked.ID), `[]`)
+	e = s.fails(http.StatusUnprocessableEntity, "invalid", "PATCH", fmt.Sprintf("/api/profiles/t/projects/%d", parked.ID), `{}`)
 	if len(e.Problems) == 0 {
 		t.Errorf("empty patch: no problems listed: %+v", e)
 	}
-	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", "/api/projects", `{"title": " "}`)
+	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", "/api/profiles/t/projects", `{"title": " "}`)
 }
 
 func TestTaskRoutes(t *testing.T) {
 	s := newServer(t)
 	p := s.project("Waypoint", domain.ProjectActive)
-	tasksURL := fmt.Sprintf("/api/projects/%d/tasks", p.ID)
+	tasksURL := fmt.Sprintf("/api/profiles/t/projects/%d/tasks", p.ID)
 
 	todo := ok[apitypes.Task](s, http.StatusCreated, "POST", tasksURL, `{"title": "Write tests", "size": "s"}`)
 	if todo.Status != domain.TaskTodo || todo.Size == nil || *todo.Size != domain.SizeS || todo.ProjectID != p.ID {
@@ -232,7 +232,7 @@ func TestTaskRoutes(t *testing.T) {
 		t.Errorf("listed %d tasks, want 2", len(list))
 	}
 
-	taskURL := fmt.Sprintf("/api/tasks/%d", todo.ID)
+	taskURL := fmt.Sprintf("/api/profiles/t/tasks/%d", todo.ID)
 	patched := ok[apitypes.Task](s, http.StatusOK, "PATCH", taskURL, `{"size": null, "energy": "low", "status": "done"}`)
 	if patched.Size != nil || patched.Energy == nil || *patched.Energy != domain.EnergyLow || patched.Status != domain.TaskDone {
 		t.Errorf("patched task = %+v, want size cleared, low energy, done", patched)
@@ -246,8 +246,8 @@ func TestTaskRoutes(t *testing.T) {
 	s.fails(http.StatusUnprocessableEntity, "invalid", "PATCH", taskURL, `{"task_id": 1}`)
 	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", tasksURL, `{"title": "x", "milestone_id": 1}`)
 	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", tasksURL, `{"title": "x", "project_id": 1}`)
-	s.fails(http.StatusNotFound, "not_found", "POST", "/api/projects/999/tasks", `{"title": "x"}`)
-	s.fails(http.StatusNotFound, "not_found", "GET", "/api/projects/999/tasks", nil)
+	s.fails(http.StatusNotFound, "not_found", "POST", "/api/profiles/t/projects/999/tasks", `{"title": "x"}`)
+	s.fails(http.StatusNotFound, "not_found", "GET", "/api/profiles/t/projects/999/tasks", nil)
 
 	detail := ok[apitypes.TaskDetail](s, http.StatusOK, "GET", taskURL, nil)
 	if detail.Task.ID != todo.ID || detail.OriginEntry != nil || detail.Observations == nil || len(detail.Observations) != 0 {
@@ -269,11 +269,11 @@ func TestTaskRoutes(t *testing.T) {
 func TestMoveTask(t *testing.T) {
 	s := newServer(t)
 	p := s.project("Waypoint", domain.ProjectActive)
-	tasksURL := fmt.Sprintf("/api/projects/%d/tasks", p.ID)
+	tasksURL := fmt.Sprintf("/api/profiles/t/projects/%d/tasks", p.ID)
 	newTask := func(title string, position int64, status domain.TaskStatus) apitypes.Task {
 		t.Helper()
 		created := ok[apitypes.Task](s, http.StatusCreated, "POST", tasksURL, map[string]any{"title": title})
-		return ok[apitypes.Task](s, http.StatusOK, "PATCH", fmt.Sprintf("/api/tasks/%d", created.ID), map[string]any{"position": position, "status": status})
+		return ok[apitypes.Task](s, http.StatusOK, "PATCH", fmt.Sprintf("/api/profiles/t/tasks/%d", created.ID), map[string]any{"position": position, "status": status})
 	}
 	a := newTask("A", 1, domain.TaskTodo)
 	newTask("Other status", 2, domain.TaskDone)
@@ -282,7 +282,7 @@ func TestMoveTask(t *testing.T) {
 	before := s.manualChangesets()
 	move := func(task apitypes.Task, dir string) map[int64]int64 {
 		t.Helper()
-		moved := ok[[]apitypes.Task](s, http.StatusOK, "POST", fmt.Sprintf("/api/tasks/%d/move", task.ID), map[string]any{"direction": dir})
+		moved := ok[[]apitypes.Task](s, http.StatusOK, "POST", fmt.Sprintf("/api/profiles/t/tasks/%d/move", task.ID), map[string]any{"direction": dir})
 		positions := map[int64]int64{}
 		for _, m := range moved {
 			positions[m.ID] = m.Position
@@ -319,23 +319,23 @@ func TestMoveTask(t *testing.T) {
 		t.Errorf("todo order = %v, want [B C A]", order)
 	}
 
-	moveURL := fmt.Sprintf("/api/tasks/%d/move", a.ID)
+	moveURL := fmt.Sprintf("/api/profiles/t/tasks/%d/move", a.ID)
 	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", moveURL, `{"direction": "sideways"}`)
 	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", moveURL, `{}`)
-	s.fails(http.StatusNotFound, "not_found", "POST", "/api/tasks/999/move", `{"direction": "up"}`)
+	s.fails(http.StatusNotFound, "not_found", "POST", "/api/profiles/t/tasks/999/move", `{"direction": "up"}`)
 }
 
 func TestTaskDetailShowsLinkedObservations(t *testing.T) {
 	s := newServer(t)
 	s.runWorker()
 	p := s.project("Waypoint", domain.ProjectActive)
-	task := ok[apitypes.Task](s, http.StatusCreated, "POST", fmt.Sprintf("/api/projects/%d/tasks", p.ID), `{"title": "Write tests"}`)
+	task := ok[apitypes.Task](s, http.StatusCreated, "POST", fmt.Sprintf("/api/profiles/t/projects/%d/tasks", p.ID), `{"title": "Write tests"}`)
 
-	created := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/entries",
+	created := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/profiles/t/entries",
 		map[string]any{"body": "doing: Write tests", "project_id": p.ID})
 	s.waitProcessed(created.Entry.ID)
 
-	detail := ok[apitypes.TaskDetail](s, http.StatusOK, "GET", fmt.Sprintf("/api/tasks/%d", task.ID), nil)
+	detail := ok[apitypes.TaskDetail](s, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/tasks/%d", task.ID), nil)
 	if len(detail.Observations) != 1 {
 		t.Fatalf("observations = %+v, want the one from the entry", detail.Observations)
 	}
@@ -346,9 +346,9 @@ func TestTaskDetailShowsLinkedObservations(t *testing.T) {
 
 	// Reprocessing replaces the entry's observations: only the latest run's
 	// count.
-	ok[apitypes.ExtractionRun](s, http.StatusAccepted, "POST", fmt.Sprintf("/api/entries/%d/reprocess", created.Entry.ID), nil)
+	ok[apitypes.ExtractionRun](s, http.StatusAccepted, "POST", fmt.Sprintf("/api/profiles/t/entries/%d/reprocess", created.Entry.ID), nil)
 	s.waitProcessed(created.Entry.ID)
-	detail = ok[apitypes.TaskDetail](s, http.StatusOK, "GET", fmt.Sprintf("/api/tasks/%d", task.ID), nil)
+	detail = ok[apitypes.TaskDetail](s, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/tasks/%d", task.ID), nil)
 	if len(detail.Observations) != 1 || detail.Observations[0].ID == o.ID {
 		t.Errorf("observations after reprocess = %+v, want only the new run's", detail.Observations)
 	}
@@ -357,8 +357,8 @@ func TestTaskDetailShowsLinkedObservations(t *testing.T) {
 func TestBlockerRoutes(t *testing.T) {
 	s := newServer(t)
 	p := s.project("Waypoint", domain.ProjectActive)
-	task := ok[apitypes.Task](s, http.StatusCreated, "POST", fmt.Sprintf("/api/projects/%d/tasks", p.ID), `{"title": "Ship"}`)
-	blockersURL := fmt.Sprintf("/api/projects/%d/blockers", p.ID)
+	task := ok[apitypes.Task](s, http.StatusCreated, "POST", fmt.Sprintf("/api/profiles/t/projects/%d/tasks", p.ID), `{"title": "Ship"}`)
+	blockersURL := fmt.Sprintf("/api/profiles/t/projects/%d/blockers", p.ID)
 	before := s.manualChangesets()
 	created := ok[apitypes.Blocker](s, http.StatusCreated, "POST", blockersURL, `{"description": "waiting on parts"}`)
 	if created.Description != "waiting on parts" || created.Status != domain.BlockerOpen || created.TaskID != nil || created.ProjectID != p.ID {
@@ -372,15 +372,15 @@ func TestBlockerRoutes(t *testing.T) {
 		t.Errorf("blocker on task = %+v", onTask)
 	}
 	other := s.project("Garden", domain.ProjectParked)
-	otherTask := ok[apitypes.Task](s, http.StatusCreated, "POST", fmt.Sprintf("/api/projects/%d/tasks", other.ID), `{"title": "Dig"}`)
+	otherTask := ok[apitypes.Task](s, http.StatusCreated, "POST", fmt.Sprintf("/api/profiles/t/projects/%d/tasks", other.ID), `{"title": "Dig"}`)
 	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", blockersURL, `{"description": "  "}`)
 	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", blockersURL, map[string]any{"description": "x", "task_id": otherTask.ID})
-	s.fails(http.StatusNotFound, "not_found", "POST", "/api/projects/999/blockers", `{"description": "x"}`)
+	s.fails(http.StatusNotFound, "not_found", "POST", "/api/profiles/t/projects/999/blockers", `{"description": "x"}`)
 	// Remove the blocker on the task so the checks below see one blocker.
-	if rec := s.call("DELETE", fmt.Sprintf("/api/blockers/%d", onTask.ID), nil); rec.Code != http.StatusNoContent {
+	if rec := s.call("DELETE", fmt.Sprintf("/api/profiles/t/blockers/%d", onTask.ID), nil); rec.Code != http.StatusNoContent {
 		t.Fatalf("DELETE blocker: status = %d, want 204", rec.Code)
 	}
-	blockerURL := fmt.Sprintf("/api/blockers/%d", created.ID)
+	blockerURL := fmt.Sprintf("/api/profiles/t/blockers/%d", created.ID)
 
 	list := ok[[]apitypes.Blocker](s, http.StatusOK, "GET", blockersURL, nil)
 	if len(list) != 1 || list[0].Status != domain.BlockerOpen || list[0].TaskID != nil {
@@ -399,13 +399,13 @@ func TestBlockerRoutes(t *testing.T) {
 	if resolved.Status != domain.BlockerResolved {
 		t.Errorf("resolved blocker = %+v", resolved)
 	}
-	s.fails(http.StatusNotFound, "not_found", "PATCH", "/api/blockers/999", `{"status": "resolved"}`)
-	s.fails(http.StatusNotFound, "not_found", "GET", "/api/projects/999/blockers", nil)
+	s.fails(http.StatusNotFound, "not_found", "PATCH", "/api/profiles/t/blockers/999", `{"status": "resolved"}`)
+	s.fails(http.StatusNotFound, "not_found", "GET", "/api/profiles/t/projects/999/blockers", nil)
 
 	if rec := s.call("DELETE", blockerURL, nil); rec.Code != http.StatusNoContent {
 		t.Fatalf("DELETE blocker: status = %d, want 204", rec.Code)
 	}
-	if list := ok[[]apitypes.Blocker](s, http.StatusOK, "GET", fmt.Sprintf("/api/projects/%d/blockers", p.ID), nil); len(list) != 0 {
+	if list := ok[[]apitypes.Blocker](s, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/projects/%d/blockers", p.ID), nil); len(list) != 0 {
 		t.Errorf("blockers after delete = %+v", list)
 	}
 }
@@ -430,93 +430,93 @@ func TestIdeaRoutes(t *testing.T) {
 	tied := park(&p.ID, "Export")
 	spark := park(nil, "A garden planner")
 
-	if list := ok[[]apitypes.Idea](s, http.StatusOK, "GET", "/api/ideas", nil); len(list) != 3 {
+	if list := ok[[]apitypes.Idea](s, http.StatusOK, "GET", "/api/profiles/t/ideas", nil); len(list) != 3 {
 		t.Errorf("parked ideas = %+v, want 3", list)
 	}
-	if list := ok[[]apitypes.Idea](s, http.StatusOK, "GET", fmt.Sprintf("/api/ideas?project_id=%d", p.ID), nil); len(list) != 1 || list[0].ID != tied {
+	if list := ok[[]apitypes.Idea](s, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/ideas?project_id=%d", p.ID), nil); len(list) != 1 || list[0].ID != tied {
 		t.Errorf("ideas of project = %+v, want only %d", list, tied)
 	}
-	s.fails(http.StatusBadRequest, "bad_request", "GET", "/api/ideas?status=someday", nil)
-	s.fails(http.StatusBadRequest, "bad_request", "GET", "/api/ideas?project_id=x", nil)
-	s.fails(http.StatusNotFound, "not_found", "GET", "/api/ideas?project_id=999", nil)
+	s.fails(http.StatusBadRequest, "bad_request", "GET", "/api/profiles/t/ideas?status=someday", nil)
+	s.fails(http.StatusBadRequest, "bad_request", "GET", "/api/profiles/t/ideas?project_id=x", nil)
+	s.fails(http.StatusNotFound, "not_found", "GET", "/api/profiles/t/ideas?project_id=999", nil)
 
-	patched := ok[apitypes.Idea](s, http.StatusOK, "PATCH", fmt.Sprintf("/api/ideas/%d", loose), map[string]any{"title": "Dark theme", "project_id": p.ID})
+	patched := ok[apitypes.Idea](s, http.StatusOK, "PATCH", fmt.Sprintf("/api/profiles/t/ideas/%d", loose), map[string]any{"title": "Dark theme", "project_id": p.ID})
 	if patched.Title != "Dark theme" || patched.ProjectID == nil || *patched.ProjectID != p.ID {
 		t.Errorf("patched idea = %+v", patched)
 	}
-	s.fails(http.StatusUnprocessableEntity, "invalid", "PATCH", fmt.Sprintf("/api/ideas/%d", loose), `{"status": "promoted"}`)
+	s.fails(http.StatusUnprocessableEntity, "invalid", "PATCH", fmt.Sprintf("/api/profiles/t/ideas/%d", loose), `{"status": "promoted"}`)
 
 	// A loose idea needs a project to become a task.
-	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", fmt.Sprintf("/api/ideas/%d/promote", spark), `{"to": "task"}`)
-	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", fmt.Sprintf("/api/ideas/%d/promote", spark), `{"to": "someday"}`)
-	asTask := ok[apitypes.PromoteIdeaResponse](s, http.StatusOK, "POST", fmt.Sprintf("/api/ideas/%d/promote", tied), `{"to": "task"}`)
+	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", fmt.Sprintf("/api/profiles/t/ideas/%d/promote", spark), `{"to": "task"}`)
+	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", fmt.Sprintf("/api/profiles/t/ideas/%d/promote", spark), `{"to": "someday"}`)
+	asTask := ok[apitypes.PromoteIdeaResponse](s, http.StatusOK, "POST", fmt.Sprintf("/api/profiles/t/ideas/%d/promote", tied), `{"to": "task"}`)
 	if asTask.Idea.Status != domain.IdeaPromoted || asTask.Task == nil || asTask.Task.Title != "Export" ||
 		asTask.Task.Notes != "details" || asTask.Task.ProjectID != p.ID || asTask.Project != nil {
 		t.Errorf("promoted to task = %+v", asTask)
 	}
-	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", fmt.Sprintf("/api/ideas/%d/promote", tied), `{"to": "task"}`)
+	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", fmt.Sprintf("/api/profiles/t/ideas/%d/promote", tied), `{"to": "task"}`)
 	// Parking it again would let it be promoted twice.
-	s.fails(http.StatusUnprocessableEntity, "invalid", "PATCH", fmt.Sprintf("/api/ideas/%d", tied), `{"status": "parked"}`)
-	asProject := ok[apitypes.PromoteIdeaResponse](s, http.StatusOK, "POST", fmt.Sprintf("/api/ideas/%d/promote", spark), `{"to": "project"}`)
+	s.fails(http.StatusUnprocessableEntity, "invalid", "PATCH", fmt.Sprintf("/api/profiles/t/ideas/%d", tied), `{"status": "parked"}`)
+	asProject := ok[apitypes.PromoteIdeaResponse](s, http.StatusOK, "POST", fmt.Sprintf("/api/profiles/t/ideas/%d/promote", spark), `{"to": "project"}`)
 	if asProject.Project == nil || asProject.Project.Title != "A garden planner" || asProject.Project.Status != domain.ProjectParked || asProject.Task != nil {
 		t.Errorf("promoted to project = %+v", asProject)
 	}
-	if list := ok[[]apitypes.Idea](s, http.StatusOK, "GET", "/api/ideas?status=promoted", nil); len(list) != 2 {
+	if list := ok[[]apitypes.Idea](s, http.StatusOK, "GET", "/api/profiles/t/ideas?status=promoted", nil); len(list) != 2 {
 		t.Errorf("promoted ideas = %+v, want 2", list)
 	}
 
-	if rec := s.call("DELETE", fmt.Sprintf("/api/ideas/%d", loose), nil); rec.Code != http.StatusNoContent {
+	if rec := s.call("DELETE", fmt.Sprintf("/api/profiles/t/ideas/%d", loose), nil); rec.Code != http.StatusNoContent {
 		t.Fatalf("DELETE idea: status = %d, want 204", rec.Code)
 	}
-	s.fails(http.StatusNotFound, "not_found", "DELETE", fmt.Sprintf("/api/ideas/%d", loose), nil)
+	s.fails(http.StatusNotFound, "not_found", "DELETE", fmt.Sprintf("/api/profiles/t/ideas/%d", loose), nil)
 }
 
 func TestEntryRoutes(t *testing.T) {
 	s := newServer(t)
 	p := s.project("Waypoint", domain.ProjectActive)
 
-	created := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/entries",
+	created := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/profiles/t/entries",
 		map[string]any{"body": "secret diary words", "project_id": p.ID})
 	if created.Entry.Body != "secret diary words" || created.Run.Status != domain.RunPending || created.Run.EntryID != created.Entry.ID {
 		t.Errorf("created entry = %+v", created)
 	}
-	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", "/api/entries", `{"body": "  "}`)
-	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", "/api/entries", `{"body": "x", "project_id": 999}`)
-	e := s.fails(http.StatusUnprocessableEntity, "invalid", "POST", "/api/entries", `{"body": "x", "mood": "ok"}`)
+	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", "/api/profiles/t/entries", `{"body": "  "}`)
+	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", "/api/profiles/t/entries", `{"body": "x", "project_id": 999}`)
+	e := s.fails(http.StatusUnprocessableEntity, "invalid", "POST", "/api/profiles/t/entries", `{"body": "x", "mood": "ok"}`)
 	if len(e.Problems) != 1 || e.Problems[0].Field != "mood" {
 		t.Errorf("unknown field problems = %+v", e.Problems)
 	}
 	// The run is still pending: nothing is processing entries in this test.
-	s.fails(http.StatusConflict, "run_in_progress", "POST", fmt.Sprintf("/api/entries/%d/reprocess", created.Entry.ID), nil)
-	s.fails(http.StatusNotFound, "not_found", "POST", "/api/entries/999/reprocess", nil)
+	s.fails(http.StatusConflict, "run_in_progress", "POST", fmt.Sprintf("/api/profiles/t/entries/%d/reprocess", created.Entry.ID), nil)
+	s.fails(http.StatusNotFound, "not_found", "POST", "/api/profiles/t/entries/999/reprocess", nil)
 
 	// Pages, newest first.
 	var ids []int64
 	for i := range 4 {
-		e := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/entries", map[string]any{"body": fmt.Sprintf("entry %d", i)})
+		e := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/profiles/t/entries", map[string]any{"body": fmt.Sprintf("entry %d", i)})
 		ids = append(ids, e.Entry.ID)
 	}
-	page := ok[apitypes.EntryPage](s, http.StatusOK, "GET", "/api/entries?limit=2", nil)
+	page := ok[apitypes.EntryPage](s, http.StatusOK, "GET", "/api/profiles/t/entries?limit=2", nil)
 	if len(page.Entries) != 2 || page.Entries[0].ID != ids[3] || page.NextBefore == nil || *page.NextBefore != ids[2] {
 		t.Fatalf("first page = %+v", page)
 	}
-	page = ok[apitypes.EntryPage](s, http.StatusOK, "GET", fmt.Sprintf("/api/entries?limit=2&before=%d", *page.NextBefore), nil)
+	page = ok[apitypes.EntryPage](s, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/entries?limit=2&before=%d", *page.NextBefore), nil)
 	if len(page.Entries) != 2 || page.Entries[0].ID != ids[1] {
 		t.Fatalf("second page = %+v", page)
 	}
-	page = ok[apitypes.EntryPage](s, http.StatusOK, "GET", fmt.Sprintf("/api/entries?limit=2&before=%d", *page.NextBefore), nil)
+	page = ok[apitypes.EntryPage](s, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/entries?limit=2&before=%d", *page.NextBefore), nil)
 	if len(page.Entries) != 1 || page.Entries[0].ID != created.Entry.ID || page.NextBefore != nil {
 		t.Fatalf("last page = %+v", page)
 	}
-	page = ok[apitypes.EntryPage](s, http.StatusOK, "GET", fmt.Sprintf("/api/entries?project_id=%d", p.ID), nil)
+	page = ok[apitypes.EntryPage](s, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/entries?project_id=%d", p.ID), nil)
 	if len(page.Entries) != 1 || page.Entries[0].ID != created.Entry.ID {
 		t.Errorf("entries about the project = %+v", page)
 	}
-	s.fails(http.StatusBadRequest, "bad_request", "GET", "/api/entries?limit=0", nil)
-	s.fails(http.StatusBadRequest, "bad_request", "GET", "/api/entries?limit=101", nil)
-	s.fails(http.StatusBadRequest, "bad_request", "GET", "/api/entries?before=-1", nil)
-	s.fails(http.StatusNotFound, "not_found", "GET", "/api/entries?project_id=999", nil)
-	s.fails(http.StatusNotFound, "not_found", "GET", "/api/entries/999", nil)
+	s.fails(http.StatusBadRequest, "bad_request", "GET", "/api/profiles/t/entries?limit=0", nil)
+	s.fails(http.StatusBadRequest, "bad_request", "GET", "/api/profiles/t/entries?limit=101", nil)
+	s.fails(http.StatusBadRequest, "bad_request", "GET", "/api/profiles/t/entries?before=-1", nil)
+	s.fails(http.StatusNotFound, "not_found", "GET", "/api/profiles/t/entries?project_id=999", nil)
+	s.fails(http.StatusNotFound, "not_found", "GET", "/api/profiles/t/entries/999", nil)
 
 	if bytes.Contains(s.logs.Bytes(), []byte("secret diary")) {
 		t.Error("entry body leaked into logs")
@@ -531,7 +531,7 @@ func TestEntryDetailAndReview(t *testing.T) {
 	// Accents and emoji take more bytes in UTF-8 than units in UTF-16, so
 	// spans after them only line up if the API converts them.
 	body := "Café day ☕🙂\ntodo: Write the API tests\nblocked: no coffee left"
-	created := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/entries", map[string]any{"body": body, "project_id": p.ID})
+	created := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/profiles/t/entries", map[string]any{"body": body, "project_id": p.ID})
 	d := s.waitProcessed(created.Entry.ID)
 
 	if d.Run.Status != domain.RunSucceeded || len(d.Observations) == 0 {
@@ -551,17 +551,17 @@ func TestEntryDetailAndReview(t *testing.T) {
 		t.Fatalf("changesets = %+v, want one pending", d.Changesets)
 	}
 
-	pending := ok[[]apitypes.Changeset](s, http.StatusOK, "GET", "/api/changesets?status=pending", nil)
+	pending := ok[[]apitypes.Changeset](s, http.StatusOK, "GET", "/api/profiles/t/changesets?status=pending", nil)
 	if len(pending) != 1 || !reflect.DeepEqual(pending[0], d.Changesets[0]) {
 		t.Fatalf("pending changesets = %+v, want %+v", pending, d.Changesets)
 	}
 	cs := pending[0]
-	applyURL := fmt.Sprintf("/api/changesets/%d/apply", cs.ID)
+	applyURL := fmt.Sprintf("/api/profiles/t/changesets/%d/apply", cs.ID)
 	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", applyURL, `{"ops": [{"id": 999, "decision": "accept"}]}`)
 	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", applyURL,
 		fmt.Sprintf(`{"ops": [{"id": %d, "decision": "maybe"}]}`, cs.Ops[0].ID))
 	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", applyURL, `{"ops": []}`)
-	s.fails(http.StatusNotFound, "not_found", "POST", "/api/changesets/999/apply", `{"ops": []}`)
+	s.fails(http.StatusNotFound, "not_found", "POST", "/api/profiles/t/changesets/999/apply", `{"ops": []}`)
 
 	// Accept the first op, leave the rest: they split off, still pending.
 	res := ok[apitypes.ApplyResponse](s, http.StatusOK, "POST", applyURL,
@@ -573,18 +573,18 @@ func TestEntryDetailAndReview(t *testing.T) {
 		t.Errorf("split off = %+v, held by cap %v", res.SplitOff, res.HeldByCap)
 	}
 	s.fails(http.StatusConflict, "not_pending", "POST", applyURL, fmt.Sprintf(`{"ops": [{"id": %d, "decision": "accept"}]}`, cs.Ops[0].ID))
-	applied := ok[[]apitypes.Changeset](s, http.StatusOK, "GET", "/api/changesets?status=applied", nil)
+	applied := ok[[]apitypes.Changeset](s, http.StatusOK, "GET", "/api/profiles/t/changesets?status=applied", nil)
 	if !slices.ContainsFunc(applied, func(c apitypes.Changeset) bool { return c.ID == cs.ID }) {
 		t.Errorf("applied changesets = %+v, want %d among them", applied, cs.ID)
 	}
-	s.fails(http.StatusBadRequest, "bad_request", "GET", "/api/changesets?status=done", nil)
-	tasks := ok[[]apitypes.Task](s, http.StatusOK, "GET", fmt.Sprintf("/api/projects/%d/tasks", p.ID), nil)
+	s.fails(http.StatusBadRequest, "bad_request", "GET", "/api/profiles/t/changesets?status=done", nil)
+	tasks := ok[[]apitypes.Task](s, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/projects/%d/tasks", p.ID), nil)
 	if len(tasks) != 1 || tasks[0].Title != "Write the API tests" {
 		t.Errorf("tasks after apply = %+v", tasks)
 	}
 
 	// Reprocessing rejects the split-off changeset and runs again.
-	ok[apitypes.ExtractionRun](s, http.StatusAccepted, "POST", fmt.Sprintf("/api/entries/%d/reprocess", created.Entry.ID), nil)
+	ok[apitypes.ExtractionRun](s, http.StatusAccepted, "POST", fmt.Sprintf("/api/profiles/t/entries/%d/reprocess", created.Entry.ID), nil)
 	d = s.waitProcessed(created.Entry.ID)
 	if d.Run.ID == created.Run.ID {
 		t.Errorf("latest run is still %d after reprocess", d.Run.ID)
@@ -598,7 +598,7 @@ func TestApplyReportsOpsHeldByCap(t *testing.T) {
 		s.project(fmt.Sprintf("Active %d", i), domain.ProjectActive)
 	}
 	parked := s.project("Someday", domain.ProjectParked)
-	created := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/entries", `{"body": "let's start Someday"}`)
+	created := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/profiles/t/entries", `{"body": "let's start Someday"}`)
 
 	// An extraction changeset that would make a third project active.
 	var ops []domain.ChangeOp
@@ -622,7 +622,7 @@ func TestApplyReportsOpsHeldByCap(t *testing.T) {
 		t.Fatalf("op %d has ID equal to its position; the test can't tell them apart", ops[1].ID)
 	}
 
-	res := ok[apitypes.ApplyResponse](s, http.StatusOK, "POST", fmt.Sprintf("/api/changesets/%d/apply", ops[0].ChangesetID),
+	res := ok[apitypes.ApplyResponse](s, http.StatusOK, "POST", fmt.Sprintf("/api/profiles/t/changesets/%d/apply", ops[0].ChangesetID),
 		fmt.Sprintf(`{"ops": [{"id": %d, "decision": "accept"}, {"id": %d, "decision": "accept", "payload": null}]}`, ops[0].ID, ops[1].ID))
 	if !slices.Equal(res.HeldByCap, []int64{ops[1].ID}) {
 		t.Errorf("held_by_cap = %v, want [%d]", res.HeldByCap, ops[1].ID)
@@ -637,69 +637,69 @@ func TestQuestionRoutes(t *testing.T) {
 	s.runWorker()
 
 	// With no todo: or doing: line, the mock asks for the next step.
-	first := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/entries", `{"body": "feel: stuck"}`)
+	first := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/profiles/t/entries", `{"body": "feel: stuck"}`)
 	d := s.waitProcessed(first.Entry.ID)
-	second := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/entries", `{"body": "feel: still stuck"}`)
+	second := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/profiles/t/entries", `{"body": "feel: still stuck"}`)
 	d2 := s.waitProcessed(second.Entry.ID)
 	if len(d.Questions) == 0 || len(d2.Questions) == 0 {
 		t.Fatalf("questions = %+v and %+v, want one on each entry", d.Questions, d2.Questions)
 	}
 
 	q := d.Questions[0]
-	reply := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/entries",
+	reply := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/profiles/t/entries",
 		map[string]any{"body": "todo: order parts", "reply_to_question_id": q.ID})
 	if reply.Entry.ReplyToQuestionID == nil || *reply.Entry.ReplyToQuestionID != q.ID {
 		t.Errorf("reply = %+v", reply.Entry)
 	}
-	d = ok[apitypes.EntryDetail](s, http.StatusOK, "GET", fmt.Sprintf("/api/entries/%d", first.Entry.ID), nil)
+	d = ok[apitypes.EntryDetail](s, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/entries/%d", first.Entry.ID), nil)
 	if got := d.Questions[0]; got.Status != domain.QuestionAnswered || got.AnswerEntryID == nil || *got.AnswerEntryID != reply.Entry.ID {
 		t.Errorf("answered question = %+v", got)
 	}
-	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", "/api/entries", map[string]any{"body": "again", "reply_to_question_id": q.ID})
-	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", fmt.Sprintf("/api/questions/%d/dismiss", q.ID), nil)
+	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", "/api/profiles/t/entries", map[string]any{"body": "again", "reply_to_question_id": q.ID})
+	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", fmt.Sprintf("/api/profiles/t/questions/%d/dismiss", q.ID), nil)
 
-	dismissed := ok[apitypes.Question](s, http.StatusOK, "POST", fmt.Sprintf("/api/questions/%d/dismiss", d2.Questions[0].ID), nil)
+	dismissed := ok[apitypes.Question](s, http.StatusOK, "POST", fmt.Sprintf("/api/profiles/t/questions/%d/dismiss", d2.Questions[0].ID), nil)
 	if dismissed.Status != domain.QuestionDismissed {
 		t.Errorf("dismissed question = %+v", dismissed)
 	}
-	s.fails(http.StatusNotFound, "not_found", "POST", "/api/questions/999/dismiss", nil)
+	s.fails(http.StatusNotFound, "not_found", "POST", "/api/profiles/t/questions/999/dismiss", nil)
 }
 
 func TestBriefingRoutes(t *testing.T) {
 	s := newServer(t)
 	p := s.project("Waypoint", domain.ProjectActive)
-	task := ok[apitypes.Task](s, http.StatusCreated, "POST", fmt.Sprintf("/api/projects/%d/tasks", p.ID), `{"title": "Start small", "size": "s"}`)
+	task := ok[apitypes.Task](s, http.StatusCreated, "POST", fmt.Sprintf("/api/profiles/t/projects/%d/tasks", p.ID), `{"title": "Start small", "size": "s"}`)
 
-	b := ok[apitypes.Briefing](s, http.StatusOK, "GET", fmt.Sprintf("/api/projects/%d/briefing", p.ID), nil)
+	b := ok[apitypes.Briefing](s, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/projects/%d/briefing", p.ID), nil)
 	if b.ProjectID != p.ID || b.NextTask == nil || b.NextTask.ID != task.ID || b.Blockers == nil || b.Alternatives == nil {
 		t.Errorf("briefing = %+v", b)
 	}
-	refreshed := ok[apitypes.Briefing](s, http.StatusOK, "POST", fmt.Sprintf("/api/projects/%d/briefing/refresh", p.ID), nil)
+	refreshed := ok[apitypes.Briefing](s, http.StatusOK, "POST", fmt.Sprintf("/api/profiles/t/projects/%d/briefing/refresh", p.ID), nil)
 	if refreshed.NextTask == nil || refreshed.NextTask.ID != task.ID {
 		t.Errorf("refreshed briefing = %+v", refreshed)
 	}
-	s.fails(http.StatusNotFound, "not_found", "GET", "/api/projects/999/briefing", nil)
-	s.fails(http.StatusNotFound, "not_found", "POST", "/api/projects/999/briefing/refresh", nil)
+	s.fails(http.StatusNotFound, "not_found", "GET", "/api/profiles/t/projects/999/briefing", nil)
+	s.fails(http.StatusNotFound, "not_found", "POST", "/api/profiles/t/projects/999/briefing/refresh", nil)
 
 }
 
 func TestSettingsRoutes(t *testing.T) {
 	s := newServer(t)
-	settings := ok[apitypes.Settings](s, http.StatusOK, "GET", "/api/settings", nil)
+	settings := ok[apitypes.Settings](s, http.StatusOK, "GET", "/api/profiles/t/settings", nil)
 	if want := (apitypes.Settings{ActiveProjectCap: activeCap, QuestionsPerEntry: 2}); settings != want {
 		t.Errorf("settings = %+v, want %+v", settings, want)
 	}
 
 	// Absent fields stay as they are.
-	settings = ok[apitypes.Settings](s, http.StatusOK, "PATCH", "/api/settings", `{"questions_per_entry": 0}`)
+	settings = ok[apitypes.Settings](s, http.StatusOK, "PATCH", "/api/profiles/t/settings", `{"questions_per_entry": 0}`)
 	if want := (apitypes.Settings{ActiveProjectCap: activeCap, QuestionsPerEntry: 0}); settings != want {
 		t.Errorf("after PATCH = %+v, want %+v", settings, want)
 	}
-	settings = ok[apitypes.Settings](s, http.StatusOK, "PATCH", "/api/settings", `{"active_project_cap": 5, "questions_per_entry": 1}`)
+	settings = ok[apitypes.Settings](s, http.StatusOK, "PATCH", "/api/profiles/t/settings", `{"active_project_cap": 5, "questions_per_entry": 1}`)
 	if want := (apitypes.Settings{ActiveProjectCap: 5, QuestionsPerEntry: 1}); settings != want {
 		t.Errorf("after PATCH = %+v, want %+v", settings, want)
 	}
-	if got := ok[apitypes.Settings](s, http.StatusOK, "GET", "/api/settings", nil); got != settings {
+	if got := ok[apitypes.Settings](s, http.StatusOK, "GET", "/api/profiles/t/settings", nil); got != settings {
 		t.Errorf("GET after PATCH = %+v, want %+v", got, settings)
 	}
 
@@ -714,14 +714,14 @@ func TestSettingsRoutes(t *testing.T) {
 		`{"theme": "forest"}`,
 		`{"active_project_cap": 4, "port": 80}`,
 	} {
-		e := s.fails(http.StatusUnprocessableEntity, "invalid", "PATCH", "/api/settings", body)
+		e := s.fails(http.StatusUnprocessableEntity, "invalid", "PATCH", "/api/profiles/t/settings", body)
 		if len(e.Problems) == 0 {
 			t.Errorf("PATCH %s: no problems listed", body)
 		}
 	}
-	s.fails(http.StatusBadRequest, "bad_request", "PATCH", "/api/settings", `{"active_project_cap":`)
-	s.fails(http.StatusBadRequest, "bad_request", "PATCH", "/api/settings", `[1]`)
-	if got := ok[apitypes.Settings](s, http.StatusOK, "GET", "/api/settings", nil); got != settings {
+	s.fails(http.StatusBadRequest, "bad_request", "PATCH", "/api/profiles/t/settings", `{"active_project_cap":`)
+	s.fails(http.StatusBadRequest, "bad_request", "PATCH", "/api/profiles/t/settings", `[1]`)
+	if got := ok[apitypes.Settings](s, http.StatusOK, "GET", "/api/profiles/t/settings", nil); got != settings {
 		t.Errorf("rejected PATCHes changed the settings: %+v, want %+v", got, settings)
 	}
 }
@@ -733,8 +733,8 @@ func TestSettingsCapAppliesToNextActivation(t *testing.T) {
 	s.project("B", domain.ProjectActive)
 	parked := s.project("C", domain.ProjectParked)
 
-	ok[apitypes.Settings](s, http.StatusOK, "PATCH", "/api/settings", `{"active_project_cap": 1}`)
-	projects := ok[[]apitypes.Project](s, http.StatusOK, "GET", "/api/projects", nil)
+	ok[apitypes.Settings](s, http.StatusOK, "PATCH", "/api/profiles/t/settings", `{"active_project_cap": 1}`)
+	projects := ok[[]apitypes.Project](s, http.StatusOK, "GET", "/api/profiles/t/projects", nil)
 	active := 0
 	for _, p := range projects {
 		if p.Status == domain.ProjectActive {
@@ -744,11 +744,11 @@ func TestSettingsCapAppliesToNextActivation(t *testing.T) {
 	if active != 2 {
 		t.Errorf("%d active projects after lowering the cap, want 2", active)
 	}
-	ok[apitypes.Project](s, http.StatusOK, "PATCH", fmt.Sprintf("/api/projects/%d", a.ID), `{"title": "A, renamed"}`)
-	s.fails(http.StatusConflict, "active_cap", "PATCH", fmt.Sprintf("/api/projects/%d", parked.ID), `{"status": "active"}`)
+	ok[apitypes.Project](s, http.StatusOK, "PATCH", fmt.Sprintf("/api/profiles/t/projects/%d", a.ID), `{"title": "A, renamed"}`)
+	s.fails(http.StatusConflict, "active_cap", "PATCH", fmt.Sprintf("/api/profiles/t/projects/%d", parked.ID), `{"status": "active"}`)
 
-	ok[apitypes.Settings](s, http.StatusOK, "PATCH", "/api/settings", `{"active_project_cap": 3}`)
-	ok[apitypes.Project](s, http.StatusOK, "PATCH", fmt.Sprintf("/api/projects/%d", parked.ID), `{"status": "active"}`)
+	ok[apitypes.Settings](s, http.StatusOK, "PATCH", "/api/profiles/t/settings", `{"active_project_cap": 3}`)
+	ok[apitypes.Project](s, http.StatusOK, "PATCH", fmt.Sprintf("/api/profiles/t/projects/%d", parked.ID), `{"status": "active"}`)
 }
 
 // TestRequestTypesMatchOps checks that each request DTO, which only exists
@@ -817,10 +817,10 @@ func TestChangeOpRefsNameExistingRows(t *testing.T) {
 	s := newServer(t)
 	s.runWorker()
 	p := s.project("Waypoint", domain.ProjectActive)
-	task := ok[apitypes.Task](s, http.StatusCreated, "POST", fmt.Sprintf("/api/projects/%d/tasks", p.ID), `{"title": "Set up CI"}`)
+	task := ok[apitypes.Task](s, http.StatusCreated, "POST", fmt.Sprintf("/api/profiles/t/projects/%d/tasks", p.ID), `{"title": "Set up CI"}`)
 
 	body := "done: Set up CI\ntodo: Write docs\ndone: Something brand new"
-	created := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/entries", map[string]any{"body": body, "project_id": p.ID})
+	created := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/profiles/t/entries", map[string]any{"body": body, "project_id": p.ID})
 	d := s.waitProcessed(created.Entry.ID)
 	if len(d.Changesets) != 1 {
 		t.Fatalf("changesets = %+v, want one", d.Changesets)

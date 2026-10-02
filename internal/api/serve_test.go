@@ -93,14 +93,14 @@ func TestServeShutdownEndsEventStreams(t *testing.T) {
 		t.Fatal(err)
 	}
 	hub := NewHub(logger)
-	h := NewRouter(Deps{DB: openDB(t), Logger: logger, Hub: hub})
+	h := profileRouter(ProfileDeps{Logger: logger, Hub: hub})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	served := make(chan error, 1)
 	go func() { served <- Serve(ctx, ln, h, logger, hub.Close) }()
 
-	resp, err := http.Get("http://" + ln.Addr().String() + "/api/events")
+	resp, err := http.Get("http://" + ln.Addr().String() + "/api/profiles/t/events")
 	if err != nil {
 		t.Fatal(err)
 	}
