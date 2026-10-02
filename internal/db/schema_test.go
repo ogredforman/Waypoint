@@ -13,7 +13,7 @@ import (
 var coreTables = []string{
 	"blockers", "briefings", "change_ops", "changesets", "entries", "extraction_runs",
 	"follow_up_questions", "ideas", "milestones", "observation_links", "observations",
-	"projects", "task_dependencies", "tasks",
+	"pending_observation_links", "projects", "task_dependencies", "tasks",
 }
 
 // migrated returns a temp DB with the embedded migrations applied.
@@ -109,14 +109,17 @@ func TestCoreSchema(t *testing.T) {
 	if err := sqlDB.QueryRowContext(ctx, "SELECT max(version_id) FROM goose_db_version").Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != 4 {
-		t.Errorf("schema version %d, want 4", version)
+	if version != 5 {
+		t.Errorf("schema version %d, want 5", version)
 	}
 	if got := appTables(t, sqlDB); !slices.Equal(got, coreTables) {
 		t.Errorf("tables %v, want %v", got, coreTables)
 	}
 
 	seed(t, sqlDB)
+	// Not in seed: the rebuild tests seed schemas from before this table.
+	exec(t, sqlDB, `INSERT INTO pending_observation_links (id, observation_id, change_op_id, target_type, confidence, created_at)
+		VALUES (1, 1, 1, 'task', 1, 1)`)
 
 	rows, err := sqlDB.QueryContext(ctx, "PRAGMA foreign_key_check")
 	if err != nil {
@@ -165,6 +168,9 @@ func TestCoreSchemaRejects(t *testing.T) {
 		{"observation span reversed", check, `INSERT INTO observations (entry_id, extraction_run_id, kind, summary, span_start, span_end, created_at) VALUES (1, 1, 'note', 'x', 5, 2, 1)`},
 		{"link target type", check, `INSERT INTO observation_links (observation_id, target_type, target_id, confidence, created_at) VALUES (1, 'entry', 1, 0.5, 1)`},
 		{"link confidence", check, `INSERT INTO observation_links (observation_id, target_type, target_id, confidence, created_at) VALUES (1, 'project', 1, 1.5, 1)`},
+		{"pending link missing op", fk, `INSERT INTO pending_observation_links (observation_id, change_op_id, target_type, confidence, created_at) VALUES (1, 99, 'task', 0.5, 1)`},
+		{"pending link target type", check, `INSERT INTO pending_observation_links (observation_id, change_op_id, target_type, confidence, created_at) VALUES (1, 2, 'entry', 0.5, 1)`},
+		{"pending link duplicate", unique, `INSERT INTO pending_observation_links (observation_id, change_op_id, target_type, confidence, created_at) VALUES (1, 1, 'task', 0.5, 1), (1, 1, 'task', 0.5, 1)`},
 		{"blocker status", check, `INSERT INTO blockers (project_id, description, status, created_at, updated_at) VALUES (1, 'x', 'stuck', 1, 1)`},
 		{"idea status", check, `INSERT INTO ideas (title, status, created_at, updated_at) VALUES ('x', 'active', 1, 1)`},
 		{"extraction changeset without run", check, `INSERT INTO changesets (source, status, created_at, updated_at) VALUES ('extraction', 'pending', 1, 1)`},

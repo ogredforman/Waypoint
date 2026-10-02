@@ -11,8 +11,8 @@ import (
 // RejectPending rejects pending changeset id and all of its ops inside the
 // caller's transaction, without applying anything. Reprocessing an entry uses
 // it to retire the changesets of earlier runs, so the same proposal can't be
-// applied twice. It returns ErrNotPending if the changeset is already
-// resolved.
+// applied twice. Observation links waiting on its ops are dropped. It
+// returns ErrNotPending if the changeset is already resolved.
 func RejectPending(ctx context.Context, tx *store.Tx, id int64) (domain.Changeset, error) {
 	cs, err := tx.GetChangeset(ctx, id)
 	if err != nil {
@@ -27,6 +27,9 @@ func RejectPending(ctx context.Context, tx *store.Tx, id int64) (domain.Changese
 	}
 	for _, op := range ops {
 		if _, err := tx.SetChangeOpResult(ctx, op.ID, domain.OpRejected, nil); err != nil {
+			return domain.Changeset{}, fmt.Errorf("reject changeset %d: %w", id, err)
+		}
+		if err := tx.DropPendingLinks(ctx, op.ID); err != nil {
 			return domain.Changeset{}, fmt.Errorf("reject changeset %d: %w", id, err)
 		}
 	}

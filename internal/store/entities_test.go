@@ -386,3 +386,70 @@ func TestObservationsAndLinks(t *testing.T) {
 		t.Errorf("ListLinksByTarget = %+v, want [%+v]", byTarget, links[0])
 	}
 }
+
+func TestPendingLinks(t *testing.T) {
+	s, sqlDB, _ := newTestStore(t)
+	ctx := context.Background()
+	p := seedProject(t, s)
+	task := seedTask(t, s, domain.Task{ProjectID: p.ID, Title: "Write docs", Status: domain.TaskTodo})
+	e := seedEntry(t, s, "todo: write docs\ntodo: add tests")
+	run := seedRun(t, sqlDB, e.ID)
+
+	var obs domain.Observation
+	var ops []domain.ChangeOp
+	var pending domain.PendingObservationLink
+	inTx(t, s, func(tx *Tx) (err error) {
+		if _, ops, err = tx.CreateChangeset(ctx, domain.Changeset{
+			Source: domain.SourceExtraction, ExtractionRunID: &run, Status: domain.ChangesetPending,
+		}, []domain.ChangeOp{
+			{Position: 1, OpType: domain.OpCreateTask, Payload: []byte(`{"project_id":1,"title":"Write docs"}`), Status: domain.OpPending},
+			{Position: 2, OpType: domain.OpCreateTask, Payload: []byte(`{"project_id":1,"title":"Add tests"}`), Status: domain.OpPending},
+		}); err != nil {
+			return err
+		}
+		if obs, err = tx.CreateObservation(ctx, domain.Observation{
+			EntryID: e.ID, ExtractionRunID: run, Kind: domain.ObservationPlan, Summary: "Docs", SpanStart: 0, SpanEnd: 16,
+		}); err != nil {
+			return err
+		}
+		if pending, err = tx.CreatePendingLink(ctx, domain.PendingObservationLink{
+			ObservationID: obs.ID, ChangeOpID: ops[0].ID, TargetType: domain.TargetTask, Confidence: 0.8,
+		}); err != nil {
+			return err
+		}
+		_, err = tx.CreatePendingLink(ctx, domain.PendingObservationLink{
+			ObservationID: obs.ID, ChangeOpID: ops[1].ID, TargetType: domain.TargetTask, Confidence: 1,
+		})
+		return err
+	})
+
+	want := domain.PendingObservationLink{
+		ID: pending.ID, ObservationID: obs.ID, ChangeOpID: ops[0].ID, TargetType: domain.TargetTask, Confidence: 0.8, CreatedAt: t0,
+	}
+	if pending != want {
+		t.Errorf("CreatePendingLink = %+v, want %+v", pending, want)
+	}
+	if got, err := s.ListPendingLinksByOp(ctx, ops[0].ID); err != nil || len(got) != 1 || got[0] != want {
+		t.Errorf("ListPendingLinksByOp = %+v, %v; want [%+v]", got, err, want)
+	}
+
+	inTx(t, s, func(tx *Tx) error {
+		if err := tx.ResolvePendingLinks(ctx, ops[0].ID, task.ID); err != nil {
+			return err
+		}
+		return tx.DropPendingLinks(ctx, ops[1].ID)
+	})
+	links, err := s.ListLinksByTarget(ctx, domain.TargetTask, task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(links) != 1 || links[0].ObservationID != obs.ID || links[0].Confidence != 0.8 {
+		t.Errorf("links to the task after resolving = %+v, want one from observation %d at 0.8", links, obs.ID)
+	}
+	if n := count(t, sqlDB, `SELECT count(*) FROM pending_observation_links`); n != 0 {
+		t.Errorf("%d pending links left, want 0", n)
+	}
+	if n := count(t, sqlDB, `SELECT count(*) FROM observations`); n != 1 {
+		t.Errorf("%d observations, want 1: dropping links keeps the observation", n)
+	}
+}

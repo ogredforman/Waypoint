@@ -130,6 +130,15 @@ type ObservationLink struct {
 	CreatedAt     int64
 }
 
+type PendingObservationLink struct {
+	ID            int64
+	ObservationID int64
+	ChangeOpID    int64
+	TargetType    string
+	Confidence    float64
+	CreatedAt     int64
+}
+
 type Project struct {
 	ID               int64
 	Title            string

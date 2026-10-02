@@ -17,7 +17,8 @@ import (
 // It checks enums, required text, and confidences in [0, 1]; that spans fall
 // within the entry body on character boundaries; that ops are well formed and
 // their temp refs point at earlier creating ops (changeset.ValidateOps); that
-// every ref to an existing row, in ops and links, names a row in the snapshot;
+// a link's temp ref names an op that creates that kind of entity; that every
+// ref to an existing row, in ops and links, names a row in the snapshot;
 // and that there are at most MaxQuestions questions. Cross-row rules, such as
 // a blocker's task being in its project, are left to the applier.
 //
@@ -26,8 +27,24 @@ import (
 // index from 0, and "ops[N]" by position from 1, the N of "$new:N". Problems
 // never echo text from the entry or the output.
 func Validate(in ExtractInput, res ExtractionResult) error {
-	var c checker
+	var c, opc checker
 	body := in.Entry.Body
+
+	// Ops are checked first, since temp links need to know what they create,
+	// but their problems are reported after the observations'.
+	payloads, err := opc.ops(in.Snapshot, res.Ops)
+	if err != nil {
+		return err
+	}
+	creates := map[int64]domain.TargetType{} // position -> kind created
+	for i, p := range payloads {
+		if p == nil {
+			continue
+		}
+		if kind, ok := p.Creates(); ok {
+			creates[int64(i+1)] = kind
+		}
+	}
 
 	for i, o := range res.Observations {
 		prefix := fmt.Sprintf("observations[%d].", i)
@@ -36,12 +53,12 @@ func Validate(in ExtractInput, res ExtractionResult) error {
 		c.span(prefix, body, o.SpanStart, o.SpanEnd)
 		type target struct {
 			kind domain.TargetType
-			id   int64
+			ref  changeset.Ref
 		}
 		seen := map[target]bool{} // observation_links is unique per target
 		for j, l := range o.Links {
 			lp := fmt.Sprintf("%slinks[%d].", prefix, j)
-			c.link(lp, in.Snapshot, l)
+			c.link(lp, in.Snapshot, creates, l)
 			t := target{l.TargetType, l.TargetID}
 			if seen[t] {
 				c.add(lp+"target_id", "duplicates an earlier link")
@@ -50,9 +67,7 @@ func Validate(in ExtractInput, res ExtractionResult) error {
 		}
 	}
 
-	if err := c.ops(in.Snapshot, res.Ops); err != nil {
-		return err
-	}
+	c.problems = append(c.problems, opc.problems...)
 
 	if n := len(res.Questions); n > MaxQuestions {
 		c.add("questions", "at most %d are allowed, got %d", MaxQuestions, n)
@@ -121,7 +136,9 @@ func boundary(s string, i int64) bool {
 	return i == int64(len(s)) || utf8.RuneStart(s[i])
 }
 
-func (c *checker) link(prefix string, snap StateSnapshot, l LinkDraft) {
+// link checks one link. creates maps op positions to the kind of entity each
+// creating op makes, for temp refs.
+func (c *checker) link(prefix string, snap StateSnapshot, creates map[int64]domain.TargetType, l LinkDraft) {
 	if l.Confidence == nil {
 		c.add(prefix+"confidence", "is required")
 	} else {
@@ -132,17 +149,26 @@ func (c *checker) link(prefix string, snap StateSnapshot, l LinkDraft) {
 		c.enum(prefix+"target_type", false)
 	case l.TargetType == domain.TargetMilestone:
 		c.add(prefix+"target_type", "milestones aren't supported yet")
-	case l.TargetID <= 0:
-		c.add(prefix+"target_id", "must be a positive ID")
-	case !snap.Has(l.TargetType, l.TargetID):
-		c.add(prefix+"target_id", "%s %d is not in the snapshot", l.TargetType, l.TargetID)
+	case l.TargetID.Problem() != "":
+		c.add(prefix+"target_id", "%s", l.TargetID.Problem())
+	case l.TargetID.IsTemp():
+		pos := l.TargetID.Temp
+		kind, ok := creates[pos]
+		switch {
+		case !ok:
+			c.add(prefix+"target_id", "refers to position %d, where no op creates anything", pos)
+		case kind != l.TargetType:
+			c.add(prefix+"target_id", "refers to position %d, which creates a %s, not a %s", pos, kind, l.TargetType)
+		}
+	case !snap.Has(l.TargetType, l.TargetID.ID):
+		c.add(prefix+"target_id", "%s %d is not in the snapshot", l.TargetType, l.TargetID.ID)
 	}
 }
 
 // ops validates the ops as one changeset, then checks their refs to existing
-// rows against the snapshot. An error that isn't a validation problem is
-// returned as is.
-func (c *checker) ops(snap StateSnapshot, drafts []ChangeOpDraft) error {
+// rows against the snapshot. It returns the decoded payloads, nil where one
+// didn't decode. An error that isn't a validation problem is returned as is.
+func (c *checker) ops(snap StateSnapshot, drafts []ChangeOpDraft) ([]changeset.Payload, error) {
 	ops := make([]domain.ChangeOp, len(drafts))
 	for i, d := range drafts {
 		ops[i] = domain.ChangeOp{Position: int64(i + 1), OpType: d.OpType, Payload: d.Payload}
@@ -156,7 +182,7 @@ func (c *checker) ops(snap StateSnapshot, drafts []ChangeOpDraft) error {
 	if errors.As(err, &ve) {
 		c.problems = append(c.problems, ve.Problems...)
 	} else if err != nil {
-		return err
+		return nil, err
 	}
 
 	for i, p := range payloads {
@@ -173,5 +199,5 @@ func (c *checker) ops(snap StateSnapshot, drafts []ChangeOpDraft) error {
 			}
 		}
 	}
-	return nil
+	return payloads, nil
 }

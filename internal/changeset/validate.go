@@ -46,7 +46,7 @@ func optEnum[T interface{ Valid() bool }](c *checker, field string, v *T) {
 
 func (c *checker) refs(refs []fieldRef) {
 	for _, r := range refs {
-		if p := r.ref.problem(); p != "" {
+		if p := r.ref.Problem(); p != "" {
 			c.add(r.field, "%s", p)
 		}
 	}
@@ -93,7 +93,7 @@ func ValidateOps(ops []domain.ChangeOp) ([]Payload, error) {
 		payloads[i] = p
 
 		for _, r := range p.refs() {
-			if !r.ref.IsTemp() || r.ref.problem() != "" {
+			if !r.ref.IsTemp() || r.ref.Problem() != "" {
 				continue
 			}
 			kind, ok := creates[r.ref.Temp]
@@ -176,7 +176,7 @@ type refChecker struct {
 }
 
 func (k *refChecker) load(ctx context.Context, fr fieldRef, temp TempIDs) error {
-	if p := fr.ref.problem(); p != "" {
+	if p := fr.ref.Problem(); p != "" {
 		k.c.add(fr.field, "%s", p)
 		return nil
 	}

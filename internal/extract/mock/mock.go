@@ -285,8 +285,10 @@ func (b *builder) line(l line) error {
 		made, err = b.setStatus(l, domain.TaskInProgress)
 	case prefixTodo:
 		if b.project != 0 {
-			b.observe(l, domain.ObservationPlan)
-			_, err = b.createTask(l)
+			var t *taskCandidate
+			if t, err = b.createTask(l); err == nil {
+				b.observe(l, domain.ObservationPlan, t)
+			}
 			made = true
 		}
 	case prefixBlocked:
@@ -339,11 +341,11 @@ func (b *builder) setStatus(l line, status domain.TaskStatus) (bool, error) {
 		if b.project == 0 {
 			return false, nil
 		}
-		b.observe(l, domain.ObservationProgress)
 		var err error
 		if t, err = b.createTask(l); err != nil {
 			return false, err
 		}
+		b.observe(l, domain.ObservationProgress, t)
 		score = b.projectConf
 	} else {
 		if !t.ref.IsTemp() {
@@ -381,24 +383,27 @@ func (b *builder) createTask(l line) (*taskCandidate, error) {
 // it links to that task and the task's project. Otherwise it links to the
 // entry's project, unless that was guessed without any clue: observations
 // are stored as they are, and the review UI's project picker can't move them.
-// Tasks created by this entry can't be linked: observations are stored
-// before ops are applied.
+// A task created by this entry is linked by its temp ID; the link waits until
+// that op is applied.
 func (b *builder) observe(l line, kind domain.ObservationKind, task ...*taskCandidate) {
 	o := extract.ObservationDraft{Kind: kind, Summary: l.text, SpanStart: l.start, SpanEnd: l.end}
 	switch {
 	case len(task) > 0 && !task[0].ref.IsTemp():
 		t := task[0]
 		o.Links = append(o.Links,
-			link(domain.TargetProject, t.projectID, sureConfidence),
-			link(domain.TargetTask, t.ref.ID, sureConfidence))
+			link(domain.TargetProject, changeset.ID(t.projectID), sureConfidence),
+			link(domain.TargetTask, t.ref, sureConfidence))
 	case b.project != 0 && b.projectConf != blindProjectGuess:
-		o.Links = append(o.Links, link(domain.TargetProject, b.project, b.projectConf))
+		o.Links = append(o.Links, link(domain.TargetProject, changeset.ID(b.project), b.projectConf))
+	}
+	if len(task) > 0 && task[0].ref.IsTemp() {
+		o.Links = append(o.Links, link(domain.TargetTask, task[0].ref, sureConfidence))
 	}
 	b.res.Observations = append(b.res.Observations, o)
 }
 
-func link(tt domain.TargetType, id int64, conf float64) extract.LinkDraft {
-	return extract.LinkDraft{TargetType: tt, TargetID: id, Confidence: &conf}
+func link(tt domain.TargetType, ref changeset.Ref, conf float64) extract.LinkDraft {
+	return extract.LinkDraft{TargetType: tt, TargetID: ref, Confidence: &conf}
 }
 
 // op appends an op for the line.

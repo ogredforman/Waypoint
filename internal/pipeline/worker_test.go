@@ -418,7 +418,7 @@ func TestProcessRejectsInvalidOutput(t *testing.T) {
 		Observations: []extract.ObservationDraft{
 			{Kind: domain.ObservationNote, Summary: "Fine", SpanStart: 0, SpanEnd: 4},
 			{Kind: domain.ObservationProgress, Summary: "Made up", SpanStart: 0, SpanEnd: 4,
-				Links: []extract.LinkDraft{{TargetType: domain.TargetTask, TargetID: 999, Confidence: &conf}}},
+				Links: []extract.LinkDraft{{TargetType: domain.TargetTask, TargetID: changeset.ID(999), Confidence: &conf}}},
 		},
 		Questions: []extract.QuestionDraft{{Text: "Next?", Reason: "No next step"}},
 	}}
@@ -621,8 +621,8 @@ func TestProcessSkipsLinksToRowsDeletedDuringExtraction(t *testing.T) {
 		res: extract.ExtractionResult{Observations: []extract.ObservationDraft{{
 			Kind: domain.ObservationProgress, Summary: "Login stubbed", SpanStart: 0, SpanEnd: 4,
 			Links: []extract.LinkDraft{
-				{TargetType: domain.TargetTask, TargetID: task.ID, Confidence: &conf},
-				{TargetType: domain.TargetProject, TargetID: p.ID, Confidence: &conf},
+				{TargetType: domain.TargetTask, TargetID: changeset.ID(task.ID), Confidence: &conf},
+				{TargetType: domain.TargetProject, TargetID: changeset.ID(p.ID), Confidence: &conf},
 			},
 		}}},
 		// The task is in the snapshot, then deleted before the result is stored.
@@ -652,6 +652,41 @@ func TestProcessSkipsLinksToRowsDeletedDuringExtraction(t *testing.T) {
 	}
 	if links[0].TargetType != domain.TargetProject {
 		t.Errorf("kept link = %+v, want only the project link", links[0])
+	}
+}
+
+// TestProcessStoresTempLinksPending checks that a link to an entity the
+// changeset creates waits on the creating op instead of becoming a link.
+func TestProcessStoresTempLinksPending(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	p := f.project("Build Waypoint", domain.ProjectActive)
+	w := f.worker(mock.New(0), nil)
+	e, _ := f.save(w, "feel: fine\ntodo: write docs", &p.ID)
+	processNext(t, w)
+
+	got := f.stored(e.ID)
+	if len(got.changesets) != 1 || len(got.observations) != 2 {
+		t.Fatalf("%d changesets and %d observations, want 1 and 2", len(got.changesets), len(got.observations))
+	}
+	ops, err := f.s.ListChangeOps(ctx, got.changesets[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pending, err := f.s.ListPendingLinksByOp(ctx, ops[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := got.observations[1]
+	if len(pending) != 1 || pending[0].ObservationID != plan.ID || pending[0].TargetType != domain.TargetTask {
+		t.Errorf("pending links on the create_task op = %+v, want one from the plan observation %d", pending, plan.ID)
+	}
+	links, err := f.s.ListLinksByObservation(ctx, plan.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(links) != 1 || links[0].TargetType != domain.TargetProject {
+		t.Errorf("links = %+v, want only the project link until the op is applied", links)
 	}
 }
 

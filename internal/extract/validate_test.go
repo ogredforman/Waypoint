@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ogredforman/waypoint/internal/changeset"
 	"github.com/ogredforman/waypoint/internal/domain"
 )
 
@@ -56,7 +57,7 @@ func obs(start, end int64, links ...LinkDraft) ObservationDraft {
 }
 
 func link(tt domain.TargetType, id int64) LinkDraft {
-	return LinkDraft{TargetType: tt, TargetID: id, Confidence: ptr(0.9)}
+	return LinkDraft{TargetType: tt, TargetID: changeset.ID(id), Confidence: ptr(0.9)}
 }
 
 func TestValidate(t *testing.T) {
@@ -109,9 +110,9 @@ func TestValidate(t *testing.T) {
 			link(domain.TargetProject, 0),
 			link(domain.TargetMilestone, 1),
 			link("epic", 1),
-			LinkDraft{TargetType: domain.TargetIdea, TargetID: 30, Confidence: ptr(1.5)},
-			LinkDraft{TargetType: domain.TargetIdea, TargetID: 30, Confidence: ptr(math.NaN())},
-			LinkDraft{TargetType: domain.TargetIdea, TargetID: 30},
+			LinkDraft{TargetType: domain.TargetIdea, TargetID: changeset.ID(30), Confidence: ptr(1.5)},
+			LinkDraft{TargetType: domain.TargetIdea, TargetID: changeset.ID(30), Confidence: ptr(math.NaN())},
+			LinkDraft{TargetType: domain.TargetIdea, TargetID: changeset.ID(30)},
 			link(domain.TargetTask, 10),
 			link(domain.TargetTask, 10),
 		)}}, []string{
@@ -126,6 +127,27 @@ func TestValidate(t *testing.T) {
 			"observations[0].links[7].confidence",
 			"observations[0].links[7].target_id", // idea 30 again
 			"observations[0].links[9].target_id", // task 10 again
+		}},
+
+		{"temp links", ExtractionResult{
+			Observations: []ObservationDraft{obs(0, 1,
+				LinkDraft{TargetType: domain.TargetTask, TargetID: changeset.Temp(1), Confidence: ptr(1.0)},
+				LinkDraft{TargetType: domain.TargetIdea, TargetID: changeset.Temp(2), Confidence: ptr(1.0)},
+				LinkDraft{TargetType: domain.TargetTask, TargetID: changeset.Temp(1), Confidence: ptr(0.5)}, // again
+				LinkDraft{TargetType: domain.TargetBlocker, TargetID: changeset.Temp(1), Confidence: ptr(1.0)},
+				LinkDraft{TargetType: domain.TargetTask, TargetID: changeset.Temp(3), Confidence: ptr(1.0)}, // creates nothing
+				LinkDraft{TargetType: domain.TargetTask, TargetID: changeset.Temp(9), Confidence: ptr(1.0)}, // no such op
+			)},
+			Ops: []ChangeOpDraft{
+				opDraft(domain.OpCreateTask, `{"project_id":1,"title":"t"}`),
+				opDraft(domain.OpParkIdea, `{"title":"i"}`),
+				opDraft(domain.OpSetTaskStatus, `{"task_id":"$new:1","status":"done"}`),
+			},
+		}, []string{
+			"observations[0].links[2].target_id",
+			"observations[0].links[3].target_id",
+			"observations[0].links[4].target_id",
+			"observations[0].links[5].target_id",
 		}},
 
 		// ops
@@ -167,6 +189,23 @@ func TestValidate(t *testing.T) {
 	}
 }
 
+// TestValidateMalformedLinkRef checks that a target_id that is neither an ID
+// nor "$new:N" is reported against the link, as model output would send it.
+func TestValidateMalformedLinkRef(t *testing.T) {
+	var res ExtractionResult
+	raw := `{"observations":[{"kind":"note","summary":"s","span_start":0,"span_end":1,"links":[
+		{"target_type":"task","target_id":"$new:x","confidence":1},
+		{"target_type":"task","target_id":"$new:1","confidence":1}]}]}`
+	if err := json.Unmarshal([]byte(raw), &res); err != nil {
+		t.Fatal(err)
+	}
+	got := fields(t, Validate(input(), res))
+	want := []string{"observations[0].links[0].target_id", "observations[0].links[1].target_id"}
+	if !slices.Equal(got, want) {
+		t.Errorf("problems in %v, want %v", got, want)
+	}
+}
+
 // TestValidateReportsEverything checks that one call reports problems from
 // every section, so they can all be fed back to a model at once.
 func TestValidateReportsEverything(t *testing.T) {
@@ -191,7 +230,7 @@ func TestValidateDoesNotEchoText(t *testing.T) {
 	in.Entry.Body = secret
 	res := ExtractionResult{
 		Observations: []ObservationDraft{{Kind: secret, Summary: secret, SpanStart: 0, SpanEnd: 99,
-			Links: []LinkDraft{{TargetType: secret, TargetID: 1}}}},
+			Links: []LinkDraft{{TargetType: secret, TargetID: changeset.ID(1)}}}},
 		Ops: []ChangeOpDraft{
 			opDraft(secret, `{}`),
 			opDraft(domain.OpSetTaskStatus, `{"task_id":"`+secret+`","status":"`+secret+`"}`),

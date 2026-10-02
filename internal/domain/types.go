@@ -107,6 +107,18 @@ type ObservationLink struct {
 	CreatedAt     time.Time
 }
 
+// PendingObservationLink ties an observation to the entity a change op will
+// create ("$new:N" in extractor output). Applying the op turns it into an
+// ObservationLink; rejecting the op drops it.
+type PendingObservationLink struct {
+	ID            int64
+	ObservationID int64
+	ChangeOpID    int64
+	TargetType    TargetType
+	Confidence    float64
+	CreatedAt     time.Time
+}
+
 // Blocker is something preventing progress on a project or task.
 type Blocker struct {
 	ID              int64

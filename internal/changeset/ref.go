@@ -37,9 +37,9 @@ func (r Ref) String() string {
 	return strconv.FormatInt(r.ID, 10)
 }
 
-// problem describes what's wrong with r, or returns "" if it is well formed.
+// Problem describes what's wrong with r, or returns "" if it is well formed.
 // It never echoes the raw value, which may come from model output.
-func (r Ref) problem() string {
+func (r Ref) Problem() string {
 	switch {
 	case r.invalid || r.Temp < 0:
 		return `must be a positive ID or "$new:N"`

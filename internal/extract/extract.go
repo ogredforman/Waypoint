@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/ogredforman/waypoint/internal/changeset"
 	"github.com/ogredforman/waypoint/internal/domain"
 )
 
@@ -45,12 +46,13 @@ type ObservationDraft struct {
 	Links     []LinkDraft            `json:"links,omitempty"`
 }
 
-// LinkDraft ties an observation to an existing row from the snapshot. It can't
-// point at an entity an op creates: observations are stored before the
-// changeset is applied.
+// LinkDraft ties an observation to an existing row from the snapshot, or, with
+// a temp ID ("$new:N"), to the entity the op at position N creates. A temp
+// link is stored pending and becomes a real link when that op is applied; it
+// is dropped if the op is rejected.
 type LinkDraft struct {
 	TargetType domain.TargetType `json:"target_type"`
-	TargetID   int64             `json:"target_id"`
+	TargetID   changeset.Ref     `json:"target_id"`
 	Confidence *float64          `json:"confidence"` // required; a pointer so a missing value isn't read as 0
 }
 

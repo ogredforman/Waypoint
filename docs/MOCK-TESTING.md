@@ -181,9 +181,11 @@ two tasks. Reject the duplicate in review, or delete it on the Project screen.
 - A `done:`/`doing:` line that matches an **existing** task links its observation to that task and
   its project. These links are what build the **Task detail** timeline.
 - Every other observation links to the entry's project (unless that was a no-clue guess).
-- Tasks created by the entry itself can't be linked. Their tie to the entry is `origin_entry`
-  instead, shown at the top of the Task screen. To grow a task's timeline, mention it with
-  `doing:`/`done:` in **later** entries.
+- A `todo:` line, or a `done:`/`doing:` line that creates its task, links its observation to the
+  new task by temp ID (`$new:N`). The link waits on that `create_task` op: applying it makes the
+  link real, so the task's timeline starts with this entry; rejecting it drops the link (the
+  observation stays). This holds even on a no-clue project guess, since the task moves with its op.
+- A `done:`/`doing:` line naming a task created earlier in the same entry links to it the same way.
 
 ### 2.8 Follow-up questions
 
@@ -307,6 +309,8 @@ shows this entry. Then try the edges:
 ### E. Partial apply and split-off
 1. An entry with 4 `todo:` lines. Accept 2, reject 1, leave 1 undecided, Apply.
 2. The undecided op reappears in a new pending changeset under the same entry. Apply it later.
+3. Open each task: the two accepted ones show their `todo:` line; the rejected one was never
+   created, and the split-off one shows its line once applied.
 
 ### F. The active-project cap
 Set `active_project_cap = 1` and restart. Try to create a second active project, change a paused
@@ -401,6 +405,6 @@ material or Stage 2 prompt requirements.
 - `blocked:` can't name a task, so blockers never affect the next action.
 - `done:` on an already-done task creates a duplicate done task.
 - `unblocked:` can't resolve a blocker created earlier in the same entry.
-- Notes never link to tasks, even when they name one; only `done:`/`doing:` do.
+- Notes never link to tasks, even when they name one; only `todo:`/`done:`/`doing:` do.
 - The recap quotes only the first two observations per entry.
 - Reprocess has no button yet.

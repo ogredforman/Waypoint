@@ -39,7 +39,8 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
   `reader`, so both tx types have them; writes (`CreateX`, `UpdateX`, `DeleteX`, `CreateChangeset`,
   `ResolveChangeset`, `SetChangeOpResult`, `MoveChangeOp`, `ClaimNextExtractionRun`,
   `FinishExtractionRun`, `UpsertBriefing`, question answer/dismiss) are on `*Tx`. One file per entity.
-  `ErrNotFound` for missing rows. Entries are insert-only.
+  `ErrNotFound` for missing rows. Entries are insert-only. Pending observation links (to `$new:N`,
+  keyed by change op): `CreatePendingLink`, `ListPendingLinksByOp`, `ResolvePendingLinks`, `DropPendingLinks`.
 - **changeset**: every mutation of projects/tasks/blockers/ideas. `ops.go`: one payload struct per
   op type (`CreateTask`, `UpdateTask`, `SplitTask`, `DeleteTask`, `ParkIdea`, …) implementing
   `Payload`; `DecodePayload`, `ValidateOps`; `Nullable[T]` (`To`, `Clear`) for PATCH-style fields.
@@ -47,11 +48,13 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
   rules (same project, no parent cycles). `apply.go`: `Applier.Apply(ctx, changesetID,
   map[opID]Decision)` → `Result{Changeset, Created, SplitOff, HeldByCap, Projects}`; one
   transaction, full rollback, undecided/capped ops split into a new pending changeset (ADR 0003);
+  resolves pending observation links on applied creating ops, drops them on rejected ones;
   calls `AfterApply.Applied`. `manual.go`: `Applier.ApplyManual(ctx, ops ...Payload)` for
   `source=manual`. `reject.go`: `RejectPending`. `AfterApplies` chains hooks (briefings, then the SSE hub).
 - **extract**: provider-neutral boundary. `Extractor{Extract, Name}`, `ExtractInput` (entry, snapshot, `ReplyTo` question),
   `ExtractionResult` (observations, links, `ChangeOpDraft`s, `QuestionDraft`s), `StateSnapshot`
-  (`Has`), `Validate` (shared validator, `MaxQuestions = 2`).
+  (`Has`), `Validate` (shared validator, `MaxQuestions = 2`). `LinkDraft.TargetID` is a `changeset.Ref`,
+  so a link can name `$new:N`; the worker stores those pending.
   **extract/mock**: deterministic line-prefix extractor (SPEC §10.4), `mock.New(latency)`.
 - **pipeline**: `SnapshotBuilder.Build(ctx, entry)`; `Worker`: `SaveEntry` (entry + pending run in
   one tx), `Reprocess`, `Wake`, `Run(ctx)` (claims runs, extracts, validates, stores result +
@@ -137,7 +140,8 @@ All use a real temp SQLite DB migrated with `db.Migrations()`.
 - `store/store_test.go`: `newTestStore(t) (*Store, *sql.DB, *clock)`, `inTx`, `exec`, `count`,
   `seedProject`, `seedTask`, `seedEntry`, `seedRun`.
 - `changeset/apply_test.go`: `newFixture(t) fixture`, `propose(t, f, runID, ops...)`, `newRun`,
-  `opStatuses`, `taskCount`, `dbSnapshot` (rollback checks). `validate_test.go`: `fields(t, err)`.
+  `opStatuses`, `taskCount`, `dbSnapshot` (rollback checks). `links_test.go`: `observeOps` (pending
+  links to every op's entity), `linkedFrom`, `pendingLinks`. `validate_test.go`: `fields(t, err)`.
 - `pipeline/snapshot_test.go`: `newFixture(t)` with `f.project/task/blocker/idea/entry/observe`.
   `worker_test.go`: `f.worker(extractor, notifier)`, `f.save`, `f.run`, `f.stored`, `processNext`,
   `fakeExtractor`, `events` notifier.

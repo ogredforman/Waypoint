@@ -75,7 +75,7 @@ func observations(body string, res extract.ExtractionResult) []string {
 	for _, o := range res.Observations {
 		s := fmt.Sprintf("%s [%s]", o.Kind, body[o.SpanStart:o.SpanEnd])
 		for _, l := range o.Links {
-			s += fmt.Sprintf(" %s:%d", l.TargetType, l.TargetID)
+			s += fmt.Sprintf(" %s:%s", l.TargetType, l.TargetID)
 		}
 		out = append(out, s)
 	}
@@ -108,7 +108,7 @@ func TestPrefixes(t *testing.T) {
 		{
 			name:    "done with no match creates the task",
 			body:    "done: painted the fence",
-			wantObs: []string{"progress [done: painted the fence] project:1"},
+			wantObs: []string{"progress [done: painted the fence] project:1 task:$new:1"},
 			wantOps: []string{
 				`create_task {"project_id":1,"title":"painted the fence"}`,
 				`set_task_status {"task_id":"$new:1","status":"done"}`,
@@ -128,13 +128,13 @@ func TestPrefixes(t *testing.T) {
 		{
 			name:    "todo",
 			body:    "todo: add the SSE hub",
-			wantObs: []string{"plan [todo: add the SSE hub] project:1"},
+			wantObs: []string{"plan [todo: add the SSE hub] project:1 task:$new:1"},
 			wantOps: []string{`create_task {"project_id":1,"title":"add the SSE hub"}`},
 		},
 		{
 			name:    "todo then doing the same task",
 			body:    "todo: add the SSE hub\ndoing: SSE hub",
-			wantObs: []string{"plan [todo: add the SSE hub] project:1", "progress [doing: SSE hub] project:1"},
+			wantObs: []string{"plan [todo: add the SSE hub] project:1 task:$new:1", "progress [doing: SSE hub] project:1 task:$new:1"},
 			wantOps: []string{
 				`create_task {"project_id":1,"title":"add the SSE hub"}`,
 				`set_task_status {"task_id":"$new:1","status":"in_progress"}`,
@@ -182,7 +182,7 @@ func TestPrefixes(t *testing.T) {
 			name: "bullets, case, indentation, CRLF, and blank lines",
 			body: "  - TODO: first\r\n\r\n* Idea:  second  \r\n",
 			wantObs: []string{
-				"plan [TODO: first] project:1",
+				"plan [TODO: first] project:1 task:$new:1",
 				"idea [Idea:  second] project:1",
 			},
 			wantOps: []string{
@@ -290,7 +290,8 @@ func TestProjectGuess(t *testing.T) {
 }
 
 // TestBlindGuessLinks checks that a project guessed without clues isn't
-// linked from observations: the review UI can move ops, not observations.
+// linked from observations: the review UI can move ops, not observations. New
+// tasks are still linked, since the task moves with its op.
 func TestBlindGuessLinks(t *testing.T) {
 	body := "Long day.\ndone: mock extractor\ntodo: call mom\nsomething else"
 	snap := snapshot()
@@ -299,8 +300,8 @@ func TestBlindGuessLinks(t *testing.T) {
 	res := run(t, snap, 0, body)
 	equal(t, "observations", observations(body, res), []string{
 		"note [Long day.]",
-		"progress [done: mock extractor]",
-		"plan [todo: call mom]",
+		"progress [done: mock extractor] task:$new:1",
+		"plan [todo: call mom] task:$new:3",
 		"note [something else]",
 	})
 }

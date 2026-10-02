@@ -43,6 +43,40 @@ func (q *Queries) CreateObservationLink(ctx context.Context, arg CreateObservati
 	return i, err
 }
 
+const createPendingLink = `-- name: CreatePendingLink :one
+INSERT INTO pending_observation_links (observation_id, change_op_id, target_type, confidence, created_at)
+VALUES (?, ?, ?, ?, ?)
+RETURNING id, observation_id, change_op_id, target_type, confidence, created_at
+`
+
+type CreatePendingLinkParams struct {
+	ObservationID int64
+	ChangeOpID    int64
+	TargetType    string
+	Confidence    float64
+	CreatedAt     int64
+}
+
+func (q *Queries) CreatePendingLink(ctx context.Context, arg CreatePendingLinkParams) (PendingObservationLink, error) {
+	row := q.db.QueryRowContext(ctx, createPendingLink,
+		arg.ObservationID,
+		arg.ChangeOpID,
+		arg.TargetType,
+		arg.Confidence,
+		arg.CreatedAt,
+	)
+	var i PendingObservationLink
+	err := row.Scan(
+		&i.ID,
+		&i.ObservationID,
+		&i.ChangeOpID,
+		&i.TargetType,
+		&i.Confidence,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const deleteLinksByTarget = `-- name: DeleteLinksByTarget :exec
 DELETE FROM observation_links
 WHERE target_type = ? AND target_id = ?
@@ -56,6 +90,16 @@ type DeleteLinksByTargetParams struct {
 // Used when the target is deleted. The observation itself stays.
 func (q *Queries) DeleteLinksByTarget(ctx context.Context, arg DeleteLinksByTargetParams) error {
 	_, err := q.db.ExecContext(ctx, deleteLinksByTarget, arg.TargetType, arg.TargetID)
+	return err
+}
+
+const deletePendingLinksByOp = `-- name: DeletePendingLinksByOp :exec
+DELETE FROM pending_observation_links
+WHERE change_op_id = ?
+`
+
+func (q *Queries) DeletePendingLinksByOp(ctx context.Context, changeOpID int64) error {
+	_, err := q.db.ExecContext(ctx, deletePendingLinksByOp, changeOpID)
 	return err
 }
 
@@ -120,6 +164,42 @@ func (q *Queries) ListLinksByTarget(ctx context.Context, arg ListLinksByTargetPa
 			&i.ObservationID,
 			&i.TargetType,
 			&i.TargetID,
+			&i.Confidence,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPendingLinksByOp = `-- name: ListPendingLinksByOp :many
+SELECT id, observation_id, change_op_id, target_type, confidence, created_at FROM pending_observation_links
+WHERE change_op_id = ?
+ORDER BY id
+`
+
+func (q *Queries) ListPendingLinksByOp(ctx context.Context, changeOpID int64) ([]PendingObservationLink, error) {
+	rows, err := q.db.QueryContext(ctx, listPendingLinksByOp, changeOpID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []PendingObservationLink{}
+	for rows.Next() {
+		var i PendingObservationLink
+		if err := rows.Scan(
+			&i.ID,
+			&i.ObservationID,
+			&i.ChangeOpID,
+			&i.TargetType,
 			&i.Confidence,
 			&i.CreatedAt,
 		); err != nil {

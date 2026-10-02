@@ -290,11 +290,16 @@ func TestE2ECoreLoop(t *testing.T) {
 		t.Errorf("parked ideas = %+v", ideas)
 	}
 
-	// Every task shows the entry it came from.
+	// Every task shows the entry it came from, and the "todo:" line's plan
+	// observation, linked when the changeset was applied.
 	for _, task := range tasks {
 		td := send[apitypes.TaskDetail](a, http.StatusOK, "GET", fmt.Sprintf("/api/tasks/%d", task.ID), nil)
 		if td.OriginEntry == nil || td.OriginEntry.ID != created.Entry.ID || td.OriginEntry.Body != body {
 			t.Errorf("task %q origin = %+v, want entry %d", task.Title, td.OriginEntry, created.Entry.ID)
+		}
+		if len(td.Observations) != 1 || td.Observations[0].Kind != domain.ObservationPlan ||
+			td.Observations[0].Quote != "todo: "+task.Title {
+			t.Errorf("task %q observations = %+v, want its todo line", task.Title, td.Observations)
 		}
 	}
 

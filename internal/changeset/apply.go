@@ -175,6 +175,11 @@ func (a *Applier) apply(ctx context.Context, tx *store.Tx, id int64, decisions m
 			if _, err := tx.SetChangeOpResult(ctx, op.ID, domain.OpRejected, nil); err != nil {
 				return Result{}, fmt.Errorf("apply changeset %d: %w", id, err)
 			}
+			// What the op would have created never exists, so observation
+			// links waiting on it go.
+			if err := tx.DropPendingLinks(ctx, op.ID); err != nil {
+				return Result{}, fmt.Errorf("apply changeset %d: %w", id, err)
+			}
 			rejected++
 			continue
 		}
@@ -209,6 +214,12 @@ func (a *Applier) apply(ctx context.Context, tx *store.Tx, id int64, decisions m
 		}
 		if _, err := tx.SetChangeOpResult(ctx, op.ID, status, appliedPayload); err != nil {
 			return Result{}, fmt.Errorf("apply changeset %d: %w", id, err)
+		}
+		// Observation links waiting on this op now point at what it created.
+		if _, ok := p.Creates(); ok {
+			if err := tx.ResolvePendingLinks(ctx, op.ID, w.ids[op.Position]); err != nil {
+				return Result{}, fmt.Errorf("apply changeset %d: %w", id, err)
+			}
 		}
 		applied++
 	}

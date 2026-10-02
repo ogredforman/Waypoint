@@ -164,6 +164,15 @@ func (l ObservationLink) Validate() error {
 	return c.err("observation link")
 }
 
+func (l PendingObservationLink) Validate() error {
+	var c checker
+	c.ref("observation_id", l.ObservationID)
+	c.ref("change_op_id", l.ChangeOpID)
+	c.enum("target_type", l.TargetType.Valid())
+	c.confidence("confidence", l.Confidence)
+	return c.err("pending observation link")
+}
+
 func (b Blocker) Validate() error {
 	var c checker
 	c.ref("project_id", b.ProjectID)

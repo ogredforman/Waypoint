@@ -34,7 +34,7 @@ func TestRefJSON(t *testing.T) {
 			if err := json.Unmarshal([]byte(tt.in), &r); err != nil {
 				t.Fatalf("unmarshal: %v", err)
 			}
-			if got := r.problem(); got != tt.problem {
+			if got := r.Problem(); got != tt.problem {
 				t.Errorf("problem %q, want %q", got, tt.problem)
 			}
 			if tt.problem != "" {

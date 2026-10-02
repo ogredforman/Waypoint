@@ -325,7 +325,7 @@ func (p UpdateTask) Validate() error {
 	if p.Position != nil && *p.Position < 0 {
 		c.add("position", "must not be negative, got %d", *p.Position)
 	}
-	if v := p.ParentTaskID.Value; v != nil && v.problem() == "" && *v == p.TaskID {
+	if v := p.ParentTaskID.Value; v != nil && v.Problem() == "" && *v == p.TaskID {
 		c.add("parent_task_id", "a task can't be its own parent")
 	}
 	if p.Title == nil && p.Notes == nil && !p.Size.Set && !p.Energy.Set &&
@@ -360,7 +360,7 @@ func (p SplitTask) Validate() error {
 func (p AddDependency) Validate() error {
 	var c checker
 	c.refs(p.refs())
-	if p.TaskID.problem() == "" && p.TaskID == p.BlockedByTaskID {
+	if p.TaskID.Problem() == "" && p.TaskID == p.BlockedByTaskID {
 		c.add("blocked_by_task_id", "a task can't block itself")
 	}
 	return c.err(p.OpType())

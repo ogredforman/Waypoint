@@ -380,41 +380,8 @@ func (w *Worker) saveSnapshot(ctx context.Context, runID int64, snap extract.Sta
 func (w *Worker) storeResult(ctx context.Context, run domain.ExtractionRun, res extract.ExtractionResult, raw json.RawMessage, latency int64) (int64, error) {
 	var csID int64
 	err := w.store.InTx(ctx, func(tx *store.Tx) error {
-		for _, o := range res.Observations {
-			obs, err := tx.CreateObservation(ctx, domain.Observation{
-				EntryID:         run.EntryID,
-				ExtractionRunID: run.ID,
-				Kind:            o.Kind,
-				Summary:         o.Summary,
-				SpanStart:       o.SpanStart,
-				SpanEnd:         o.SpanEnd,
-			})
-			if err != nil {
-				return err
-			}
-			for _, l := range o.Links {
-				// Validate checked the target against the snapshot, but it may
-				// have been deleted while the extractor ran. The observation
-				// still stands; only the link to the gone row is dropped.
-				exists, err := targetExists(ctx, tx, l.TargetType, l.TargetID)
-				if err != nil {
-					return err
-				}
-				if !exists {
-					continue
-				}
-				// Validate checked that the confidence is set.
-				if _, err := tx.CreateObservationLink(ctx, domain.ObservationLink{
-					ObservationID: obs.ID,
-					TargetType:    l.TargetType,
-					TargetID:      l.TargetID,
-					Confidence:    *l.Confidence,
-				}); err != nil {
-					return err
-				}
-			}
-		}
-
+		// The changeset goes first: temp links name its ops by ID.
+		var opIDs []int64 // by position - 1
 		if len(res.Ops) > 0 {
 			ops := make([]domain.ChangeOp, len(res.Ops))
 			for i, d := range res.Ops {
@@ -429,7 +396,7 @@ func (w *Worker) storeResult(ctx context.Context, run domain.ExtractionRun, res 
 					ops[i].Rationale = &d.Rationale
 				}
 			}
-			cs, _, err := tx.CreateChangeset(ctx, domain.Changeset{
+			cs, created, err := tx.CreateChangeset(ctx, domain.Changeset{
 				Source:          domain.SourceExtraction,
 				ExtractionRunID: &run.ID,
 				Status:          domain.ChangesetPending,
@@ -438,6 +405,57 @@ func (w *Worker) storeResult(ctx context.Context, run domain.ExtractionRun, res 
 				return err
 			}
 			csID = cs.ID
+			for _, op := range created {
+				opIDs = append(opIDs, op.ID)
+			}
+		}
+
+		for _, o := range res.Observations {
+			obs, err := tx.CreateObservation(ctx, domain.Observation{
+				EntryID:         run.EntryID,
+				ExtractionRunID: run.ID,
+				Kind:            o.Kind,
+				Summary:         o.Summary,
+				SpanStart:       o.SpanStart,
+				SpanEnd:         o.SpanEnd,
+			})
+			if err != nil {
+				return err
+			}
+			for _, l := range o.Links {
+				// Validate checked that the confidence is set, and that a
+				// temp ref names an op creating this kind of entity. The link
+				// waits on that op until it is applied or rejected.
+				if l.TargetID.IsTemp() {
+					if _, err := tx.CreatePendingLink(ctx, domain.PendingObservationLink{
+						ObservationID: obs.ID,
+						ChangeOpID:    opIDs[l.TargetID.Temp-1],
+						TargetType:    l.TargetType,
+						Confidence:    *l.Confidence,
+					}); err != nil {
+						return err
+					}
+					continue
+				}
+				// Validate checked the target against the snapshot, but it may
+				// have been deleted while the extractor ran. The observation
+				// still stands; only the link to the gone row is dropped.
+				exists, err := targetExists(ctx, tx, l.TargetType, l.TargetID.ID)
+				if err != nil {
+					return err
+				}
+				if !exists {
+					continue
+				}
+				if _, err := tx.CreateObservationLink(ctx, domain.ObservationLink{
+					ObservationID: obs.ID,
+					TargetType:    l.TargetType,
+					TargetID:      l.TargetID.ID,
+					Confidence:    *l.Confidence,
+				}); err != nil {
+					return err
+				}
+			}
 		}
 
 		for _, q := range res.Questions {
