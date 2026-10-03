@@ -153,7 +153,7 @@ pieces. Tests sit next to the code as `*.test.ts`.
   (sets `data-theme` and overrides `--font-sans`/`--font-diary` on `<html>`), `restoreTheme` (called first in `main.ts`; the theme last shown,
   `localStorage` `waypoint.theme`, against a flash on load), `setAppearance` (after a save), `loadAppearance` (called by
   `ProfileWorkspace` on mount, so on every profile switch). Settings' Appearance section: `components/AppearanceSettings.svelte`
-  (own form and Save; theme swatches each carry their own `data-theme`; previews before saving). Diary text uses the `font-diary` utility. Tests: `lib/appearance.test.ts`,
+  (each choice applies at once and saves straight away, one save at a time, later choices coalesced; a failed save reverts to the last saved choice; theme swatches each carry their own `data-theme`). Diary text uses the `font-diary` utility. Tests: `lib/appearance.test.ts`,
   `components/AppearanceSettings.test.ts`.
 - Theme: named tokens in `app.css` `@theme inline`, each reading a variable that the `[data-theme='…']` blocks set (Midnight is also `:root`),
   so anything with `data-theme` shows that theme (`canvas`/`surface`/`raised`/`line`, `ink`/`ink-muted`/

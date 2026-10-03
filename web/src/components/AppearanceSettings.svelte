@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte'
   import { updateSettings } from '../lib/api/client'
   import type { Settings } from '../lib/api/types.gen'
   import {
@@ -12,50 +13,59 @@
     type Appearance,
   } from '../lib/appearance'
   import { profiles } from '../lib/profile.svelte'
-  import { fieldProblems, type FieldProblems } from '../lib/settings'
-  import Button from './ui/Button.svelte'
   import Panel from './ui/Panel.svelte'
 
   // The Appearance section of Settings: the profile's theme, shown as swatches
-  // in each theme's own colours, and its fonts, each with a preview that
-  // follows the choices (theme included) before they're saved. Saving applies
-  // them to the whole app.
+  // in each theme's own colours, and its fonts, each with a preview. A choice
+  // applies to the whole app at once and is saved straight away; a failed save
+  // puts the last saved choice back.
   let { settings, onsaved }: { settings: Settings; onsaved: (s: Settings) => void } = $props()
 
-  // Starts from the saved settings; after that, the form is only reset by a save here.
+  // Starts from the saved settings; after that, only choices and saves here change it.
   // svelte-ignore state_referenced_locally
   let form = $state<Appearance>(appearanceForm(settings))
-  let saving = $state(false)
+  // The appearance the server last confirmed.
+  // svelte-ignore state_referenced_locally
+  let committed = appearanceForm(settings)
+  let saving = false
   let notice = $state('')
-  let problems = $state<FieldProblems>({})
+  // After Settings closes (or the profile switches), a save that answers late
+  // must not touch the page: another profile's appearance may be on it by then.
+  let destroyed = false
+  onDestroy(() => (destroyed = true))
 
-  const changed = $derived(appearancePatch(settings, form) !== null)
-  // A failed save explains itself in one line; the fields have no messages of their own.
-  const message = $derived(Object.values(problems).join(' ') || notice)
-
-  async function save(e: SubmitEvent) {
-    e.preventDefault()
-    const patch = appearancePatch(settings, form)
-    if (!patch || saving) return
-    saving = true
+  function choose(change: Partial<Appearance>) {
+    form = { ...form, ...change }
     notice = ''
-    problems = {}
+    setAppearance(form)
+    void persist()
+  }
+
+  // persist runs one save at a time, so quick choices can't land out of order;
+  // whatever was chosen while a save was in flight goes in the next one.
+  async function persist() {
+    if (saving) return
+    saving = true
     try {
-      const saved = await updateSettings(patch)
-      setAppearance(saved)
-      form = appearanceForm(saved)
-      onsaved(saved)
-      notice = 'Saved.'
-    } catch (err) {
-      problems = fieldProblems(err)
+      let patch: ReturnType<typeof appearancePatch>
+      while (!destroyed && (patch = appearancePatch(committed, form))) {
+        try {
+          const saved = await updateSettings(patch)
+          if (destroyed) return
+          committed = appearanceForm(saved)
+          onsaved(saved)
+          notice = 'Saved.'
+        } catch {
+          if (destroyed) return
+          form = { ...committed }
+          setAppearance(committed)
+          notice = "Couldn't save that, so the previous choice is back."
+          return
+        }
+      }
     } finally {
       saving = false
     }
-  }
-
-  function edited() {
-    notice = ''
-    problems = {}
   }
 </script>
 
@@ -67,7 +77,7 @@
     {/if}
   </div>
   <Panel>
-    <form class="space-y-6 p-5" onsubmit={save} onchange={edited} novalidate>
+    <div class="space-y-6 p-5">
       <fieldset>
         <legend class="text-sm font-medium text-ink">Theme</legend>
         <p class="text-sm text-ink-muted">Colours for the whole app.</p>
@@ -77,7 +87,14 @@
               class="flex cursor-pointer flex-col gap-2 rounded-card border border-line p-3 has-checked:border-accent has-checked:shadow-focus"
             >
               <span class="flex items-center gap-2 text-sm text-ink">
-                <input type="radio" name="theme" value={choice.value} bind:group={form.theme} class="accent-accent" />
+                <input
+                  type="radio"
+                  name="theme"
+                  value={choice.value}
+                  checked={form.theme === choice.value}
+                  onchange={() => choose({ theme: choice.value })}
+                  class="accent-accent"
+                />
                 <span class="font-medium">{choice.label}</span>
                 <span class="text-ink-muted">{choice.mode}</span>
               </span>
@@ -110,7 +127,14 @@
         <div class="mt-2 grid gap-1 sm:grid-cols-2">
           {#each interfaceFontChoices as choice (choice.value)}
             <label class="flex items-center gap-2 text-sm text-ink">
-              <input type="radio" name="interface-font" value={choice.value} bind:group={form.interface_font} class="accent-accent" />
+              <input
+                type="radio"
+                name="interface-font"
+                value={choice.value}
+                checked={form.interface_font === choice.value}
+                onchange={() => choose({ interface_font: choice.value })}
+                class="accent-accent"
+              />
               <span style:font-family={choice.stack}>{choice.label}</span>
             </label>
           {/each}
@@ -136,7 +160,14 @@
         <div class="mt-2 grid gap-1 sm:grid-cols-2">
           {#each diaryFontChoices as choice (choice.value)}
             <label class="flex items-center gap-2 text-sm text-ink">
-              <input type="radio" name="diary-font" value={choice.value} bind:group={form.diary_font} class="accent-accent" />
+              <input
+                type="radio"
+                name="diary-font"
+                value={choice.value}
+                checked={form.diary_font === choice.value}
+                onchange={() => choose({ diary_font: choice.value })}
+                class="accent-accent"
+              />
               <span style:font-family={choice.stack}>{choice.label}</span>
               {#if choice.value === 'literata'}<span class="text-ink-muted">(serif)</span>{/if}
             </label>
@@ -155,10 +186,7 @@
         </p>
       </fieldset>
 
-      <div class="flex items-center gap-3">
-        <Button type="submit" disabled={!changed || saving}>{saving ? 'Saving…' : 'Save'}</Button>
-        <p class="text-sm text-ink-muted" aria-live="polite">{message}</p>
-      </div>
-    </form>
+      <p class="min-h-5 text-sm text-ink-muted" aria-live="polite">{notice}</p>
+    </div>
   </Panel>
 </section>

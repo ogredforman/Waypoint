@@ -122,7 +122,7 @@ Tasks:
 ### 1.5C. Appearance
 - [x] **1.5.10** Fonts bundled with the app (`@fontsource`, no external CDN). Two separate per-profile settings, each with a live preview in Settings: an **interface font** (Inter, Geist, Manrope, IBM Plex Sans, Atkinson Hyperlegible Next) and a **diary font** (the same five plus Literata, a serif, as the default).
 - [x] **1.5.11** Themes, per profile, chosen in Settings with preview swatches. Dark: **Midnight** (the current purple) and **Forest** (deep green, teal accent). Light: **Paper** (warm off-white, indigo accent), **Sage** (soft green), and **Dawn** (cream, amber accent). Every theme meets WCAG AA text contrast, and no accent is near the `danger` red. A new profile copies the current profile's appearance.
-- [ ] **1.5.11b** Appearance applies instantly: choosing a theme or font in Settings applies it to the whole app and saves it at once, with no Save button. A failed save puts the previous choice back and says so in one line.
+- [x] **1.5.11b** Appearance applies instantly: choosing a theme or font in Settings applies it to the whole app and saves it at once, with no Save button. A failed save puts the previous choice back and says so in one line.
 
 ### 1.5D. Organising and deleting
 - [ ] **1.5.12** Archive projects (ADR): an `archived` project status that hides the project from the Now screen, lists, project pickers, and the extraction snapshot. An "Archived" group on the Projects screen restores a project to `parked`. Update SPEC §6.
