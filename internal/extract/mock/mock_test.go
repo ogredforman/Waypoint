@@ -421,6 +421,64 @@ func TestReplyDoesNotRepeatQuestion(t *testing.T) {
 	}
 }
 
+func TestReplyToNextStepProposesTasks(t *testing.T) {
+	const stalledQ = `Is anything in the way of "Write the mock extractor"?`
+	for _, tt := range []struct {
+		name    string
+		replyTo string
+		project int64
+		body    string
+		wantObs []string
+		wantOps []string
+	}{
+		{
+			name: "plain lines become tasks", replyTo: "What's the next step?", project: 1,
+			body: "write the README\n- add a logo\nfeel: relieved",
+			wantObs: []string{
+				"plan [write the README] project:1 task:$new:1",
+				"plan [add a logo] project:1 task:$new:2",
+				"feeling [feel: relieved] project:1",
+			},
+			wantOps: []string{
+				`create_task {"project_id":1,"title":"write the README"}`,
+				`create_task {"project_id":1,"title":"add a logo"}`,
+			},
+		},
+		{
+			name: "a reply to another question stays a note", replyTo: stalledQ, project: 1,
+			body:    "write the README",
+			wantObs: []string{"note [write the README] project:1"},
+		},
+		{
+			name: "no project to put the task in", replyTo: "What's the next step?",
+			body:    "write the README",
+			wantObs: []string{"note [write the README]"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			snap := snapshot()
+			if tt.project == 0 {
+				snap.Projects = nil
+			}
+			in := extract.ExtractInput{Entry: domain.Entry{ID: 2, Body: tt.body}, Snapshot: snap}
+			if tt.project != 0 {
+				in.Entry.ProjectID = &tt.project
+			}
+			in.Entry.ReplyToQuestionID = ptr(int64(1))
+			in.ReplyTo = &domain.FollowUpQuestion{ID: 1, EntryID: 1, Text: tt.replyTo}
+			res, err := New(0).Extract(context.Background(), in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := extract.Validate(in, res); err != nil {
+				t.Fatalf("result fails validation: %v", err)
+			}
+			equal(t, "observations", observations(tt.body, res), tt.wantObs)
+			equal(t, "ops", ops(res), tt.wantOps)
+		})
+	}
+}
+
 func TestDeterministic(t *testing.T) {
 	body := "done: mock\ntodo: a\nblocked: b\nidea: c\nunblocked: driver\nfeel: ok"
 	first := run(t, snapshot(), 0, body)

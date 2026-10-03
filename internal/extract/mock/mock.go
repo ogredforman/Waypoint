@@ -181,6 +181,15 @@ type builder struct {
 
 func newBuilder(in extract.ExtractInput) *builder {
 	b := &builder{in: in, lines: splitLines(in.Entry.Body), touched: map[int64]bool{}}
+	// A reply to "What's the next step?" names next steps, so its plain lines
+	// are read as todo: lines.
+	if repliesTo(in, nextStepQuestion) {
+		for i := range b.lines {
+			if b.lines[i].prefix == prefixNone {
+				b.lines[i].prefix = prefixTodo
+			}
+		}
+	}
 	for _, p := range in.Snapshot.Projects {
 		for _, t := range p.Tasks {
 			b.tasks = append(b.tasks, &taskCandidate{ref: changeset.ID(t.ID), projectID: p.ID, title: t.Title, status: t.Status})
@@ -466,7 +475,7 @@ func (b *builder) questions() {
 		return l.prefix == prefixTodo || l.prefix == prefixDoing
 	})
 	if !hasNext {
-		b.ask("What's the next step?", "The entry doesn't name a next step.")
+		b.ask(nextStepQuestion, "The entry doesn't name a next step.")
 	}
 	hasBlocker := slices.ContainsFunc(b.lines, func(l line) bool { return l.prefix == prefixBlocked })
 	if t, ok := b.stalledTask(); ok && !hasBlocker {
@@ -475,10 +484,19 @@ func (b *builder) questions() {
 	}
 }
 
+// nextStepQuestion is asked when an entry names no next step.
+const nextStepQuestion = "What's the next step?"
+
+// repliesTo reports whether the entry answers the question with this text.
+func repliesTo(in extract.ExtractInput, question string) bool {
+	r := in.ReplyTo
+	return r != nil && strings.EqualFold(strings.TrimSpace(r.Text), question)
+}
+
 // ask adds a question unless the cap is reached or the entry is a reply to
 // the same question: answering it shouldn't raise it again under the reply.
 func (b *builder) ask(text, reason string) {
-	if r := b.in.ReplyTo; r != nil && strings.EqualFold(strings.TrimSpace(r.Text), text) {
+	if repliesTo(b.in, text) {
 		return
 	}
 	if len(b.res.Questions) < extract.MaxQuestions {

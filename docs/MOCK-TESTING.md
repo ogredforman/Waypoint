@@ -205,7 +205,9 @@ At most 2 per entry (`extract.MaxQuestions`, enforced by the shared validator):
 **Answering** a question in the diary writes a new entry with `reply_to_question_id` set. That entry
 is extracted like any other (prefix lines in your answer work), marks the question answered, and is
 never asked the *same* question again. A reply with no `todo:`/`doing:` won't be asked "What's the
-next step?" a second time. **Dismissing** just closes the question.
+next step?" a second time. In a reply to "What's the next step?", each plain line (no prefix) counts as
+a `todo:` line: answering "write the README" proposes that task. Replies to other questions keep plain
+lines as notes. **Dismissing** just closes the question.
 
 ### 2.9 Confidence cheat sheet
 
@@ -295,7 +297,9 @@ shows this entry. Then try the edges:
 ### C. Questions
 - `feel: tired today` → "What's the next step?". Answer with `todo: buy screws`. The reply makes a
   task and isn't asked the same question again.
-- Answer another one with plain prose ("not sure yet"). Still no repeat.
+- Answer "What's the next step?" with plain lines (`write the README`, `add a logo`): each becomes a
+  proposed task. Apply, and the Project screen's Next card shows one of them.
+- Answer the stalled question with plain prose ("not sure yet"). It stays a note, and isn't asked again.
 - Stalled question: needs a task `in_progress` for 3+ days. Wait, or backdate it (section 6).
 
 ### D. Unscoped guessing

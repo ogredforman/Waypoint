@@ -1,4 +1,5 @@
 import type {
+  Briefing,
   CreateProfileRequest,
   ErrorBody,
   FieldProblem,
@@ -115,6 +116,11 @@ export function listProjectObservations(
   if (opts.limit !== undefined) q.set('limit', String(opts.limit))
   const query = q.size > 0 ? `?${q}` : ''
   return getJSON<ProjectObservations>(`/api/projects/${projectId}/observations${query}`, fetchFn)
+}
+
+// getBriefing is a project's cached briefing: its one next action and the context around it.
+export function getBriefing(projectId: number, fetchFn?: typeof fetch): Promise<Briefing> {
+  return getJSON<Briefing>(`/api/projects/${projectId}/briefing`, fetchFn)
 }
 
 export function getSettings(fetchFn?: typeof fetch): Promise<Settings> {

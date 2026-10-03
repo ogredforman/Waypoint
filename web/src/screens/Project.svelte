@@ -5,6 +5,7 @@
   import ProjectDiary from '../components/ProjectDiary.svelte'
   import ProjectHeader from '../components/ProjectHeader.svelte'
   import ProjectIdeas from '../components/ProjectIdeas.svelte'
+  import ProjectNext from '../components/ProjectNext.svelte'
   import ProjectStatus from '../components/ProjectStatus.svelte'
   import ProjectTasks from '../components/ProjectTasks.svelte'
   import { ApiError, getJSON } from '../lib/api/client'
@@ -92,6 +93,7 @@
   {:else}
     <ProjectHeader {project} onsaved={updated} />
     <ProjectStatus {project} {activeCount} {cap} onchanged={updated} />
+    <ProjectNext projectId={project.id} />
     {#key tasksVersion}<ProjectTasks projectId={project.id} />{/key}
     <ProjectBlockers projectId={project.id} />
     <ProjectIdeas
