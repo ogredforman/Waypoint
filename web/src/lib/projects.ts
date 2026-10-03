@@ -12,6 +12,7 @@ const groupOrder: { status: ProjectStatus; label: string }[] = [
   { status: 'paused', label: 'Paused' },
   { status: 'parked', label: 'Parked' },
   { status: 'done', label: 'Done' },
+  { status: 'archived', label: 'Archived' },
 ]
 
 // groupByStatus sorts projects into the Projects screen's sections, active
@@ -20,6 +21,13 @@ export function groupByStatus(projects: Project[]): ProjectGroup[] {
   return groupOrder
     .map(({ status, label }) => ({ status, label, projects: projects.filter((p) => p.status === status) }))
     .filter((g) => g.projects.length > 0)
+}
+
+// pickable reports whether a project belongs in a project picker (diary
+// scope, review, promote targets). Done and archived projects are left out,
+// unless it's the one already chosen (keep).
+export function pickable(p: Project, keep: number | null = null): boolean {
+  return (p.status !== 'done' && p.status !== 'archived') || p.id === keep
 }
 
 export function countActive(projects: Project[]): number {

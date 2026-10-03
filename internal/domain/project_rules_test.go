@@ -38,7 +38,7 @@ func TestCheckProjectStatusChange(t *testing.T) {
 }
 
 func TestCheckProjectStatusChangeInvalid(t *testing.T) {
-	err := CheckProjectStatusChange("archived", "gone", 0, 3)
+	err := CheckProjectStatusChange("abandoned", "gone", 0, 3)
 	if got := fields(t, err); !slices.Equal(got, []string{"from", "to"}) {
 		t.Errorf("problem fields %v, want [from to]", got)
 	}

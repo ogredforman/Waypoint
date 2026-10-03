@@ -54,7 +54,7 @@ func TestEnumValid(t *testing.T) {
 		bad    bool
 		values int
 	}{
-		{"ProjectStatus", ProjectParked.Valid(), ProjectStatus("archived").Valid(), len(ProjectStatuses())},
+		{"ProjectStatus", ProjectParked.Valid(), ProjectStatus("abandoned").Valid(), len(ProjectStatuses())},
 		{"MilestoneStatus", MilestoneDropped.Valid(), MilestoneStatus("late").Valid(), len(MilestoneStatuses())},
 		{"TaskStatus", TaskInProgress.Valid(), TaskStatus("overdue").Valid(), len(TaskStatuses())},
 		{"TaskSize", SizeXS.Valid(), TaskSize("xl").Valid(), len(TaskSizes())},
@@ -90,7 +90,7 @@ func TestEnumValid(t *testing.T) {
 }
 
 func TestValidationErrorMessage(t *testing.T) {
-	err := Project{Title: " ", Status: "archived"}.Validate()
+	err := Project{Title: " ", Status: "abandoned"}.Validate()
 	want := `invalid project: title: is required; status: is not an allowed value`
 	if err == nil || err.Error() != want {
 		t.Errorf("got %v, want %q", err, want)
@@ -102,7 +102,7 @@ func TestProjectValidate(t *testing.T) {
 	blank := ok
 	blank.Title = "\t\n"
 	bad := ok
-	bad.Status = "archived"
+	bad.Status = "abandoned"
 	runValidate(t, []validateCase{
 		{"valid", ok, nil},
 		{"blank title", blank, []string{"title"}},

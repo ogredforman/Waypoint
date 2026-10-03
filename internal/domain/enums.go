@@ -7,18 +7,21 @@ import "slices"
 // test in internal/db fails if the two drift apart.
 
 // ProjectStatus is the lifecycle state of a project. Only active projects count
-// toward the active-project cap.
+// toward the active-project cap. Archived projects are kept for the record but
+// hidden from the Now screen, lists, pickers, and the extraction snapshot
+// (ADR 0006).
 type ProjectStatus string
 
 const (
-	ProjectActive ProjectStatus = "active"
-	ProjectPaused ProjectStatus = "paused"
-	ProjectParked ProjectStatus = "parked"
-	ProjectDone   ProjectStatus = "done"
+	ProjectActive   ProjectStatus = "active"
+	ProjectPaused   ProjectStatus = "paused"
+	ProjectParked   ProjectStatus = "parked"
+	ProjectDone     ProjectStatus = "done"
+	ProjectArchived ProjectStatus = "archived"
 )
 
 func ProjectStatuses() []ProjectStatus {
-	return []ProjectStatus{ProjectActive, ProjectPaused, ProjectParked, ProjectDone}
+	return []ProjectStatus{ProjectActive, ProjectPaused, ProjectParked, ProjectDone, ProjectArchived}
 }
 
 func (s ProjectStatus) Valid() bool { return slices.Contains(ProjectStatuses(), s) }

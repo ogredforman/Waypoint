@@ -58,7 +58,7 @@ These are requirements, not suggestions. Agents should treat violations as bugs.
 
 | Entity | Purpose | Key fields |
 |---|---|---|
-| **Project** | A goal the user is pursuing | `title`, `why` (motivation), `definition_of_done`, `status` (active / paused / parked / done), timestamps |
+| **Project** | A goal the user is pursuing | `title`, `why` (motivation), `definition_of_done`, `status` (active / paused / parked / done / archived), timestamps. An archived project is kept for the record but hidden from the Now screen, lists, project pickers, and the extraction snapshot ([ADR 0006](./adr/0006-archived-projects.md)) |
 | **Milestone** | *Post-MVP.* An outcome-shaped chunk of a project | `project_id`, `title`, `description`, `status` (open / done / dropped), `position` |
 | **Task** | A concrete action the user does | `project_id`, `milestone_id?`, `parent_task_id?`, `title`, `notes`, `status` (todo / in_progress / done / dropped), `size?` (xs / s / m / l), `energy?` (low / medium / deep), `position`, `origin_entry_id?`, timestamps |
 | **Task dependency** | One task blocks another | `task_id`, `blocked_by_task_id` |
@@ -109,7 +109,7 @@ References to entities created earlier in the same changeset use temporary IDs: 
 
 Beyond the shape, ops are checked against the current state just before they are applied: referenced rows exist, a parent task or a blocker's task is in the same project, a dependency's tasks are in the same project, and a new parent doesn't create a parent-task cycle.
 
-Deleting removes the row for good ([ADR 0002](./adr/0002-deleting-tasks-blockers-ideas.md)); the softer option is a status (dropped, resolved, discarded). Deleting a task makes its subtasks top-level, removes its dependencies, keeps its blockers on the project without a task, clears it from briefings, and removes observation links to it. Deleting a blocker or idea removes the links to it. Observations and entries are never deleted. Projects can't be deleted, because entries reference them; they are parked or marked done instead. The applier records the deleted row in the op's `applied_payload`.
+Deleting removes the row for good ([ADR 0002](./adr/0002-deleting-tasks-blockers-ideas.md)); the softer option is a status (dropped, resolved, discarded). Deleting a task makes its subtasks top-level, removes its dependencies, keeps its blockers on the project without a task, clears it from briefings, and removes observation links to it. Deleting a blocker or idea removes the links to it. Observations and entries are never deleted. Projects can't be deleted, because entries reference them; they are parked, marked done, or archived instead. The applier records the deleted row in the op's `applied_payload`.
 
 ### 6.3 Relationships (overview)
 
@@ -140,7 +140,7 @@ profile; the database from before profiles became the one named "Personal". See
 
 1. **Write.** The user submits an entry, optionally scoped to a project (default: "auto").
 2. **Persist.** The entry is stored immediately and the UI returns. Processing is asynchronous.
-3. **Snapshot.** Build a compact state snapshot: active projects, plus the entry's project whatever its status; their open tasks (id, title, status); open blockers; parked ideas (titles only); and the observation summaries of the last N entries written before this one, from the entry's project or, for an unscoped entry, from any project. N is `snapshot_recent_entries` in `config.toml` (default 5; 0 for none).
+3. **Snapshot.** Build a compact state snapshot: active projects, plus the entry's project whatever its status (even archived, so reading an old entry again still works); their open tasks (id, title, status); open blockers; parked ideas (titles only); and the observation summaries of the last N entries written before this one, from the entry's project or, for an unscoped entry, from any project. N is `snapshot_recent_entries` in `config.toml` (default 5; 0 for none).
 4. **Extract.** Call the configured `Extractor` with (entry, snapshot). It returns a validated `ExtractionResult`:
    - `observations[]`: kind, summary, text span, links[] with confidence. A link names a row in the snapshot, or `"$new:N"` for the entity the op at position N creates (that op must create that kind of entity)
    - `ops[]`: proposed change ops with rationale and confidence
@@ -188,6 +188,7 @@ Requirements are tagged by the stage in which they're first needed: **[P]** Prot
 **Projects**
 - [P] Create, view, edit, and change status of projects.
 - [P] Enforce the active-project cap (a setting, default 3). Any project status can change to any other; the cap only stops a project from *becoming* active when the cap is reached. Projects already active stay active if the cap is lowered. A manually created project may start active (if there is room) or parked; a project proposed by extraction (`create_project`) is always parked (§6.2).
+- [P] Archive a project (status `archived`) to put it out of sight: it leaves the Now screen, the Parking lot, the project pickers (diary scope, review, promote targets; still shown when it is the one already chosen), and the extraction snapshot. The Projects screen lists archived projects last, under "Archived", each with **Restore**, which makes it parked again.
 - [L] Milestones.
 
 **Tasks**

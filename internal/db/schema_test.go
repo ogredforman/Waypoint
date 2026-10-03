@@ -109,8 +109,8 @@ func TestCoreSchema(t *testing.T) {
 	if err := sqlDB.QueryRowContext(ctx, "SELECT max(version_id) FROM goose_db_version").Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != 10 {
-		t.Errorf("schema version %d, want 10", version)
+	if version != 11 {
+		t.Errorf("schema version %d, want 11", version)
 	}
 	if got := appTables(t, sqlDB); !slices.Equal(got, coreTables) {
 		t.Errorf("tables %v, want %v", got, coreTables)
@@ -151,7 +151,7 @@ func TestCoreSchemaRejects(t *testing.T) {
 		query string
 	}{
 		{"entry body update", immutable, `UPDATE entries SET body = 'rewritten' WHERE id = 1`},
-		{"project status", check, `INSERT INTO projects (title, status, created_at, updated_at) VALUES ('x', 'archived', 1, 1)`},
+		{"project status", check, `INSERT INTO projects (title, status, created_at, updated_at) VALUES ('x', 'abandoned', 1, 1)`},
 		{"milestone status", check, `INSERT INTO milestones (project_id, title, status, position, created_at, updated_at) VALUES (1, 'x', 'late', 0, 1, 1)`},
 		{"task status", check, `INSERT INTO tasks (project_id, title, status, position, created_at, updated_at) VALUES (1, 'x', 'overdue', 0, 1, 1)`},
 		{"task size", check, `INSERT INTO tasks (project_id, title, status, size, position, created_at, updated_at) VALUES (1, 'x', 'todo', 'xl', 0, 1, 1)`},
@@ -543,4 +543,52 @@ func TestBriefingRecapMigration(t *testing.T) {
 		t.Errorf("briefings after down: %d, %v; want 0", n, err)
 	}
 	exec(t, sqlDB, `INSERT INTO briefings (project_id, recap, source, generated_at, created_at, updated_at) VALUES (1, 'x', 'heuristic', 1, 1, 1)`)
+}
+
+// Rebuilding projects for the archived status keeps every row and every
+// reference to them; going down turns archived projects into parked ones.
+func TestProjectArchivedRebuild(t *testing.T) {
+	ctx := context.Background()
+	fsys, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB := openTemp(t)
+	provider, err := goose.NewProvider(goose.DialectSQLite3, sqlDB, fsys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.UpTo(ctx, 10); err != nil {
+		t.Fatal(err)
+	}
+	seed(t, sqlDB)
+	exec(t, sqlDB, `UPDATE projects SET why = 'Follow through' WHERE id = 1`)
+
+	if _, err := provider.UpTo(ctx, 11); err != nil {
+		t.Fatal(err)
+	}
+	noFKViolations(t, sqlDB)
+	var title, why, status string
+	if err := sqlDB.QueryRowContext(ctx, `SELECT title, why, status FROM projects WHERE id = 1`).Scan(&title, &why, &status); err != nil {
+		t.Fatal(err)
+	}
+	if title != "Build Waypoint" || why != "Follow through" || status != "active" {
+		t.Errorf("project 1 after rebuild: %q %q %s", title, why, status)
+	}
+	if got := ids(t, sqlDB, `SELECT project_id FROM tasks ORDER BY id`); !slices.Equal(got, []int64{1, 1}) {
+		t.Errorf("tasks after rebuild point at %v, want [1 1]", got)
+	}
+	exec(t, sqlDB, `INSERT INTO projects (id, title, status, created_at, updated_at) VALUES (2, 'Old idea', 'archived', 1, 1)`)
+	exec(t, sqlDB, `INSERT INTO entries (id, body, project_id, created_at) VALUES (3, 'about the old idea', 2, 3)`)
+
+	if _, err := provider.DownTo(ctx, 10); err != nil {
+		t.Fatal(err)
+	}
+	noFKViolations(t, sqlDB)
+	if err := sqlDB.QueryRowContext(ctx, `SELECT status FROM projects WHERE id = 2`).Scan(&status); err != nil || status != "parked" {
+		t.Errorf("archived project after down: %q, %v", status, err)
+	}
+	if got := ids(t, sqlDB, `SELECT project_id FROM entries WHERE project_id IS NOT NULL ORDER BY id`); !slices.Equal(got, []int64{1, 2}) {
+		t.Errorf("entries after down point at %v, want [1 2]", got)
+	}
 }

@@ -117,7 +117,7 @@ func TestDecodePayload(t *testing.T) {
 		{"update project", domain.OpUpdateProject,
 			`{"project_id":"$new:1","title":"t","why":"","definition_of_done":"d","status":"active"}`, nil},
 		{"update project nothing", domain.OpUpdateProject, `{"project_id":1}`, []string{"payload"}},
-		{"update project bad", domain.OpUpdateProject, `{"project_id":1,"status":"archived"}`, []string{"status"}},
+		{"update project bad", domain.OpUpdateProject, `{"project_id":1,"status":"abandoned"}`, []string{"status"}},
 
 		// decoding problems
 		{"wrong type", domain.OpCreateTask, `{"project_id":1,"title":5}`, []string{"title"}},

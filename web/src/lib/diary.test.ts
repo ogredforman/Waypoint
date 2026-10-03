@@ -52,6 +52,12 @@ describe('scopeOptions', () => {
     expect(opts.map((p) => p.id)).toEqual([3, 1])
   })
 
+  it('leaves out archived projects unless one is the current scope', () => {
+    const all = [project(1, 'archived'), project(2, 'parked')]
+    expect(scopeOptions(all, null).map((p) => p.id)).toEqual([2])
+    expect(scopeOptions(all, 1).map((p) => p.id)).toEqual([2, 1])
+  })
+
   it('keeps a done project that is the current scope', () => {
     expect(scopeOptions([project(2, 'done')], 2).map((p) => p.id)).toEqual([2])
   })

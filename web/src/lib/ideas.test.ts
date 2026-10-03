@@ -32,10 +32,11 @@ const projects = [
   project(3, 'active'),
   project(4, 'paused'),
   project(5, 'active'),
+  project(6, 'archived'),
 ]
 
 describe('promoteTargets', () => {
-  it('leaves out done projects and puts active first, then paused, then parked', () => {
+  it('leaves out done and archived projects and puts active first, then paused, then parked', () => {
     expect(promoteTargets(projects).map((p) => p.id)).toEqual([3, 5, 4, 1])
   })
 })

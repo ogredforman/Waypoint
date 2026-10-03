@@ -16,6 +16,7 @@
     type Choices,
     type Payload,
   } from '../lib/review'
+  import { pickable } from '../lib/projects'
   import { loadEntry } from '../lib/timeline.svelte'
   import ChangeOpRow from './ChangeOpRow.svelte'
   import Button from './ui/Button.svelte'
@@ -41,7 +42,7 @@
   let notice = $state('')
 
   const target = $derived(picked === undefined ? guessed : picked)
-  const choosable = $derived(projects.filter((p) => p.status !== 'done' || p.id === guessed))
+  const choosable = $derived(projects.filter((p) => pickable(p, guessed)))
   const decidedCount = $derived(ops.filter((o) => choices[o.id]).length)
 
   // whyNotAccept explains why an op can't be accepted right now, or is null if it can.

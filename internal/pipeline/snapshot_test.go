@@ -248,6 +248,30 @@ func TestBuildIncludesScopedInactiveProject(t *testing.T) {
 	}
 }
 
+// An archived project is hidden from the snapshot, unless the entry is about
+// it (reading an old entry again).
+func TestBuildArchivedProject(t *testing.T) {
+	f := newFixture(t)
+	w := seed(f)
+	old := f.project("Old shop", domain.ProjectArchived)
+
+	projectIDs := func(snap extract.StateSnapshot) []int64 {
+		var ids []int64
+		for _, p := range snap.Projects {
+			ids = append(ids, p.ID)
+		}
+		return ids
+	}
+	unscoped := build(t, f, 5, f.entry("today", nil))
+	if got, want := projectIDs(unscoped), []int64{w.waypoint.ID, w.shed.ID}; !reflect.DeepEqual(got, want) {
+		t.Errorf("unscoped projects = %v, want %v", got, want)
+	}
+	scoped := build(t, f, 5, f.entry("about the shop", &old.ID))
+	if got, want := projectIDs(scoped), []int64{w.waypoint.ID, w.shed.ID, old.ID}; !reflect.DeepEqual(got, want) {
+		t.Errorf("scoped projects = %v, want %v", got, want)
+	}
+}
+
 func TestBuildUnscopedUsesAllProjectsEntries(t *testing.T) {
 	f := newFixture(t)
 	w := seed(f)

@@ -1,6 +1,6 @@
 import type { CreateEntryRequest, Project } from './api/types.gen'
 import type { Route } from './router'
-import { groupByStatus } from './projects'
+import { groupByStatus, pickable } from './projects'
 
 // Key is the part of a KeyboardEvent that decides whether it submits an entry.
 export interface Key {
@@ -36,11 +36,11 @@ export function resolveScope(choice: ScopeChoice | null, path: string, screenID:
 }
 
 // scopeOptions are the projects an entry can be scoped to, active first. Done
-// projects are left out unless one of them is the current scope.
+// and archived projects are left out unless one of them is the current scope.
 export function scopeOptions(projects: Project[], current: number | null): Project[] {
   return groupByStatus(projects)
     .flatMap((g) => g.projects)
-    .filter((p) => p.status !== 'done' || p.id === current)
+    .filter((p) => pickable(p, current))
 }
 
 // entryRequest builds the POST /api/entries body, or null when there's

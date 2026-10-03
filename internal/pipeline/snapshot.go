@@ -26,7 +26,7 @@ func NewSnapshotBuilder(s *store.Store, now func() time.Time, recentEntries int)
 }
 
 // Build returns the snapshot for entry e:
-//   - the active projects, plus e's project whatever its status, each with its
+//   - the active projects, plus e's project whatever its status (even archived), each with its
 //     open tasks (in position order) and open blockers;
 //   - every parked idea, title only;
 //   - up to recentEntries entries written before e, newest first: those of

@@ -3,7 +3,7 @@
   import NewProjectForm from '../components/NewProjectForm.svelte'
   import Button from '../components/ui/Button.svelte'
   import Panel from '../components/ui/Panel.svelte'
-  import { ApiError, getJSON } from '../lib/api/client'
+  import { ApiError, getJSON, patchJSON } from '../lib/api/client'
   import type { Project, Settings } from '../lib/api/types.gen'
   import { latest, liveReload } from '../lib/live'
   import { pageHeading } from '../lib/navigation.svelte'
@@ -14,6 +14,8 @@
   let loadError = $state('')
   let cap = $state<number | null>(null)
   let formOpen = $state(false)
+  let restoring = $state<number | null>(null)
+  let restoreError = $state('')
 
   const groups = $derived(groupByStatus(projects ?? []))
   const activeCount = $derived(countActive(projects ?? []))
@@ -37,6 +39,22 @@
       cap = (await getJSON<Settings>('/api/settings')).active_project_cap
     } catch {
       cap = null // the server still enforces the cap on create
+    }
+  }
+
+  // restore brings an archived project back as parked, where it waits until
+  // the user picks it up again.
+  async function restore(p: Project) {
+    if (restoring !== null) return
+    restoring = p.id
+    restoreError = ''
+    try {
+      const updated = await patchJSON<Project>(`/api/projects/${p.id}`, { status: 'parked' })
+      projects = (projects ?? []).map((q) => (q.id === updated.id ? updated : q))
+    } catch {
+      restoreError = `Couldn't restore ${p.title}. Try again in a moment.`
+    } finally {
+      restoring = null
     }
   }
 
@@ -79,16 +97,29 @@
     {#each groups as group (group.status)}
       <div>
         <h2 class="text-label font-medium tracking-wide text-ink-muted uppercase">{group.label}</h2>
+        {#if group.status === 'archived' && restoreError}
+          <p class="mt-1 text-sm text-ink-muted" role="status">{restoreError}</p>
+        {/if}
         <Panel class="mt-2">
           <ul class="divide-y divide-line">
             {#each group.projects as p (p.id)}
-              <li>
-                <a href={paths.project(p.id)} class="block px-4 py-3 transition hover:bg-raised">
+              <li class="flex items-center">
+                <a href={paths.project(p.id)} class="block min-w-0 flex-1 px-4 py-3 transition hover:bg-raised">
                   <span class="font-medium text-ink">{p.title}</span>
                   {#if p.why}
                     <span class="mt-0.5 line-clamp-1 block text-sm text-ink-muted">{p.why}</span>
                   {/if}
                 </a>
+                {#if p.status === 'archived'}
+                  <Button
+                    variant="quiet"
+                    size="sm"
+                    class="mr-3 shrink-0"
+                    aria-label={`Restore ${p.title}`}
+                    disabled={restoring !== null}
+                    onclick={() => restore(p)}>Restore</Button
+                  >
+                {/if}
               </li>
             {/each}
           </ul>

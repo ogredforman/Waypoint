@@ -21,8 +21,15 @@ function project(id: number, status: ProjectStatus): Project {
 
 describe('groupByStatus', () => {
   it('orders sections active, paused, parked, done and keeps project order', () => {
-    const groups = groupByStatus([project(1, 'done'), project(2, 'parked'), project(3, 'active'), project(4, 'paused'), project(5, 'active')])
-    expect(groups.map((g) => g.status)).toEqual(['active', 'paused', 'parked', 'done'])
+    const groups = groupByStatus([
+      project(6, 'archived'),
+      project(1, 'done'),
+      project(2, 'parked'),
+      project(3, 'active'),
+      project(4, 'paused'),
+      project(5, 'active'),
+    ])
+    expect(groups.map((g) => g.status)).toEqual(['active', 'paused', 'parked', 'done', 'archived'])
     expect(groups[0].label).toBe('Active')
     expect(groups[0].projects.map((p) => p.id)).toEqual([3, 5])
   })
@@ -102,7 +109,7 @@ describe('statusOptions', () => {
   const disabled = (opts: ReturnType<typeof statusOptions>) => opts.filter((o) => o.disabled).map((o) => o.status)
 
   it('lists every status in section order', () => {
-    expect(statusOptions('parked', 0, 3).map((o) => o.status)).toEqual(['active', 'paused', 'parked', 'done'])
+    expect(statusOptions('parked', 0, 3).map((o) => o.status)).toEqual(['active', 'paused', 'parked', 'done', 'archived'])
   })
 
   it('disables active at the cap for a project that is not active', () => {

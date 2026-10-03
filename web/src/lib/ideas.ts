@@ -1,13 +1,14 @@
 import type { Idea, Project } from './api/types.gen'
+import { pickable } from './projects'
 
-const targetOrder = { active: 0, paused: 1, parked: 2, done: 3 } as const
+const targetOrder = { active: 0, paused: 1, parked: 2, done: 3, archived: 4 } as const
 
 // promoteTargets lists the projects an idea can become a task in: any that
-// isn't done, active first, then paused, then parked, keeping list order
+// isn't done or archived, active first, then paused, then parked, keeping list order
 // within a status.
 export function promoteTargets(projects: Project[]): Project[] {
   return projects
-    .filter((p) => p.status !== 'done')
+    .filter((p) => pickable(p))
     .map((p, i) => ({ p, i }))
     .sort((a, b) => targetOrder[a.p.status] - targetOrder[b.p.status] || a.i - b.i)
     .map(({ p }) => p)

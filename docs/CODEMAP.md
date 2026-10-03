@@ -13,7 +13,7 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
   §10.5 API, §11 UI surfaces, §12 testing.
 - PLAN: `grep -n '\[ \]' docs/PLAN.md | head` for the next tasks; read only the current stage's section.
 - ADRs: 0001 API types (Go DTOs → generated TS), 0002 deleting tasks/blockers/ideas,
-  0003 splitting changesets, 0004 diary panel layout, 0005 profiles.
+  0003 splitting changesets, 0004 diary panel layout, 0005 profiles, 0006 archived projects.
 
 ## Wiring (`cmd/waypoint/main.go`)
 
@@ -128,7 +128,8 @@ pieces. Tests sit next to the code as `*.test.ts`.
   the op's `refs`, `editFields`).
 - Now: `screens/Now.svelte` loads active projects' briefings into `components/BriefingCard.svelte` (one block per project: next action, recap as a dated list, blockers and alternatives); `components/BriefingCard.test.ts`, `screens/Now.test.ts`.
   `lib/dates.ts` `relativeDay` ("today", "yesterday", "3 days ago", then the date).
-  `lib/projects.ts`: grouping, `activeProjects`, cap helpers.
+  `lib/projects.ts`: grouping, `activeProjects`, `pickable` (the rule every project picker uses: no done or archived projects unless already chosen), cap helpers.
+- Projects: `screens/Projects.svelte` (status groups, new project form, **Restore** on archived projects → parked); `screens/Projects.test.ts`.
 - Project: `screens/Project.svelte` → `components/ProjectHeader.svelte` (view/edit title, why, definition of done)
   and `ProjectStatus.svelte` (status buttons, calm cap handling). `lib/projects.ts`: `projectPatch` (changed fields
   only), `statusOptions`, `activateCapMessage`. `lib/api/client.ts` also has `patchJSON`/`deleteJSON` (204 → undefined).
