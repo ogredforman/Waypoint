@@ -32,7 +32,7 @@ import (
 )
 
 // seed is the config's settings, which every new profile starts with.
-var seed = domain.Settings{ActiveProjectCap: 4, QuestionsPerEntry: 1, InterfaceFont: domain.FontInter, DiaryFont: domain.DiaryLiterata}
+var seed = domain.Settings{ActiveProjectCap: 4, QuestionsPerEntry: 1, Theme: domain.ThemeMidnight, InterfaceFont: domain.FontInter, DiaryFont: domain.DiaryLiterata}
 
 // env is a data dir that managers are opened on in turn, as server restarts.
 type env struct {
@@ -324,6 +324,27 @@ func TestCreateRenameDelete(t *testing.T) {
 	if s.ActiveProjectCap != seed.ActiveProjectCap || s.QuestionsPerEntry != seed.QuestionsPerEntry {
 		t.Errorf("new profile's settings = %+v, want the seed %+v", s, seed)
 	}
+
+	// A profile made from another starts with that one's appearance (theme
+	// and fonts) but the seed's caps; an unknown source is rejected.
+	a.call(http.StatusOK, "PATCH", "/api/profiles/my-portfolio/settings",
+		`{"active_project_cap": 9, "theme": "forest", "interface_font": "geist", "diary_font": "manrope"}`, nil)
+	var copied apitypes.Profile
+	a.call(http.StatusCreated, "POST", "/api/profiles", `{"name":"Copy","appearance_from":"my-portfolio"}`, &copied)
+	a.call(http.StatusOK, "GET", "/api/profiles/"+copied.ID+"/settings", "", &s)
+	if want := (apitypes.Settings{ActiveProjectCap: seed.ActiveProjectCap, QuestionsPerEntry: seed.QuestionsPerEntry,
+		Theme: "forest", InterfaceFont: "geist", DiaryFont: "manrope"}); s != want {
+		t.Errorf("copied profile's settings = %+v, want %+v", s, want)
+	}
+	var bad apitypes.ErrorBody
+	a.call(http.StatusUnprocessableEntity, "POST", "/api/profiles", `{"name":"Orphan","appearance_from":"nope"}`, &bad)
+	if len(bad.Error.Problems) != 1 || bad.Error.Problems[0].Field != "appearance_from" {
+		t.Errorf("unknown appearance_from: %+v", bad.Error)
+	}
+	if exists(t, filepath.Join(e.dir(), "orphan.db")) {
+		t.Error("orphan.db created")
+	}
+	a.call(http.StatusNoContent, "DELETE", "/api/profiles/"+copied.ID, "", nil)
 
 	// Names are unique ignoring case; the ID of a second "My-Portfolio!"
 	// would also be taken, so an unused one is made.

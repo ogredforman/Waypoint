@@ -15,8 +15,10 @@ type Settings struct {
 	// from 0 to MaxQuestionsPerEntry.
 	QuestionsPerEntry int
 
-	// Appearance.
+	// Appearance. CopyAppearance lists these fields too.
 
+	// Theme is the colour theme.
+	Theme Theme
 	// InterfaceFont is the font of the whole interface.
 	InterfaceFont InterfaceFont
 	// DiaryFont is the font diary entries are written and read in.
@@ -29,6 +31,7 @@ func DefaultSettings() Settings {
 	return Settings{
 		ActiveProjectCap:  DefaultActiveProjectCap,
 		QuestionsPerEntry: MaxQuestionsPerEntry,
+		Theme:             ThemeMidnight,
 		InterfaceFont:     FontInter,
 		DiaryFont:         DiaryLiterata,
 	}
@@ -43,6 +46,9 @@ func (s Settings) Validate() error {
 	if s.QuestionsPerEntry < 0 || s.QuestionsPerEntry > MaxQuestionsPerEntry {
 		c.add("questions_per_entry", "must be from 0 to %d, got %d", MaxQuestionsPerEntry, s.QuestionsPerEntry)
 	}
+	if !s.Theme.Valid() {
+		c.add("theme", "must be one of %s", list(Themes()))
+	}
 	if !s.InterfaceFont.Valid() {
 		c.add("interface_font", "must be one of %s", list(InterfaceFonts()))
 	}
@@ -50,6 +56,16 @@ func (s Settings) Validate() error {
 		c.add("diary_font", "must be one of %s", list(DiaryFonts()))
 	}
 	return c.err("settings")
+}
+
+// CopyAppearance returns s with from's appearance (theme and fonts), the
+// other settings unchanged. A new profile starts with the appearance of the
+// one it was created from.
+func (s Settings) CopyAppearance(from Settings) Settings {
+	s.Theme = from.Theme
+	s.InterfaceFont = from.InterfaceFont
+	s.DiaryFont = from.DiaryFont
+	return s
 }
 
 // list joins enum values for a problem message, without the rejected value.

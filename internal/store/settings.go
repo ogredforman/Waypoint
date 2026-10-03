@@ -27,6 +27,7 @@ func settingsFromRow(row dbgen.Setting) domain.Settings {
 	return domain.Settings{
 		ActiveProjectCap:  int(row.ActiveProjectCap),
 		QuestionsPerEntry: int(row.QuestionsPerEntry),
+		Theme:             domain.Theme(row.Theme),
 		InterfaceFont:     domain.InterfaceFont(row.InterfaceFont),
 		DiaryFont:         domain.DiaryFont(row.DiaryFont),
 	}
@@ -43,6 +44,7 @@ func (s *Store) SeedSettings(ctx context.Context, set domain.Settings) error {
 		err := tx.q.InsertSettingsIfMissing(ctx, dbgen.InsertSettingsIfMissingParams{
 			ActiveProjectCap:  int64(set.ActiveProjectCap),
 			QuestionsPerEntry: int64(set.QuestionsPerEntry),
+			Theme:             string(set.Theme),
 			InterfaceFont:     string(set.InterfaceFont),
 			DiaryFont:         string(set.DiaryFont),
 			Now:               tx.nowMS(),
@@ -62,6 +64,7 @@ func (tx *Tx) UpdateSettings(ctx context.Context, s domain.Settings) (domain.Set
 	row, err := tx.q.UpsertSettings(ctx, dbgen.UpsertSettingsParams{
 		ActiveProjectCap:  int64(s.ActiveProjectCap),
 		QuestionsPerEntry: int64(s.QuestionsPerEntry),
+		Theme:             string(s.Theme),
 		InterfaceFont:     string(s.InterfaceFont),
 		DiaryFont:         string(s.DiaryFont),
 		Now:               tx.nowMS(),

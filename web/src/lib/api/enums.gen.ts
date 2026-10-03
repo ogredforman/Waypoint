@@ -45,6 +45,9 @@ export type ChangeOpStatus = (typeof changeOpStatusValues)[number];
 export const briefingSourceValues = ["heuristic", "llm"] as const;
 export type BriefingSource = (typeof briefingSourceValues)[number];
 
+export const themeValues = ["midnight", "forest", "paper", "sage", "dawn"] as const;
+export type Theme = (typeof themeValues)[number];
+
 export const interfaceFontValues = ["inter", "geist", "manrope", "ibm-plex-sans", "atkinson-hyperlegible-next"] as const;
 export type InterfaceFont = (typeof interfaceFontValues)[number];
 

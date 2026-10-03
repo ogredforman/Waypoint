@@ -50,7 +50,7 @@ func (p *testProfiles) List() []domain.Profile {
 	return slices.Clone(p.list)
 }
 
-func (p *testProfiles) Create(_ context.Context, name string) (domain.Profile, error) {
+func (p *testProfiles) Create(_ context.Context, name, _ string) (domain.Profile, error) {
 	name, err := domain.CleanProfileName(name)
 	if err != nil {
 		return domain.Profile{}, err

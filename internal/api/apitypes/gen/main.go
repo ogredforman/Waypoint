@@ -55,6 +55,7 @@ var enums = []enum{
 	{"OpType", values(domain.OpTypes())},
 	{"ChangeOpStatus", values(domain.ChangeOpStatuses())},
 	{"BriefingSource", values(domain.BriefingSources())},
+	{"Theme", values(domain.Themes())},
 	{"InterfaceFont", values(domain.InterfaceFonts())},
 	{"DiaryFont", values(domain.DiaryFonts())},
 }

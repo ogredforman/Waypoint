@@ -2,36 +2,48 @@
 
 /*
   Design tokens. Components use these names (bg-surface, text-ink-muted, shadow-glow, ...), never
-  raw palette colours, so another theme can later swap the values without touching markup.
-  lib/theme.test.ts checks that the text/background pairs meet WCAG AA.
+  raw palette colours, so a theme can swap the values without touching markup.
+
+  Colours come from the theme blocks below: each sets the same variables (--canvas, --ink, ...)
+  for an element with data-theme and everything inside it. lib/appearance.ts puts the profile's
+  theme on <html>; the swatches in Settings set their own, to show a theme in its real colours.
+  The utilities are inline so they read the variables where they're used, not on <html>.
+  lib/theme.test.ts checks that every theme sets every colour and meets WCAG AA.
 */
-@theme {
-  /* Surfaces, darkest to lightest. */
-  --color-canvas: #0f0b1a;
-  --color-surface: #171226;
-  --color-raised: #211a35;
-  --color-line: #342a4f;
+@theme inline {
+  /* Surfaces, darkest to lightest in the dark themes (lightest to darkest in the light ones). */
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
 
-  /* Text. */
-  --color-ink: #ece8f5;
-  --color-ink-muted: #a9a0c2;
-  --color-ink-faint: #7d7399; /* decoration and disabled text only; below AA on purpose */
+  /* Text. ink-faint is for decoration and disabled text only; below AA on purpose. */
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
 
-  /* Accent: accent is for text and focus on dark surfaces; accent-strong and accent-deep are fills under on-accent text. */
-  --color-accent: #b9a3ff;
-  --color-accent-strong: #7c3aed;
-  --color-accent-deep: #5b21b6;
-  --color-on-accent: #ffffff;
+  /* Accent: accent is for text and focus on the theme's surfaces; accent-strong and accent-deep are fills under on-accent text. */
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-deep: var(--accent-deep);
+  --color-on-accent: var(--on-accent);
 
   /* Status dot. Calm by design: state is never red (SPEC §5). */
-  --color-caution: #fbbf24;
+  --color-caution: var(--caution);
 
   /* Destructive buttons only (delete, remove), never state (SPEC §11). A fill under on-accent text. */
-  --color-danger: #dc2626;
+  --color-danger: var(--danger);
 
   /* Highlight tint for plan observations (things the user means to do), apart from the accent other kinds use. */
-  --color-plan: #7dd3fc;
+  --color-plan: var(--plan);
 
+  /* Glows draw attention, never alarm. */
+  --shadow-glow: 0 0 0 1px var(--glow-ring), 0 0 28px -6px var(--glow);
+  --shadow-focus: 0 0 0 3px var(--glow-ring), 0 0 18px -4px var(--glow);
+  --shadow-edge: -16px 0 40px -24px var(--glow);
+}
+
+@theme {
   /*
     Fonts, bundled with the app (fonts.ts). These are the defaults; the profile's choices
     replace them on <html> (lib/appearance.ts). font-sans is the interface, font-diary the
@@ -49,38 +61,148 @@
 
   --radius-control: 0.5rem;
   --radius-card: 0.75rem;
+}
 
-  /* Glows draw attention, never alarm. */
-  --shadow-glow: 0 0 0 1px rgb(185 163 255 / 0.25), 0 0 28px -6px rgb(124 58 237 / 0.55);
-  --shadow-focus: 0 0 0 3px rgb(185 163 255 / 0.25), 0 0 18px -4px rgb(124 58 237 / 0.6);
-  --shadow-edge: -16px 0 40px -24px rgb(124 58 237 / 0.5);
+/*
+  Themes (the setting's values, domain.Themes). Midnight is also the default, before a profile's
+  theme is known. glow-ring, glow, and wash carry their own transparency (8-digit hex).
+*/
+@layer base {
+  :root,
+  [data-theme='midnight'] {
+    color-scheme: dark;
+    --canvas: #0f0b1a;
+    --surface: #171226;
+    --raised: #211a35;
+    --line: #342a4f;
+    --ink: #ece8f5;
+    --ink-muted: #a9a0c2;
+    --ink-faint: #7d7399;
+    --accent: #b9a3ff;
+    --accent-strong: #7c3aed;
+    --accent-deep: #5b21b6;
+    --on-accent: #ffffff;
+    --caution: #fbbf24;
+    --danger: #dc2626;
+    --plan: #7dd3fc;
+    --glow-ring: #b9a3ff40;
+    --glow: #7c3aed8c;
+    --wash: #7c3aed1f;
+  }
+
+  /* Deep green, teal accent. */
+  [data-theme='forest'] {
+    color-scheme: dark;
+    --canvas: #0a1411;
+    --surface: #101d19;
+    --raised: #172a24;
+    --line: #25403a;
+    --ink: #e6f2ed;
+    --ink-muted: #9fbab0;
+    --ink-faint: #6f8c82;
+    --accent: #5eead4;
+    --accent-strong: #0f766e;
+    --accent-deep: #115e59;
+    --on-accent: #ffffff;
+    --caution: #fbbf24;
+    --danger: #dc2626;
+    --plan: #a3e635;
+    --glow-ring: #5eead440;
+    --glow: #14b8a673;
+    --wash: #0f766e26;
+  }
+
+  /* Warm off-white, indigo accent. */
+  [data-theme='paper'] {
+    color-scheme: light;
+    --canvas: #faf8f3;
+    --surface: #ffffff;
+    --raised: #f2eee5;
+    --line: #ddd6c8;
+    --ink: #1f1d2b;
+    --ink-muted: #57536a;
+    --ink-faint: #9a95a8;
+    --accent: #4338ca;
+    --accent-strong: #4f46e5;
+    --accent-deep: #3730a3;
+    --on-accent: #ffffff;
+    --caution: #b45309;
+    --danger: #dc2626;
+    --plan: #0ea5e9;
+    --glow-ring: #4f46e533;
+    --glow: #4f46e540;
+    --wash: #4f46e514;
+  }
+
+  /* Soft green. */
+  [data-theme='sage'] {
+    color-scheme: light;
+    --canvas: #f1f5ef;
+    --surface: #fafcf8;
+    --raised: #e6ede2;
+    --line: #cbd8c5;
+    --ink: #1b2a22;
+    --ink-muted: #4d6155;
+    --ink-faint: #8da096;
+    --accent: #2f6b4f;
+    --accent-strong: #3a7d5c;
+    --accent-deep: #2a5d44;
+    --on-accent: #ffffff;
+    --caution: #b45309;
+    --danger: #dc2626;
+    --plan: #0ea5e9;
+    --glow-ring: #3a7d5c33;
+    --glow: #3a7d5c40;
+    --wash: #3a7d5c14;
+  }
+
+  /* Cream, amber accent. A golden amber, and a crimson danger, keep the accent well away from red. */
+  [data-theme='dawn'] {
+    color-scheme: light;
+    --canvas: #fbf6ea;
+    --surface: #fffcf4;
+    --raised: #f4ead6;
+    --line: #e3d3b3;
+    --ink: #2a2118;
+    --ink-muted: #65564a;
+    --ink-faint: #a39582;
+    --accent: #854d0e;
+    --accent-strong: #a16207;
+    --accent-deep: #854d0e;
+    --on-accent: #ffffff;
+    --caution: #b45309;
+    --danger: #be123c;
+    --plan: #0ea5e9;
+    --glow-ring: #a1620733;
+    --glow: #a1620740;
+    --wash: #d977061a;
+  }
 }
 
 @layer base {
   html {
     font-family: var(--font-sans);
-    color-scheme: dark;
-    accent-color: var(--color-accent-strong);
+    accent-color: var(--accent-strong);
   }
 
   body {
-    background-color: var(--color-canvas);
-    background-image: radial-gradient(ellipse 80% 50% at 0% 0%, rgb(124 58 237 / 0.12), transparent 70%);
-    color: var(--color-ink);
+    background-color: var(--canvas);
+    background-image: radial-gradient(ellipse 80% 50% at 0% 0%, var(--wash), transparent 70%);
+    color: var(--ink);
   }
 
   /* Thin scrollbars in theme colours. Hovering brightens the scrollbars of the areas under the pointer. */
   * {
     scrollbar-width: thin;
-    scrollbar-color: var(--color-line) transparent;
+    scrollbar-color: var(--line) transparent;
   }
 
   *:hover {
-    scrollbar-color: var(--color-ink-faint) transparent;
+    scrollbar-color: var(--ink-faint) transparent;
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
 

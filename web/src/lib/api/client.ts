@@ -1,4 +1,12 @@
-import type { ErrorBody, FieldProblem, Profile, Project, Settings, UpdateSettingsRequest } from './types.gen'
+import type {
+  CreateProfileRequest,
+  ErrorBody,
+  FieldProblem,
+  Profile,
+  Project,
+  Settings,
+  UpdateSettingsRequest,
+} from './types.gen'
 
 // ApiError is a failed API request. code is the server's error code (SPEC
 // §10.5), or "unreachable" when no API answered at all.
@@ -109,8 +117,12 @@ export function listProfiles(fetchFn?: typeof fetch): Promise<Profile[]> {
   return getJSON<Profile[]>('/api/profiles', fetchFn)
 }
 
-export function createProfile(name: string, fetchFn?: typeof fetch): Promise<Profile> {
-  return postJSON<Profile>('/api/profiles', { name }, fetchFn)
+// createProfile makes a profile; with appearanceFrom (a profile ID) it starts
+// with that profile's theme and fonts.
+export function createProfile(name: string, appearanceFrom?: string, fetchFn?: typeof fetch): Promise<Profile> {
+  const body: CreateProfileRequest = { name }
+  if (appearanceFrom) body.appearance_from = appearanceFrom
+  return postJSON<Profile>('/api/profiles', body, fetchFn)
 }
 
 export function renameProfile(id: string, name: string, fetchFn?: typeof fetch): Promise<Profile> {

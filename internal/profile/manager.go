@@ -123,7 +123,7 @@ func (m *Manager) open(ctx context.Context) error {
 	}
 	m.warnDuplicateNames()
 	if len(m.profiles) == 0 {
-		if _, err := m.Create(ctx, "Personal"); err != nil {
+		if _, err := m.Create(ctx, "Personal", ""); err != nil {
 			return err
 		}
 	}
@@ -253,18 +253,23 @@ func (m *Manager) Serve(id string, w http.ResponseWriter, req *http.Request) boo
 }
 
 // Create makes a new profile named name, with settings from the seed, and
-// starts it. It is built under a temporary file name and renamed into place
-// once ready.
-func (m *Manager) Create(ctx context.Context, name string) (domain.Profile, error) {
+// starts it. If appearanceFrom names a profile, the new one starts with that
+// profile's appearance (theme and fonts) instead of the seed's. It is built
+// under a temporary file name and renamed into place once ready.
+func (m *Manager) Create(ctx context.Context, name, appearanceFrom string) (domain.Profile, error) {
 	m.ops.Lock()
 	defer m.ops.Unlock()
 	name, err := m.checkName(name, "")
 	if err != nil {
 		return domain.Profile{}, err
 	}
+	seed, err := m.seedFrom(ctx, appearanceFrom)
+	if err != nil {
+		return domain.Profile{}, err
+	}
 	id := m.newID(name)
 	tmp := m.path(id) + newExt
-	if _, err := prepare(ctx, tmp, name, m.opts.Seed, m.opts.Now); err != nil {
+	if _, err := prepare(ctx, tmp, name, seed, m.opts.Now); err != nil {
 		_ = removeDB(tmp)
 		return domain.Profile{}, fmt.Errorf("create profile: %w", err)
 	}
@@ -284,6 +289,28 @@ func (m *Manager) Create(ctx context.Context, name string) (domain.Profile, erro
 	m.profiles = append(m.profiles, r)
 	m.mu.Unlock()
 	return r.Profile, nil
+}
+
+// seedFrom is the settings a new profile starts with: the seed, with the
+// appearance of profile from if it isn't empty. The caller holds m.ops, so
+// from can't be deleted meanwhile.
+func (m *Manager) seedFrom(ctx context.Context, from string) (domain.Settings, error) {
+	if from == "" {
+		return m.opts.Seed, nil
+	}
+	m.mu.RLock()
+	r := m.find(from)
+	m.mu.RUnlock()
+	if r == nil {
+		return domain.Settings{}, &domain.ValidationError{Entity: "profile", Problems: []domain.FieldError{
+			{Field: "appearance_from", Problem: "is not a profile"},
+		}}
+	}
+	src, err := r.store.GetSettings(ctx)
+	if err != nil {
+		return domain.Settings{}, fmt.Errorf("create profile: read appearance: %w", err)
+	}
+	return m.opts.Seed.CopyAppearance(src), nil
 }
 
 // Rename changes profile id's display name. The ID stays the same.

@@ -32,7 +32,7 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   `Milestone`) in `types.go`; string enums with `Xxxs()` lists in `enums.go` (must match SQL CHECKs;
   `db/enums_test.go` enforces it); validation, `ValidationError`/`FieldError`, project status rules
   (`CheckNewProjectStatus`, `CheckProjectStatusChange`, `ActiveCapError`) in `validate.go`.
-  `settings.go`: `Settings` (user preferences per database, incl. `InterfaceFont`/`DiaryFont`), `DefaultSettings`, `MaxQuestionsPerEntry`.
+  `settings.go`: `Settings` (user preferences per database, incl. `Theme`/`InterfaceFont`/`DiaryFont`), `DefaultSettings`, `CopyAppearance`, `MaxQuestionsPerEntry`.
   `profile.go`: `Profile` (ID, Name), `CleanProfileName`, `ProfileSlug`, `ValidProfileID`, `ErrLastProfile`.
 - **db**: `Open` (modernc sqlite, WAL, FKs on), `Migrations`, `Migrate` (goose, embedded).
   `migrations/0000N_*.sql` (never edit committed ones), `queries/<entity>.sql` → sqlc output in
@@ -70,7 +70,7 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   (`Refresh`, `Get` → `View`; implements `changeset.AfterApply` and `pipeline.AfterRun`; notifies
   `BriefingUpdated`). Briefings are cached per project in the DB.
 - **profile**: `Manager` runs every profile (ADR 0005): `Open` (removes half-built `*.db.new`, moves the legacy
-  `waypoint.db` in as "Personal", starts each `profiles/<id>.db`), `List`, `Create`, `Rename`, `Delete`, `Serve`, `Ping`,
+  `waypoint.db` in as "Personal", starts each `profiles/<id>.db`), `List`, `Create` (optionally copying another profile's appearance), `Rename`, `Delete`, `Serve`, `Ping`,
   `EndStreams`, `Close`; implements `api.Profiles`. `files.go`: `prepare` (migrate, name, seed, checkpoint, close), `removeDB`.
 - **api**: chi router (`router.go`, route list in `handlers.routes`), one file per resource
   (`projects.go`, `tasks.go`, `blockers.go`, `ideas.go`, `entries.go`, `changesets.go`, `settings.go`),
@@ -142,16 +142,18 @@ pieces. Tests sit next to the code as `*.test.ts`.
 - Settings: `screens/Settings.svelte` (`/settings`, linked from the header; one `<section>` per group, "Focus" first:
   active-project cap and questions per entry, saved as one PATCH of the changed fields; then "Appearance"; then "Profiles"). `lib/settings.ts`: `settingsPatch`,
   `parseCap`, `capNote` (a cap below the active count pauses nothing), `fieldProblems` (422 → per-field). `screens/Settings.test.ts`.
-- Appearance (fonts): `fonts.ts` (imported by `main.ts`) bundles the `@fontsource-variable/*` faces. `lib/appearance.ts`: `fonts`
-  (setting value → label and CSS stack), `interfaceFontChoices`/`diaryFontChoices`, `appearancePatch`, `applyAppearance`
-  (overrides `--font-sans`/`--font-diary` on `<html>`), `setAppearance` (after a save), `loadAppearance` (called by
+- Appearance (theme and fonts): `fonts.ts` (imported by `main.ts`) bundles the `@fontsource-variable/*` faces. `lib/appearance.ts`: `themes`/`themeChoices`,
+  `fonts` (setting value → label and CSS stack), `interfaceFontChoices`/`diaryFontChoices`, `appearancePatch`, `applyAppearance`
+  (sets `data-theme` and overrides `--font-sans`/`--font-diary` on `<html>`), `restoreTheme` (called first in `main.ts`; the theme last shown,
+  `localStorage` `waypoint.theme`, against a flash on load), `setAppearance` (after a save), `loadAppearance` (called by
   `ProfileWorkspace` on mount, so on every profile switch). Settings' Appearance section: `components/AppearanceSettings.svelte`
-  (own form and Save, previews before saving). Diary text uses the `font-diary` utility. Tests: `lib/appearance.test.ts`,
+  (own form and Save; theme swatches each carry their own `data-theme`; previews before saving). Diary text uses the `font-diary` utility. Tests: `lib/appearance.test.ts`,
   `components/AppearanceSettings.test.ts`.
-- Theme: named tokens in `app.css` `@theme` (`canvas`/`surface`/`raised`/`line`, `ink`/`ink-muted`/
+- Theme: named tokens in `app.css` `@theme inline`, each reading a variable that the `[data-theme='…']` blocks set (Midnight is also `:root`),
+  so anything with `data-theme` shows that theme (`canvas`/`surface`/`raised`/`line`, `ink`/`ink-muted`/
   `ink-faint`, `accent`/`accent-strong`/`accent-deep`/`on-accent`, `plan` (plan highlights; `lib/entries.ts` `highlightClass`), `shadow-glow`/`focus`/`edge`,
   `text-title`, `px-gutter`, `rounded-card`). Use these, not raw Tailwind colours. Thin scrollbars from tokens in `@layer base`.
-  `lib/theme.test.ts` checks AA contrast for the text pairs.
+  `lib/theme.test.ts` checks every theme: all colours set, AA contrast for the text pairs, accents away from `danger`.
 - `components/ui/`: `Button` (`primary`/`secondary`/`quiet`/`danger`, `size` `md`/`sm`/`xs`), `Input`, `Textarea` (`bind:value`; grows to
   `max-h-64`, or `max-h-96` with `tall`, then scrolls, via `lib/autosize.ts`),
   `Card` (`glow` for the one thing to notice), `Panel` (row container). `npm --prefix web test`, `npm --prefix web run check`.

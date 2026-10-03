@@ -18,7 +18,9 @@ import (
 type Profiles interface {
 	// List returns the profiles in creation order.
 	List() []domain.Profile
-	Create(ctx context.Context, name string) (domain.Profile, error)
+	// Create makes a profile named name. A non-empty appearanceFrom is the
+	// ID of the profile whose appearance (theme and fonts) it starts with.
+	Create(ctx context.Context, name, appearanceFrom string) (domain.Profile, error)
 	Rename(ctx context.Context, id, name string) (domain.Profile, error)
 	// Delete stops the profile and removes its database files.
 	Delete(ctx context.Context, id string) error
@@ -51,7 +53,7 @@ func (h *handlers) profileRoutes(r chi.Router, ps Profiles) {
 			h.fail(w, r, err)
 			return
 		}
-		p, err := ps.Create(r.Context(), req.Name)
+		p, err := ps.Create(r.Context(), req.Name, req.AppearanceFrom)
 		if err != nil {
 			h.fail(w, r, err)
 			return

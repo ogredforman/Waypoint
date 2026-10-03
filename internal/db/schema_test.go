@@ -109,8 +109,8 @@ func TestCoreSchema(t *testing.T) {
 	if err := sqlDB.QueryRowContext(ctx, "SELECT max(version_id) FROM goose_db_version").Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != 8 {
-		t.Errorf("schema version %d, want 8", version)
+	if version != 9 {
+		t.Errorf("schema version %d, want 9", version)
 	}
 	if got := appTables(t, sqlDB); !slices.Equal(got, coreTables) {
 		t.Errorf("tables %v, want %v", got, coreTables)
@@ -177,6 +177,7 @@ func TestCoreSchemaRejects(t *testing.T) {
 		{"settings questions above 2", check, `INSERT INTO settings (id, active_project_cap, questions_per_entry, created_at, updated_at) VALUES (1, 3, 3, 1, 1)`},
 		{"settings questions negative", check, `INSERT INTO settings (id, active_project_cap, questions_per_entry, created_at, updated_at) VALUES (1, 3, -1, 1, 1)`},
 		{"settings interface font", check, `INSERT INTO settings (id, active_project_cap, questions_per_entry, interface_font, created_at, updated_at) VALUES (1, 3, 2, 'literata', 1, 1)`},
+		{"settings theme", check, `INSERT INTO settings (id, active_project_cap, questions_per_entry, theme, created_at, updated_at) VALUES (1, 3, 2, 'solarized', 1, 1)`},
 		{"settings diary font", check, `INSERT INTO settings (id, active_project_cap, questions_per_entry, diary_font, created_at, updated_at) VALUES (1, 3, 2, 'papyrus', 1, 1)`},
 		{"profile second row", check, `INSERT INTO profile (id, name, created_at, updated_at) VALUES (2, 'x', 1, 1)`},
 		{"profile blank name", check, `UPDATE profile SET name = '  ' WHERE id = 1`},
@@ -461,5 +462,42 @@ func TestSettingsFontsMigration(t *testing.T) {
 	}
 	if err := sqlDB.QueryRowContext(ctx, `SELECT active_project_cap FROM settings`).Scan(&limit); err != nil || limit != 4 {
 		t.Errorf("after down: cap %d, %v; want 4", limit, err)
+	}
+}
+
+// A settings row stored before the theme column gets Midnight, the theme the
+// app had before, and going down keeps the rest of it.
+func TestSettingsThemeMigration(t *testing.T) {
+	ctx := context.Background()
+	fsys, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB := openTemp(t)
+	provider, err := goose.NewProvider(goose.DialectSQLite3, sqlDB, fsys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.UpTo(ctx, 8); err != nil {
+		t.Fatal(err)
+	}
+	exec(t, sqlDB, `INSERT INTO settings (id, active_project_cap, questions_per_entry, diary_font, created_at, updated_at) VALUES (1, 4, 1, 'geist', 1, 1)`)
+
+	if _, err := provider.UpTo(ctx, 9); err != nil {
+		t.Fatal(err)
+	}
+	var theme, diary string
+	if err := sqlDB.QueryRowContext(ctx, `SELECT theme, diary_font FROM settings`).Scan(&theme, &diary); err != nil {
+		t.Fatal(err)
+	}
+	if theme != "midnight" || diary != "geist" {
+		t.Errorf("after up: theme %q, diary font %q; want midnight and geist", theme, diary)
+	}
+
+	if _, err := provider.DownTo(ctx, 8); err != nil {
+		t.Fatal(err)
+	}
+	if err := sqlDB.QueryRowContext(ctx, `SELECT diary_font FROM settings`).Scan(&diary); err != nil || diary != "geist" {
+		t.Errorf("after down: diary font %q, %v; want geist", diary, err)
 	}
 }

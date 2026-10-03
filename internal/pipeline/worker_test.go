@@ -781,7 +781,7 @@ func TestProcessKeepsQuestionsPerEntrySetting(t *testing.T) {
 			f := newFixture(t)
 			ctx := context.Background()
 			err := f.s.InTx(ctx, func(tx *store.Tx) error {
-				_, err := tx.UpdateSettings(ctx, domain.Settings{ActiveProjectCap: 3, QuestionsPerEntry: limit, InterfaceFont: domain.FontInter, DiaryFont: domain.DiaryLiterata})
+				_, err := tx.UpdateSettings(ctx, domain.Settings{ActiveProjectCap: 3, QuestionsPerEntry: limit, Theme: domain.ThemeMidnight, InterfaceFont: domain.FontInter, DiaryFont: domain.DiaryLiterata})
 				return err
 			})
 			if err != nil {

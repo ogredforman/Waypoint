@@ -104,9 +104,10 @@ export function switchProfile(id: string): void {
   activate(next)
 }
 
-// createProfile adds a profile to the list without switching to it.
+// createProfile adds a profile to the list without switching to it. It starts
+// with the appearance (theme and fonts) of the profile in use.
 export async function createProfile(name: string, fetchFn?: typeof fetch): Promise<Profile> {
-  const p = await apiCreateProfile(name, fetchFn)
+  const p = await apiCreateProfile(name, profiles.active?.id, fetchFn)
   profiles.list = [...profiles.list, p]
   return p
 }

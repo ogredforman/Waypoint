@@ -315,3 +315,21 @@ func DiaryFonts() []DiaryFont {
 }
 
 func (f DiaryFont) Valid() bool { return slices.Contains(DiaryFonts(), f) }
+
+// Theme is the colour theme of the app (SPEC §10.5). Midnight and Forest are
+// dark, Paper, Sage, and Dawn light; the colours live in the frontend.
+type Theme string
+
+const (
+	ThemeMidnight Theme = "midnight"
+	ThemeForest   Theme = "forest"
+	ThemePaper    Theme = "paper"
+	ThemeSage     Theme = "sage"
+	ThemeDawn     Theme = "dawn"
+)
+
+func Themes() []Theme {
+	return []Theme{ThemeMidnight, ThemeForest, ThemePaper, ThemeSage, ThemeDawn}
+}
+
+func (t Theme) Valid() bool { return slices.Contains(Themes(), t) }

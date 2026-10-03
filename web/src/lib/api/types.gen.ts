@@ -363,6 +363,12 @@ export interface Profile {
  */
 export interface CreateProfileRequest {
   name: string;
+  /**
+   * AppearanceFrom is the ID of the profile whose appearance (theme and
+   * fonts) the new one starts with; the app sends the one in use. Without
+   * it the new profile gets the defaults.
+   */
+  appearance_from?: string;
 }
 /**
  * RenameProfileRequest is the body of PATCH /api/profiles/{profile}.
@@ -453,6 +459,10 @@ export interface Settings {
    */
   questions_per_entry: number /* int */;
   /**
+   * Theme is the colour theme.
+   */
+  theme: domain.Theme;
+  /**
    * InterfaceFont is the font of the whole interface.
    */
   interface_font: domain.InterfaceFont;
@@ -468,6 +478,7 @@ export interface Settings {
 export interface UpdateSettingsRequest {
   active_project_cap?: number /* int */;
   questions_per_entry?: number /* int */;
+  theme?: domain.Theme;
   interface_font?: domain.InterfaceFont;
   diary_font?: domain.DiaryFont;
 }

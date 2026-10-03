@@ -99,7 +99,10 @@ describe('ProfileSettings', () => {
     await render()
     await type(input('new-profile-name'), ' Portfolio ')
     await submit(input('new-profile-name').form)
-    expect(calls).toEqual([{ method: 'POST', url: '/api/profiles', body: { name: 'Portfolio' }, active: 'personal' }])
+    // A new profile starts with the appearance of the one in use.
+    expect(calls).toEqual([
+      { method: 'POST', url: '/api/profiles', body: { name: 'Portfolio', appearance_from: 'personal' }, active: 'personal' },
+    ])
     expect(row('Portfolio')).not.toBeNull()
     expect(profiles.active?.id).toBe('personal')
     expect(target.textContent).toContain('Added Portfolio.')

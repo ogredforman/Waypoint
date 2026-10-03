@@ -164,6 +164,7 @@ type Setting struct {
 	UpdatedAt         int64
 	InterfaceFont     string
 	DiaryFont         string
+	Theme             string
 }
 
 type Task struct {

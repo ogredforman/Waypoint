@@ -15,6 +15,7 @@ func settingsDTO(s domain.Settings) apitypes.Settings {
 	return apitypes.Settings{
 		ActiveProjectCap:  s.ActiveProjectCap,
 		QuestionsPerEntry: s.QuestionsPerEntry,
+		Theme:             s.Theme,
 		InterfaceFont:     s.InterfaceFont,
 		DiaryFont:         s.DiaryFont,
 	}
@@ -59,6 +60,8 @@ func (h *handlers) patchSettings(w http.ResponseWriter, r *http.Request) {
 				problem = decodeField(raw, &s.ActiveProjectCap, "must be a whole number")
 			case "questions_per_entry":
 				problem = decodeField(raw, &s.QuestionsPerEntry, "must be a whole number")
+			case "theme":
+				problem = decodeField(raw, &s.Theme, "must be a theme name")
 			case "interface_font":
 				problem = decodeField(raw, &s.InterfaceFont, "must be a font name")
 			case "diary_font":

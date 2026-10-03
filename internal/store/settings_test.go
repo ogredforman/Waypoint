@@ -20,7 +20,7 @@ func TestSettings(t *testing.T) {
 		t.Errorf("settings before seeding = %+v, want the defaults %+v", got, domain.DefaultSettings())
 	}
 
-	seeded := domain.Settings{ActiveProjectCap: 5, QuestionsPerEntry: 1, InterfaceFont: domain.FontGeist, DiaryFont: domain.DiaryLiterata}
+	seeded := domain.Settings{ActiveProjectCap: 5, QuestionsPerEntry: 1, Theme: domain.ThemeSage, InterfaceFont: domain.FontGeist, DiaryFont: domain.DiaryLiterata}
 	if err := s.SeedSettings(ctx, seeded); err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestSettings(t *testing.T) {
 		t.Errorf("after a second seed = %+v, want %+v unchanged", got, seeded)
 	}
 
-	updated := domain.Settings{ActiveProjectCap: 1, QuestionsPerEntry: 0, InterfaceFont: domain.FontAtkinsonHyperlegibleNext, DiaryFont: domain.DiaryFont(domain.FontIBMPlexSans)}
+	updated := domain.Settings{ActiveProjectCap: 1, QuestionsPerEntry: 0, Theme: domain.ThemeForest, InterfaceFont: domain.FontAtkinsonHyperlegibleNext, DiaryFont: domain.DiaryFont(domain.FontIBMPlexSans)}
 	inTx(t, s, func(tx *Tx) error {
 		got, err := tx.UpdateSettings(ctx, updated)
 		if err == nil && got != updated {
@@ -55,7 +55,7 @@ func TestSettings(t *testing.T) {
 func TestSettingsUpdateWithoutSeed(t *testing.T) {
 	ctx := context.Background()
 	s, _, _ := newTestStore(t)
-	want := domain.Settings{ActiveProjectCap: 4, QuestionsPerEntry: 2, InterfaceFont: domain.FontManrope, DiaryFont: domain.DiaryLiterata}
+	want := domain.Settings{ActiveProjectCap: 4, QuestionsPerEntry: 2, Theme: domain.ThemePaper, InterfaceFont: domain.FontManrope, DiaryFont: domain.DiaryLiterata}
 	inTx(t, s, func(tx *Tx) error {
 		_, err := tx.UpdateSettings(ctx, want)
 		return err
@@ -81,6 +81,8 @@ func TestSettingsRejectsInvalid(t *testing.T) {
 		with(func(s *domain.Settings) { s.InterfaceFont = "literata" }),
 		with(func(s *domain.Settings) { s.InterfaceFont = "" }),
 		with(func(s *domain.Settings) { s.DiaryFont = "papyrus" }),
+		with(func(s *domain.Settings) { s.Theme = "solarized" }),
+		with(func(s *domain.Settings) { s.Theme = "" }),
 	} {
 		var ve *domain.ValidationError
 		if err := s.SeedSettings(ctx, bad); !errors.As(err, &ve) {

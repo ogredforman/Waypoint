@@ -10,7 +10,7 @@ import (
 )
 
 const getSettings = `-- name: GetSettings :one
-SELECT id, active_project_cap, questions_per_entry, created_at, updated_at, interface_font, diary_font FROM settings
+SELECT id, active_project_cap, questions_per_entry, created_at, updated_at, interface_font, diary_font, theme FROM settings
 WHERE id = 1
 `
 
@@ -25,19 +25,21 @@ func (q *Queries) GetSettings(ctx context.Context) (Setting, error) {
 		&i.UpdatedAt,
 		&i.InterfaceFont,
 		&i.DiaryFont,
+		&i.Theme,
 	)
 	return i, err
 }
 
 const insertSettingsIfMissing = `-- name: InsertSettingsIfMissing :exec
-INSERT INTO settings (id, active_project_cap, questions_per_entry, interface_font, diary_font, created_at, updated_at)
-VALUES (1, ?1, ?2, ?3, ?4, ?5, ?5)
+INSERT INTO settings (id, active_project_cap, questions_per_entry, theme, interface_font, diary_font, created_at, updated_at)
+VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?6)
 ON CONFLICT (id) DO NOTHING
 `
 
 type InsertSettingsIfMissingParams struct {
 	ActiveProjectCap  int64
 	QuestionsPerEntry int64
+	Theme             string
 	InterfaceFont     string
 	DiaryFont         string
 	Now               int64
@@ -48,6 +50,7 @@ func (q *Queries) InsertSettingsIfMissing(ctx context.Context, arg InsertSetting
 	_, err := q.db.ExecContext(ctx, insertSettingsIfMissing,
 		arg.ActiveProjectCap,
 		arg.QuestionsPerEntry,
+		arg.Theme,
 		arg.InterfaceFont,
 		arg.DiaryFont,
 		arg.Now,
@@ -56,20 +59,22 @@ func (q *Queries) InsertSettingsIfMissing(ctx context.Context, arg InsertSetting
 }
 
 const upsertSettings = `-- name: UpsertSettings :one
-INSERT INTO settings (id, active_project_cap, questions_per_entry, interface_font, diary_font, created_at, updated_at)
-VALUES (1, ?1, ?2, ?3, ?4, ?5, ?5)
+INSERT INTO settings (id, active_project_cap, questions_per_entry, theme, interface_font, diary_font, created_at, updated_at)
+VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?6)
 ON CONFLICT (id) DO UPDATE
 SET active_project_cap = excluded.active_project_cap,
     questions_per_entry = excluded.questions_per_entry,
+    theme = excluded.theme,
     interface_font = excluded.interface_font,
     diary_font = excluded.diary_font,
     updated_at = excluded.updated_at
-RETURNING id, active_project_cap, questions_per_entry, created_at, updated_at, interface_font, diary_font
+RETURNING id, active_project_cap, questions_per_entry, created_at, updated_at, interface_font, diary_font, theme
 `
 
 type UpsertSettingsParams struct {
 	ActiveProjectCap  int64
 	QuestionsPerEntry int64
+	Theme             string
 	InterfaceFont     string
 	DiaryFont         string
 	Now               int64
@@ -79,6 +84,7 @@ func (q *Queries) UpsertSettings(ctx context.Context, arg UpsertSettingsParams) 
 	row := q.db.QueryRowContext(ctx, upsertSettings,
 		arg.ActiveProjectCap,
 		arg.QuestionsPerEntry,
+		arg.Theme,
 		arg.InterfaceFont,
 		arg.DiaryFont,
 		arg.Now,
@@ -92,6 +98,7 @@ func (q *Queries) UpsertSettings(ctx context.Context, arg UpsertSettingsParams) 
 		&i.UpdatedAt,
 		&i.InterfaceFont,
 		&i.DiaryFont,
+		&i.Theme,
 	)
 	return i, err
 }

@@ -57,6 +57,7 @@ func strs[T ~string](values []T) []string {
 func TestEnumsMatchSchema(t *testing.T) {
 	goEnums := map[string][]string{
 		"projects.status":                       strs(domain.ProjectStatuses()),
+		"settings.theme":                        strs(domain.Themes()),
 		"settings.interface_font":               strs(domain.InterfaceFonts()),
 		"settings.diary_font":                   strs(domain.DiaryFonts()),
 		"milestones.status":                     strs(domain.MilestoneStatuses()),

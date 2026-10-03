@@ -2,7 +2,11 @@ import { mount } from 'svelte'
 import './fonts'
 import './app.css'
 import App from './App.svelte'
+import { restoreTheme } from './lib/appearance'
 import { chooseProfile, waitingMessage } from './lib/profile.svelte'
+
+// Start in the theme last shown here; the profile's settings confirm it once loaded.
+restoreTheme()
 
 const target = document.getElementById('app')
 if (!target) throw new Error('missing #app element')

@@ -11,6 +11,10 @@ type Profile struct {
 // CreateProfileRequest is the body of POST /api/profiles.
 type CreateProfileRequest struct {
 	Name string `json:"name"`
+	// AppearanceFrom is the ID of the profile whose appearance (theme and
+	// fonts) the new one starts with; the app sends the one in use. Without
+	// it the new profile gets the defaults.
+	AppearanceFrom string `json:"appearance_from,omitempty"`
 }
 
 // RenameProfileRequest is the body of PATCH /api/profiles/{profile}.
