@@ -74,8 +74,8 @@ export interface TimelineGroup {
   observations: LinkedObservation[]
 }
 
-// observationTimeline groups a task's linked observations by the entry they
-// came from, keeping the API's oldest-first order. An entry's observations
+// observationTimeline groups linked observations (a task's, or a project's) by the entry they
+// came from, keeping the API's order. An entry's observations
 // arrive together, so only consecutive ones are merged.
 export function observationTimeline(observations: LinkedObservation[]): TimelineGroup[] {
   const groups: TimelineGroup[] = []

@@ -142,6 +142,7 @@ func (h *handlers) routes(r chi.Router) {
 	r.Post("/projects/{id}/tasks", h.createTask)
 	r.Get("/projects/{id}/blockers", h.listBlockers)
 	r.Post("/projects/{id}/blockers", h.createBlocker)
+	r.Get("/projects/{id}/observations", h.listProjectObservations)
 	r.Get("/projects/{id}/briefing", h.getBriefing)
 	r.Post("/projects/{id}/briefing/refresh", h.refreshBriefing)
 

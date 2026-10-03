@@ -35,6 +35,17 @@ type UpdateProjectRequest struct {
 	Status           *domain.ProjectStatus `json:"status,omitempty"`
 }
 
+// ProjectObservations is the body of GET /api/projects/{id}/observations:
+// what the diary says about the project, the observations linked to it or to
+// its tasks or blockers. Newest entry first, an entry's observations in text
+// order; of a reprocessed entry, only the latest run's count. A page holds
+// whole entries; when there may be more, NextBefore is the before= value for
+// the next page.
+type ProjectObservations struct {
+	Observations []LinkedObservation `json:"observations"`
+	NextBefore   *int64              `json:"next_before" tstype:"number | null,required"`
+}
+
 // Briefing is the body of GET /api/projects/{id}/briefing: the project's
 // one next action and the context around it.
 type Briefing struct {

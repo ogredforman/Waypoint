@@ -4,6 +4,7 @@ import type {
   FieldProblem,
   Profile,
   Project,
+  ProjectObservations,
   Settings,
   UpdateSettingsRequest,
 } from './types.gen'
@@ -100,6 +101,20 @@ export function deleteJSON(path: string, fetchFn?: typeof fetch): Promise<void> 
 
 export function listProjects(fetchFn?: typeof fetch): Promise<Project[]> {
   return getJSON<Project[]>('/api/projects', fetchFn)
+}
+
+// listProjectObservations pages through what the diary says about a project, a page of
+// entries at a time, newest first; before is an earlier page's next_before.
+export function listProjectObservations(
+  projectId: number,
+  opts: { before?: number; limit?: number } = {},
+  fetchFn?: typeof fetch,
+): Promise<ProjectObservations> {
+  const q = new URLSearchParams()
+  if (opts.before !== undefined) q.set('before', String(opts.before))
+  if (opts.limit !== undefined) q.set('limit', String(opts.limit))
+  const query = q.size > 0 ? `?${q}` : ''
+  return getJSON<ProjectObservations>(`/api/projects/${projectId}/observations${query}`, fetchFn)
 }
 
 export function getSettings(fetchFn?: typeof fetch): Promise<Settings> {

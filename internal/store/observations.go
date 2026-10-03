@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/ogredforman/waypoint/internal/db/dbgen"
 	"github.com/ogredforman/waypoint/internal/domain"
@@ -92,6 +93,46 @@ func (r reader) ListLinksByTarget(ctx context.Context, targetType domain.TargetT
 		return nil, fmt.Errorf("list links to %s %d: %w", targetType, targetID, err)
 	}
 	return linksFromRows(rows), nil
+}
+
+// ProjectObservation is an observation about a project, with the entry it
+// came from and its strongest link's confidence.
+type ProjectObservation struct {
+	Observation    domain.Observation
+	EntryBody      string
+	EntryCreatedAt time.Time
+	Confidence     float64
+}
+
+// ListProjectObservationsBefore returns the latest-run observations linked to
+// the project or to one of its tasks or blockers, from the limit most recent
+// such entries written before the entry beforeID. Newest entry first, then in
+// text order; an observation with several such links appears once.
+func (r reader) ListProjectObservationsBefore(ctx context.Context, projectID, beforeID int64, limit int) ([]ProjectObservation, error) {
+	if err := checkLimit(limit); err != nil {
+		return nil, fmt.Errorf("list observations about project %d: %w", projectID, err)
+	}
+	rows, err := r.q.ListProjectObservationsBefore(ctx, dbgen.ListProjectObservationsBeforeParams{
+		ProjectID: projectID,
+		BeforeID:  beforeID,
+		Limit:     int64(limit),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list observations about project %d: %w", projectID, err)
+	}
+	out := make([]ProjectObservation, len(rows))
+	for i, row := range rows {
+		out[i] = ProjectObservation{
+			Observation: observationFromRow(dbgen.Observation{
+				ID: row.ID, EntryID: row.EntryID, ExtractionRunID: row.ExtractionRunID, Kind: row.Kind,
+				Summary: row.Summary, SpanStart: row.SpanStart, SpanEnd: row.SpanEnd, CreatedAt: row.CreatedAt,
+			}),
+			EntryBody:      row.EntryBody,
+			EntryCreatedAt: fromMS(row.EntryCreatedAt),
+			Confidence:     row.Confidence,
+		}
+	}
+	return out, nil
 }
 
 // CreateObservation inserts o, ignoring its ID and CreatedAt. Checking the

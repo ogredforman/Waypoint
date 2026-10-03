@@ -354,6 +354,57 @@ func TestTaskDetailShowsLinkedObservations(t *testing.T) {
 	}
 }
 
+func TestProjectObservations(t *testing.T) {
+	s := newServer(t)
+	s.runWorker()
+	p := s.project("Waypoint", domain.ProjectActive)
+	ok[apitypes.Task](s, http.StatusCreated, "POST", fmt.Sprintf("/api/profiles/t/projects/%d/tasks", p.ID), `{"title": "Write tests"}`)
+	path := fmt.Sprintf("/api/profiles/t/projects/%d/observations", p.ID)
+
+	empty := ok[apitypes.ProjectObservations](s, http.StatusOK, "GET", path, nil)
+	if len(empty.Observations) != 0 || empty.NextBefore != nil {
+		t.Errorf("before any entry = %+v, want nothing", empty)
+	}
+
+	first := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/profiles/t/entries",
+		map[string]any{"body": "doing: Write tests", "project_id": p.ID})
+	s.waitProcessed(first.Entry.ID)
+	second := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/profiles/t/entries",
+		map[string]any{"body": "Felt good today", "project_id": p.ID})
+	s.waitProcessed(second.Entry.ID)
+
+	page := ok[apitypes.ProjectObservations](s, http.StatusOK, "GET", path+"?limit=1", nil)
+	if len(page.Observations) != 1 || page.Observations[0].EntryID != second.Entry.ID || page.NextBefore == nil {
+		t.Fatalf("first page = %+v, want the newest entry and a next page", page)
+	}
+	// Linked to both the task and the project, the progress line comes once.
+	page = ok[apitypes.ProjectObservations](s, http.StatusOK, "GET", fmt.Sprintf("%s?limit=1&before=%d", path, *page.NextBefore), nil)
+	if len(page.Observations) != 1 {
+		t.Fatalf("second page = %+v, want the first entry's one observation", page)
+	}
+	if o := page.Observations[0]; o.EntryID != first.Entry.ID || o.Kind != domain.ObservationProgress || o.Quote != "doing: Write tests" {
+		t.Errorf("observation = %+v", o)
+	}
+	page = ok[apitypes.ProjectObservations](s, http.StatusOK, "GET", fmt.Sprintf("%s?limit=1&before=%d", path, *page.NextBefore), nil)
+	if len(page.Observations) != 0 || page.NextBefore != nil {
+		t.Errorf("third page = %+v, want nothing more", page)
+	}
+
+	for _, tc := range []struct {
+		target string
+		status int
+	}{
+		{"/api/profiles/t/projects/999/observations", http.StatusNotFound},
+		{path + "?limit=0", http.StatusBadRequest},
+		{path + "?limit=51", http.StatusBadRequest},
+		{path + "?before=x", http.StatusBadRequest},
+	} {
+		if rec := s.call("GET", tc.target, nil); rec.Code != tc.status {
+			t.Errorf("GET %s = %d, want %d", tc.target, rec.Code, tc.status)
+		}
+	}
+}
+
 func TestBlockerRoutes(t *testing.T) {
 	s := newServer(t)
 	p := s.project("Waypoint", domain.ProjectActive)

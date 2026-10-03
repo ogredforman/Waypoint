@@ -39,7 +39,7 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   `dbgen/` (generated; `make sqlc`).
 - **store**: the only code that runs SQL. `Store.InTx(ctx, func(*Tx) error)` for writes,
   `Store.InReadTx(ctx, func(*ReadTx) error)` for reads. Reads (`GetX`, `ListXByProject`,
-  `ListRecentEntries…`, `ListChangesetsByStatus`, `CountActiveProjects`, …) are on the embedded
+  `ListRecentEntries…`, `ListProjectObservationsBefore` (→ `ProjectObservation`), `ListChangesetsByStatus`, `CountActiveProjects`, …) are on the embedded
   `reader`, so both tx types have them; writes (`CreateX`, `UpdateX`, `DeleteX`, `CreateChangeset`,
   `ResolveChangeset`, `SetChangeOpResult`, `MoveChangeOp`, `ClaimNextExtractionRun`,
   `FinishExtractionRun`, `UpsertBriefing`, question answer/dismiss) are on `*Tx`. One file per entity.
@@ -76,6 +76,7 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   (`projects.go`, `tasks.go`, `blockers.go`, `ideas.go`, `entries.go`, `changesets.go`, `settings.go`),
   `profiles.go` (`Profiles` interface, `/api/profiles` routes, hands `/api/profiles/{profile}/*` to `Profiles.Serve`);
   `NewRouter(Deps{Logger, Web, Profiles})` is the root, `NewProfileHandler(ProfileDeps{…})` one profile's data routes and `/events`,
+  `projects.go` also has `GET /projects/{id}/observations` (paged by entry; `pageQuery` in `entries.go` reads `before`/`limit`),
   `convert.go` (domain → apitypes), `respond.go` (JSON encode/decode, `h.fail` maps errors to the
   single error shape, `badRequest`), `events.go` (`Hub`: SSE `/api/events`, `Publish`, `Notify`,
   `BriefingUpdated`, `Applied` → `changeset.applied`), `serve.go`. Handlers are thin: decode, call a service, encode.
@@ -91,7 +92,7 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
 Svelte 5 runes + TS + Tailwind, Vitest. `main.ts` → `App.svelte`. `lib/api/client.ts` is the
 typed API client (the only place that calls `fetch`); `apiPath` puts `/api/…` under the profile set by `useProfile`,
 with generated `types.gen.ts`/`enums.gen.ts`; named calls (`listProjects`, `getSettings`, `updateSettings`,
-`listProfiles`/`createProfile`/`renameProfile`/`deleteProfile`) are thin wrappers over `getJSON`/`patchJSON`, and new code uses them.
+`listProfiles`/`createProfile`/`renameProfile`/`deleteProfile`, `listProjectObservations`) are thin wrappers over `getJSON`/`patchJSON`, and new code uses them.
 `lib/router.ts` + `lib/navigation.svelte.ts`: client-side routing; every screen's `<h1>` takes `{@attach pageHeading}` (focus after navigation). `screens/`: page components
 (`Now`, `Diary`, `Projects`, `Project`, `Task`, `ParkingLot`, `Settings`, `NotFound`). `components/`: reusable
 pieces. Tests sit next to the code as `*.test.ts`.
@@ -133,6 +134,7 @@ pieces. Tests sit next to the code as `*.test.ts`.
   `moveTask`, `movePositions`). `lib/tasks.ts`: `groupTasks`, `taskPatch`, `newTaskRequest`.
   Blockers: `components/ProjectBlockers.svelte` (open, then resolved) → `BlockerRow.svelte` (resolve, delete with confirmation);
   `ProjectBlockers` also has the add form with an optional open-task picker; `lib/blockers.ts`: `splitBlockers`, `openTasks`, `newBlockerRequest`. Ideas: `components/ProjectIdeas.svelte` (this project's parked ideas) → `IdeaRow.svelte`.
+  From the diary: `components/ProjectDiary.svelte` (`listProjectObservations`, grouped by `observationTimeline`, "Show more", reloads on `entry.processed` too); `components/ProjectDiary.test.ts`.
 - Task detail: `screens/Task.svelte` (`GET /api/tasks/{id}`: fields, origin entry, linked observations grouped by entry
   via `lib/tasks.ts` `observationTimeline`; read-only, edits live on the Project screen). `lib/entries.ts` `kindLabel`.
 - Parking lot: `screens/ParkingLot.svelte` (all parked ideas and parked projects) → `components/IdeaRow.svelte` (promote to a

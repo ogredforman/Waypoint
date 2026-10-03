@@ -15,6 +15,28 @@ const (
 	maxEntryPage     = 100
 )
 
+// pageQuery reads a newest-first page's before= and limit=. Without before=
+// the page starts at the newest; without limit=, it holds def.
+func pageQuery(r *http.Request, def, maxLimit int) (beforeID int64, limit int, err error) {
+	before, err := queryID(r, "before")
+	if err != nil {
+		return 0, 0, err
+	}
+	limit = def
+	if s := r.URL.Query().Get("limit"); s != "" {
+		n, err := strconv.Atoi(s)
+		if err != nil || n < 1 || n > maxLimit {
+			return 0, 0, badRequestf("query parameter limit must be between 1 and %d", maxLimit)
+		}
+		limit = n
+	}
+	beforeID = math.MaxInt64
+	if before != nil {
+		beforeID = *before
+	}
+	return beforeID, limit, nil
+}
+
 // listEntries pages through entries, newest first. With project_id= it lists
 // the entries about that project: those scoped to it, and unscoped ones with
 // an observation linked to it or its tasks or blockers. before= continues
@@ -25,23 +47,10 @@ func (h *handlers) listEntries(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	before, err := queryID(r, "before")
+	beforeID, limit, err := pageQuery(r, defaultEntryPage, maxEntryPage)
 	if err != nil {
 		h.fail(w, r, err)
 		return
-	}
-	limit := defaultEntryPage
-	if s := r.URL.Query().Get("limit"); s != "" {
-		n, err := strconv.Atoi(s)
-		if err != nil || n < 1 || n > maxEntryPage {
-			h.fail(w, r, badRequestf("query parameter limit must be between 1 and %d", maxEntryPage))
-			return
-		}
-		limit = n
-	}
-	beforeID := int64(math.MaxInt64)
-	if before != nil {
-		beforeID = *before
 	}
 
 	var entries []domain.Entry

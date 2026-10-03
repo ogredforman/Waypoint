@@ -2,6 +2,7 @@
   import Button from '../components/ui/Button.svelte'
   import { onMount } from 'svelte'
   import ProjectBlockers from '../components/ProjectBlockers.svelte'
+  import ProjectDiary from '../components/ProjectDiary.svelte'
   import ProjectHeader from '../components/ProjectHeader.svelte'
   import ProjectIdeas from '../components/ProjectIdeas.svelte'
   import ProjectStatus from '../components/ProjectStatus.svelte'
@@ -99,5 +100,6 @@
         if (r.task?.project_id === project?.id) tasksVersion++
       }}
     />
+    <ProjectDiary projectId={project.id} />
   {/if}
 </section>

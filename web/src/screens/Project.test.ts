@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { flushSync, mount, tick, unmount } from 'svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Blocker, Idea, Project as ProjectT, Task } from '../lib/api/types.gen'
+import type { Blocker, Idea, Project as ProjectT, ProjectObservations, Task } from '../lib/api/types.gen'
 import { startEvents } from '../lib/events'
 import { FakeEventSource, fakeOpen } from '../lib/events.fake'
 import Project from './Project.svelte'
@@ -43,6 +43,13 @@ const blocker = (id: number, description: string): Blocker => ({
   updated_at: '',
 })
 
+const diary = (summary: string): ProjectObservations => ({
+  observations: [
+    { id: 1, entry_id: 3, entry_created_at: '2026-10-01T09:00:00Z', kind: 'feeling', summary, quote: '', confidence: 1 },
+  ],
+  next_before: null,
+})
+
 const idea = (id: number, title: string): Idea => ({
   id,
   project_id: 7,
@@ -73,6 +80,7 @@ beforeEach(() => {
   routes.set('/api/projects/7/tasks', [task(1, 'Write docs')])
   routes.set('/api/projects/7/blockers', [blocker(1, 'Waiting on review')])
   routes.set('/api/ideas?project_id=7', [idea(1, 'Dark mode')])
+  routes.set('/api/projects/7/observations?limit=10', diary('Felt stuck'))
   fetchMock.mockClear()
   vi.stubGlobal('fetch', fetchMock)
   FakeEventSource.all = []
@@ -109,6 +117,7 @@ function changeAll() {
   routes.set('/api/projects/7/tasks', [task(1, 'Write docs'), task(2, 'Ship it')])
   routes.set('/api/projects/7/blockers', [blocker(1, 'Waiting on review'), blocker(2, 'Need a key')])
   routes.set('/api/ideas?project_id=7', [idea(1, 'Dark mode'), idea(2, 'Export')])
+  routes.set('/api/projects/7/observations?limit=10', diary('Felt better'))
 }
 
 describe('Project screen live updates', () => {
@@ -121,6 +130,7 @@ describe('Project screen live updates', () => {
     expect(text()).toContain('Ship it')
     expect(text()).toContain('Need a key')
     expect(text()).toContain('Export')
+    expect(text()).toContain('Felt better')
   })
 
   it("reloads only the ideas and the cap count after another project's changeset", async () => {
@@ -131,6 +141,7 @@ describe('Project screen live updates', () => {
     expect(text()).not.toContain('Ship it')
     expect(text()).not.toContain('Need a key')
     expect(text()).toContain('Export')
+    expect(text()).not.toContain('Felt better')
     expect(fetched('/api/projects/7')).toBe(1)
     // Once for the task list and once for the blockers' task picker.
     expect(fetched('/api/projects/7/tasks')).toBe(2)
@@ -150,6 +161,7 @@ describe('Project screen live updates', () => {
     expect(text()).toContain('Ship it')
     expect(text()).toContain('Need a key')
     expect(text()).toContain('Export')
+    expect(text()).toContain('Felt better')
   })
 
   it('keeps an open task edit form through a reload', async () => {

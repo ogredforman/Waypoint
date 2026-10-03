@@ -411,6 +411,18 @@ export interface UpdateProjectRequest {
   status?: domain.ProjectStatus;
 }
 /**
+ * ProjectObservations is the body of GET /api/projects/{id}/observations:
+ * what the diary says about the project, the observations linked to it or to
+ * its tasks or blockers. Newest entry first, an entry's observations in text
+ * order; of a reprocessed entry, only the latest run's count. A page holds
+ * whole entries; when there may be more, NextBefore is the before= value for
+ * the next page.
+ */
+export interface ProjectObservations {
+  observations: LinkedObservation[];
+  next_before: number | null;
+}
+/**
  * Briefing is the body of GET /api/projects/{id}/briefing: the project's
  * one next action and the context around it.
  */
