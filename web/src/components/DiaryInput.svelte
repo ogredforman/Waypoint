@@ -4,6 +4,7 @@
   import type { CreateEntryResponse, Project } from '../lib/api/types.gen'
   import { entryRequest, isSubmitShortcut, resolveScope, scopeOptions, screenProjectID } from '../lib/diary'
   import { clearDraft, draft, draftProfile, draftSession, restoreDraft } from '../lib/diaryDraft.svelte'
+  import { latest, liveReload } from '../lib/live'
   import { current } from '../lib/navigation.svelte'
   import { addEntry } from '../lib/timeline.svelte'
   import Button from './ui/Button.svelte'
@@ -57,12 +58,22 @@
     save()
   }
 
-  onMount(async () => {
+  // The picker follows projects created, renamed, or moved elsewhere (SPEC §10.5).
+  // A failed load keeps the list it has; the entry can still be saved without a project.
+  const loads = latest()
+  async function load() {
+    const fresh = loads()
     try {
-      projects = await getJSON<Project[]>('/api/projects')
+      const list = await getJSON<Project[]>('/api/projects')
+      if (fresh()) projects = list
     } catch {
-      projects = [] // the entry can still be saved without a project
+      // keep the list we have
     }
+  }
+
+  onMount(() => {
+    load()
+    return liveReload(load)
   })
 </script>
 
