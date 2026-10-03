@@ -115,11 +115,21 @@ func mapSlice[T, U any](in []T, f func(T) U) []U {
 	return out
 }
 
+func recapEntryDTO(e domain.RecapEntry) apitypes.RecapEntry {
+	return apitypes.RecapEntry{
+		EntryID:   e.EntryID,
+		CreatedAt: e.CreatedAt,
+		Points: mapSlice(e.Points, func(p domain.RecapPoint) apitypes.RecapPoint {
+			return apitypes.RecapPoint{Kind: p.Kind, Text: p.Text}
+		}),
+	}
+}
+
 func briefingDTO(v briefing.View) apitypes.Briefing {
 	b := apitypes.Briefing{
 		ProjectID:    v.Briefing.ProjectID,
 		NextReason:   v.Briefing.NextReason,
-		Recap:        v.Briefing.Recap,
+		Recap:        mapSlice(v.Briefing.Recap, recapEntryDTO),
 		Source:       v.Briefing.Source,
 		Blockers:     mapSlice(v.Blockers, blockerDTO),
 		Alternatives: mapSlice(v.Alternatives, taskDTO),

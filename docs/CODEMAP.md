@@ -42,7 +42,7 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   `ListRecentEntries…`, `ListProjectObservationsBefore` (→ `ProjectObservation`), `ListChangesetsByStatus`, `CountActiveProjects`, …) are on the embedded
   `reader`, so both tx types have them; writes (`CreateX`, `UpdateX`, `DeleteX`, `CreateChangeset`,
   `ResolveChangeset`, `SetChangeOpResult`, `MoveChangeOp`, `ClaimNextExtractionRun`,
-  `FinishExtractionRun`, `UpsertBriefing`, question answer/dismiss) are on `*Tx`. One file per entity.
+  `FinishExtractionRun`, `UpsertBriefing` (replaces the recap points too), question answer/dismiss) are on `*Tx`. One file per entity.
   `ErrNotFound` for missing rows. Entries are insert-only. Settings (`settings.go`): `GetSettings`
   (defaults if no row), `Store.SeedSettings` (insert if missing), `Tx.UpdateSettings`. Pending observation links (to `$new:N`,
   keyed by change op): `CreatePendingLink`, `ListPendingLinksByOp`, `ResolvePendingLinks`, `DropPendingLinks`.
@@ -67,8 +67,8 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   changeset (keeping only `questions_per_entry` questions), emits `Event`s via `Notifier`, calls `AfterRun.EntryProcessed`). Failures recorded on
   the run, never partial state.
 - **briefing**: `Briefer` interface, `Heuristic` implementation (`heuristic.go`), `Service`
-  (`Refresh`, `Get` → `View`; implements `changeset.AfterApply` and `pipeline.AfterRun`; notifies
-  `BriefingUpdated`). Briefings are cached per project in the DB.
+  (`Refresh`, `Get` → `View`; drops recap entries the Briefer wasn't shown; implements `changeset.AfterApply` and `pipeline.AfterRun`; notifies
+  `BriefingUpdated`). Briefings are cached per project in the DB; the recap (`[]domain.RecapEntry`, newest first, points with observation kinds) in `briefing_recap_points`.
 - **profile**: `Manager` runs every profile (ADR 0005): `Open` (removes half-built `*.db.new`, moves the legacy
   `waypoint.db` in as "Personal", starts each `profiles/<id>.db`), `List`, `Create` (optionally copying another profile's appearance), `Rename`, `Delete`, `Serve`, `Ping`,
   `EndStreams`, `Close`; implements `api.Profiles`. `files.go`: `prepare` (migrate, name, seed, checkpoint, close), `removeDB`.
@@ -124,7 +124,8 @@ pieces. Tests sit next to the code as `*.test.ts`.
   picker, Apply / Accept all) → `ChangeOpRow.svelte` (accept/reject/edit). `lib/review.ts`: pure logic
   (`reject`/`accept` cascades over `$new:N`, `guessedProject`, `noProject`, `applyRequest`, `describe` using
   the op's `refs`, `editFields`).
-- Now: `screens/Now.svelte` loads active projects' briefings into `components/BriefingCard.svelte`.
+- Now: `screens/Now.svelte` loads active projects' briefings into `components/BriefingCard.svelte` (one block per project: next action, recap as a dated list, blockers and alternatives); `components/BriefingCard.test.ts`, `screens/Now.test.ts`.
+  `lib/dates.ts` `relativeDay` ("today", "yesterday", "3 days ago", then the date).
   `lib/projects.ts`: grouping, `activeProjects`, cap helpers.
 - Project: `screens/Project.svelte` → `components/ProjectHeader.svelte` (view/edit title, why, definition of done)
   and `ProjectStatus.svelte` (status buttons, calm cap handling). `lib/projects.ts`: `projectPatch` (changed fields

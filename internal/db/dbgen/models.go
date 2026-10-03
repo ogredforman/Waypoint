@@ -21,11 +21,19 @@ type Briefing struct {
 	ProjectID   int64
 	NextTaskID  *int64
 	NextReason  string
-	Recap       string
 	Source      string
 	GeneratedAt int64
 	CreatedAt   int64
 	UpdatedAt   int64
+}
+
+type BriefingRecapPoint struct {
+	ID         int64
+	BriefingID int64
+	EntryID    int64
+	Position   int64
+	Kind       string
+	Text       string
 }
 
 type ChangeOp struct {

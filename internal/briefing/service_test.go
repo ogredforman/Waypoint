@@ -244,7 +244,7 @@ func TestEntryProcessed(t *testing.T) {
 	if !slices.Equal(f.updates.got, []int64{p}) {
 		t.Errorf("scoped entry refreshed %v, want [%d]", f.updates.got, p)
 	}
-	if got := f.briefing(p).Recap; got != "Most recently: Wired the SSE hub." {
+	if got := recapTexts(f.briefing(p)); !slices.Equal(got, []string{"Wired the SSE hub"}) {
 		t.Errorf("recap = %q", got)
 	}
 
@@ -254,10 +254,10 @@ func TestEntryProcessed(t *testing.T) {
 	if !slices.Equal(f.updates.got, []int64{p, q}) {
 		t.Errorf("unscoped entry refreshed %v, want every active project [%d %d]", f.updates.got, p, q)
 	}
-	if got := f.briefing(q).Recap; got != "Most recently: Planted beans." {
+	if got := recapTexts(f.briefing(q)); !slices.Equal(got, []string{"Planted beans"}) {
 		t.Errorf("recap of the project the unscoped entry is about = %q", got)
 	}
-	if got := f.briefing(p).Recap; got != "Most recently: Wired the SSE hub." {
+	if got := recapTexts(f.briefing(p)); !slices.Equal(got, []string{"Wired the SSE hub"}) {
 		t.Errorf("recap of another project = %q", got)
 	}
 
@@ -323,6 +323,46 @@ func TestGetGeneratesMissingBriefing(t *testing.T) {
 	}
 	if _, err := f.svc.Get(ctx, 999); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("Get of a missing project: err = %v, want ErrNotFound", err)
+	}
+}
+
+// recapTexts lists a briefing's recap points, newest entry first.
+func recapTexts(b domain.Briefing) []string {
+	out := []string{}
+	for _, e := range b.Recap {
+		for _, p := range e.Points {
+			out = append(out, p.Text)
+		}
+	}
+	return out
+}
+
+// recapBriefer recaps the given entries, whether or not they're recent.
+type recapBriefer struct{ entries []int64 }
+
+func (b recapBriefer) Brief(_ context.Context, st State) (domain.Briefing, error) {
+	br := domain.Briefing{ProjectID: st.Project.ID, Source: domain.BriefingLLM}
+	for _, id := range b.entries {
+		br.Recap = append(br.Recap, domain.RecapEntry{EntryID: id, Points: []domain.RecapPoint{{Kind: domain.ObservationNote, Text: "Said something"}}})
+	}
+	return br, nil
+}
+
+func TestRefreshDropsUnknownAndRepeatedRecapEntries(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	p := f.project("Waypoint", domain.ProjectActive)
+	q := f.project("Garden", domain.ProjectActive)
+	here := f.entry("wired the hub", "Wired the SSE hub", &p, domain.TargetProject, p)
+	elsewhere := f.entry("planted beans", "Planted beans", &q, domain.TargetProject, q)
+
+	svc := NewService(f.s, recapBriefer{entries: []int64{elsewhere.ID, here.ID, 999, here.ID}}, time.Now, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err := svc.Refresh(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+	got := f.briefing(p).Recap
+	if len(got) != 1 || got[0].EntryID != here.ID || !got[0].CreatedAt.Equal(here.CreatedAt) {
+		t.Errorf("recap = %+v, want only entry %d, once, with its date", got, here.ID)
 	}
 }
 

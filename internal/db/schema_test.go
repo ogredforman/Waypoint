@@ -11,7 +11,7 @@ import (
 )
 
 var coreTables = []string{
-	"blockers", "briefings", "change_ops", "changesets", "entries", "extraction_runs",
+	"blockers", "briefing_recap_points", "briefings", "change_ops", "changesets", "entries", "extraction_runs",
 	"follow_up_questions", "ideas", "milestones", "observation_links", "observations",
 	"pending_observation_links", "profile", "projects", "settings", "task_dependencies", "tasks",
 }
@@ -109,8 +109,8 @@ func TestCoreSchema(t *testing.T) {
 	if err := sqlDB.QueryRowContext(ctx, "SELECT max(version_id) FROM goose_db_version").Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != 9 {
-		t.Errorf("schema version %d, want 9", version)
+	if version != 10 {
+		t.Errorf("schema version %d, want 10", version)
 	}
 	if got := appTables(t, sqlDB); !slices.Equal(got, coreTables) {
 		t.Errorf("tables %v, want %v", got, coreTables)
@@ -192,6 +192,8 @@ func TestCoreSchemaRejects(t *testing.T) {
 		{"op status", check, `INSERT INTO change_ops (changeset_id, position, op_type, payload, status, created_at, updated_at) VALUES (1, 2, 'park_idea', '{}', 'maybe', 1, 1)`},
 		{"second briefing for project", unique, `INSERT INTO briefings (project_id, source, generated_at, created_at, updated_at) VALUES (1, 'heuristic', 1, 1, 1)`},
 		{"briefing source", check, `INSERT INTO briefings (project_id, source, generated_at, created_at, updated_at) VALUES (1, 'guess', 1, 1, 1)`},
+		{"recap point kind", check, `INSERT INTO briefing_recap_points (briefing_id, entry_id, position, kind, text) VALUES (1, 1, 1, 'mood', 'x')`},
+		{"recap point missing entry", fk, `INSERT INTO briefing_recap_points (briefing_id, entry_id, position, kind, text) VALUES (1, 99, 1, 'note', 'x')`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := sqlDB.ExecContext(context.Background(), tt.query)
@@ -500,4 +502,45 @@ func TestSettingsThemeMigration(t *testing.T) {
 	if err := sqlDB.QueryRowContext(ctx, `SELECT diary_font FROM settings`).Scan(&diary); err != nil || diary != "geist" {
 		t.Errorf("after down: diary font %q, %v; want geist", diary, err)
 	}
+}
+
+func TestBriefingRecapMigration(t *testing.T) {
+	ctx := context.Background()
+	fsys, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB := openTemp(t)
+	provider, err := goose.NewProvider(goose.DialectSQLite3, sqlDB, fsys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.UpTo(ctx, 9); err != nil {
+		t.Fatal(err)
+	}
+	exec(t, sqlDB, `INSERT INTO projects (id, title, status, created_at, updated_at) VALUES (1, 'Build Waypoint', 'active', 1, 1)`)
+	exec(t, sqlDB, `INSERT INTO briefings (project_id, recap, source, generated_at, created_at, updated_at) VALUES (1, 'Most recently: started.', 'heuristic', 1, 1, 1)`)
+
+	// The cached briefings go; each is regenerated when next read.
+	if _, err := provider.UpTo(ctx, 10); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := sqlDB.QueryRowContext(ctx, `SELECT count(*) FROM briefings`).Scan(&n); err != nil || n != 0 {
+		t.Errorf("briefings after up: %d, %v; want 0", n, err)
+	}
+	if _, err := sqlDB.ExecContext(ctx, `SELECT recap FROM briefings`); err == nil {
+		t.Error("briefings.recap still there after up")
+	}
+	exec(t, sqlDB, `INSERT INTO briefings (id, project_id, source, generated_at, created_at, updated_at) VALUES (1, 1, 'heuristic', 1, 1, 1)`)
+	exec(t, sqlDB, `INSERT INTO entries (id, body, created_at) VALUES (1, 'words', 1)`)
+	exec(t, sqlDB, `INSERT INTO briefing_recap_points (briefing_id, entry_id, position, kind, text) VALUES (1, 1, 1, 'progress', 'Started')`)
+
+	if _, err := provider.DownTo(ctx, 9); err != nil {
+		t.Fatal(err)
+	}
+	if err := sqlDB.QueryRowContext(ctx, `SELECT count(*) FROM briefings`).Scan(&n); err != nil || n != 0 {
+		t.Errorf("briefings after down: %d, %v; want 0", n, err)
+	}
+	exec(t, sqlDB, `INSERT INTO briefings (project_id, recap, source, generated_at, created_at, updated_at) VALUES (1, 'x', 'heuristic', 1, 1, 1)`)
 }

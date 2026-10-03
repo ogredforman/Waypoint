@@ -260,5 +260,15 @@ func (b Briefing) Validate() error {
 	c.ref("project_id", b.ProjectID)
 	c.optRef("next_task_id", b.NextTaskID)
 	c.enum("source", b.Source.Valid())
+	for i, e := range b.Recap {
+		c.ref(fmt.Sprintf("recap[%d].entry_id", i), e.EntryID)
+		if len(e.Points) == 0 {
+			c.add(fmt.Sprintf("recap[%d].points", i), "is required")
+		}
+		for j, p := range e.Points {
+			c.enum(fmt.Sprintf("recap[%d].points[%d].kind", i, j), p.Kind.Valid())
+			c.notBlank(fmt.Sprintf("recap[%d].points[%d].text", i, j), p.Text)
+		}
+	}
 	return c.err("briefing")
 }

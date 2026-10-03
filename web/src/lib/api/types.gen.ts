@@ -430,7 +430,11 @@ export interface Briefing {
   project_id: number /* int64 */;
   next_task: Task | null;
   next_reason: string;
-  recap: string;
+  /**
+   * Recap is where the user left off: a few recent entries about the
+   * project, newest first.
+   */
+  recap: RecapEntry[];
   source: domain.BriefingSource;
   /**
    * Excerpt is the most recent entry text about NextTask.
@@ -446,6 +450,21 @@ export interface Briefing {
    */
   alternatives: Task[];
   generated_at: string;
+}
+/**
+ * RecapEntry is one entry in a briefing's recap, as a few short points.
+ */
+export interface RecapEntry {
+  entry_id: number /* int64 */;
+  created_at: string;
+  points: RecapPoint[];
+}
+/**
+ * RecapPoint is one thing an entry said, with its observation kind.
+ */
+export interface RecapPoint {
+  kind: domain.ObservationKind;
+  text: string;
 }
 /**
  * Excerpt is a piece of an entry quoted in a briefing.

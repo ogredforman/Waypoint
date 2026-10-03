@@ -67,6 +67,7 @@ func TestEnumsMatchSchema(t *testing.T) {
 		"extraction_runs.status":                strs(domain.ExtractionRunStatuses()),
 		"follow_up_questions.status":            strs(domain.QuestionStatuses()),
 		"observations.kind":                     strs(domain.ObservationKinds()),
+		"briefing_recap_points.kind":            strs(domain.ObservationKinds()),
 		"observation_links.target_type":         strs(domain.TargetTypes()),
 		"pending_observation_links.target_type": strs(domain.TargetTypes()),
 		"blockers.status":                       strs(domain.BlockerStatuses()),

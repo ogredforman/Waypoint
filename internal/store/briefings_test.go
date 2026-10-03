@@ -15,6 +15,15 @@ func TestBriefings(t *testing.T) {
 	ctx := context.Background()
 	p := seedProject(t, s)
 	task := seedTask(t, s, domain.Task{ProjectID: p.ID, Title: "Write the briefer", Status: domain.TaskTodo})
+	older := seedEntry(t, s, "older")
+	newer := seedEntry(t, s, "newer")
+	recap := []domain.RecapEntry{
+		{EntryID: newer.ID, CreatedAt: newer.CreatedAt, Points: []domain.RecapPoint{
+			{Kind: domain.ObservationProgress, Text: "Wired the hub"},
+			{Kind: domain.ObservationFeeling, Text: "Felt good"},
+		}},
+		{EntryID: older.ID, CreatedAt: older.CreatedAt, Points: []domain.RecapPoint{{Kind: domain.ObservationPlan, Text: "Write tests"}}},
+	}
 
 	if _, err := s.GetBriefing(ctx, p.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("GetBriefing before any = %v, want ErrNotFound", err)
@@ -23,7 +32,7 @@ func TestBriefings(t *testing.T) {
 	var first domain.Briefing
 	inTx(t, s, func(tx *Tx) (err error) {
 		first, err = tx.UpsertBriefing(ctx, domain.Briefing{
-			ProjectID: p.ID, NextTaskID: &task.ID, NextReason: "It's next.", Recap: "Started.",
+			ProjectID: p.ID, NextTaskID: &task.ID, NextReason: "It's next.", Recap: recap,
 			Source: domain.BriefingHeuristic, GeneratedAt: t0,
 		})
 		return err
@@ -34,6 +43,9 @@ func TestBriefings(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, first) {
 		t.Errorf("GetBriefing = %+v, want %+v", got, first)
+	}
+	if !reflect.DeepEqual(first.Recap, recap) {
+		t.Errorf("recap = %+v, want %+v", first.Recap, recap)
 	}
 
 	// A second upsert replaces the first in place.
@@ -48,7 +60,7 @@ func TestBriefings(t *testing.T) {
 	if second.ID != first.ID || !second.CreatedAt.Equal(first.CreatedAt) {
 		t.Errorf("upsert made a new row: %+v after %+v", second, first)
 	}
-	if second.NextTaskID != nil || second.NextReason != "Nothing open." || second.Recap != "" || !second.UpdatedAt.Equal(c.t) {
+	if second.NextTaskID != nil || second.NextReason != "Nothing open." || len(second.Recap) != 0 || !second.UpdatedAt.Equal(c.t) {
 		t.Errorf("upserted briefing = %+v", second)
 	}
 
@@ -59,6 +71,18 @@ func TestBriefings(t *testing.T) {
 	var verr *domain.ValidationError
 	if !errors.As(err, &verr) {
 		t.Errorf("invalid briefing error = %v, want a *domain.ValidationError", err)
+	}
+
+	// A recap naming an entry that doesn't exist is refused by the foreign key.
+	err = s.InTx(ctx, func(tx *Tx) error {
+		_, err := tx.UpsertBriefing(ctx, domain.Briefing{
+			ProjectID: p.ID, Source: domain.BriefingHeuristic,
+			Recap: []domain.RecapEntry{{EntryID: newer.ID + 100, Points: []domain.RecapPoint{{Kind: domain.ObservationNote, Text: "x"}}}},
+		})
+		return err
+	})
+	if err == nil {
+		t.Error("recap of a missing entry accepted")
 	}
 }
 

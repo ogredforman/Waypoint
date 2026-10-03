@@ -49,11 +49,13 @@ type ProjectObservations struct {
 // Briefing is the body of GET /api/projects/{id}/briefing: the project's
 // one next action and the context around it.
 type Briefing struct {
-	ProjectID  int64                 `json:"project_id"`
-	NextTask   *Task                 `json:"next_task" tstype:"Task | null,required"`
-	NextReason string                `json:"next_reason"`
-	Recap      string                `json:"recap"`
-	Source     domain.BriefingSource `json:"source"`
+	ProjectID  int64  `json:"project_id"`
+	NextTask   *Task  `json:"next_task" tstype:"Task | null,required"`
+	NextReason string `json:"next_reason"`
+	// Recap is where the user left off: a few recent entries about the
+	// project, newest first.
+	Recap  []RecapEntry          `json:"recap"`
+	Source domain.BriefingSource `json:"source"`
 	// Excerpt is the most recent entry text about NextTask.
 	Excerpt *Excerpt `json:"excerpt" tstype:"Excerpt | null,required"`
 	// Blockers are the project's open blockers, oldest first.
@@ -62,6 +64,19 @@ type Briefing struct {
 	// started now instead.
 	Alternatives []Task    `json:"alternatives"`
 	GeneratedAt  time.Time `json:"generated_at"`
+}
+
+// RecapEntry is one entry in a briefing's recap, as a few short points.
+type RecapEntry struct {
+	EntryID   int64        `json:"entry_id"`
+	CreatedAt time.Time    `json:"created_at"`
+	Points    []RecapPoint `json:"points"`
+}
+
+// RecapPoint is one thing an entry said, with its observation kind.
+type RecapPoint struct {
+	Kind domain.ObservationKind `json:"kind"`
+	Text string                 `json:"text"`
 }
 
 // Excerpt is a piece of an entry quoted in a briefing.

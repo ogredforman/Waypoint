@@ -75,6 +75,7 @@ func (s *Service) refresh(ctx context.Context, projectID int64) error {
 		return fmt.Errorf("refresh briefing of project %d: next task %d is not an open task of the project", projectID, *id)
 	}
 	b.ProjectID = projectID
+	b.Recap = knownEntries(b.Recap, st.RecentEntries)
 	b.GeneratedAt = s.now().UTC()
 	err = s.store.InTx(ctx, func(tx *store.Tx) error {
 		_, err := tx.UpsertBriefing(ctx, b)
@@ -87,6 +88,21 @@ func (s *Service) refresh(ctx context.Context, projectID int64) error {
 		s.notifier.BriefingUpdated(projectID)
 	}
 	return nil
+}
+
+// knownEntries keeps the recap entries that are among the recent ones the
+// Briefer was shown, once each, so a model can't name an entry it wasn't
+// given or list one twice.
+func knownEntries(recap []domain.RecapEntry, recent []RecentEntry) []domain.RecapEntry {
+	out := []domain.RecapEntry{}
+	seen := map[int64]bool{}
+	for _, e := range recap {
+		if !seen[e.EntryID] && slices.ContainsFunc(recent, func(r RecentEntry) bool { return r.ID == e.EntryID }) {
+			seen[e.EntryID] = true
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 // refreshActive refreshes those of projectIDs that are active; others aren't
@@ -226,9 +242,9 @@ func loadState(ctx context.Context, tx *store.ReadTx, projectID int64) (State, e
 		if err != nil {
 			return State{}, err
 		}
-		re := RecentEntry{ID: e.ID, CreatedAt: e.CreatedAt, Summaries: []string{}}
+		re := RecentEntry{ID: e.ID, CreatedAt: e.CreatedAt, Observations: []domain.RecapPoint{}}
 		for _, o := range domain.LatestRun(obs) {
-			re.Summaries = append(re.Summaries, o.Summary)
+			re.Observations = append(re.Observations, domain.RecapPoint{Kind: o.Kind, Text: o.Summary})
 		}
 		st.RecentEntries = append(st.RecentEntries, re)
 	}

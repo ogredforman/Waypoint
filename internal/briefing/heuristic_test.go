@@ -2,6 +2,7 @@ package briefing
 
 import (
 	"context"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -171,29 +172,48 @@ func TestAlternatives(t *testing.T) {
 }
 
 func TestRecap(t *testing.T) {
-	entry := func(summaries ...string) RecentEntry { return RecentEntry{Summaries: summaries} }
+	obs := func(texts ...string) []domain.RecapPoint {
+		out := []domain.RecapPoint{}
+		for _, s := range texts {
+			out = append(out, domain.RecapPoint{Kind: domain.ObservationProgress, Text: s})
+		}
+		return out
+	}
+	entry := func(id int64, texts ...string) RecentEntry { return RecentEntry{ID: id, Observations: obs(texts...)} }
+	want := func(id int64, texts ...string) domain.RecapEntry {
+		return domain.RecapEntry{EntryID: id, Points: obs(texts...)}
+	}
 	tests := []struct {
 		name    string
 		entries []RecentEntry // newest first
-		want    string
+		want    []domain.RecapEntry
 	}{
-		{"none", nil, ""},
-		{"no summaries", []RecentEntry{entry(), entry(" ")}, ""},
-		{"one", []RecentEntry{entry("Wired the SSE hub.")}, "Most recently: Wired the SSE hub."},
-		{"two summaries per entry at most", []RecentEntry{entry("A", "B.", "C")}, "Most recently: A; B."},
-		{"two entries", []RecentEntry{entry("New"), entry("Old")}, "Earlier: Old. Most recently: New."},
-		{"three entries, oldest first", []RecentEntry{entry("C"), entry("B"), entry("A")},
-			"Earlier: A. Then: B. Most recently: C."},
-		{"empty entries are skipped", []RecentEntry{entry("C"), entry(), entry("A")},
-			"Earlier: A. Most recently: C."},
-		{"at most three", []RecentEntry{entry("D"), entry("C"), entry("B"), entry("A")},
-			"Earlier: B. Then: C. Most recently: D."},
+		{"none", nil, []domain.RecapEntry{}},
+		{"no summaries", []RecentEntry{entry(1), entry(2, " ")}, []domain.RecapEntry{}},
+		{"one, trimmed", []RecentEntry{entry(1, " Wired the SSE hub. ")}, []domain.RecapEntry{want(1, "Wired the SSE hub.")}},
+		{"three points per entry at most", []RecentEntry{entry(1, "A", "", "B", "C", "D")}, []domain.RecapEntry{want(1, "A", "B", "C")}},
+		{"newest first", []RecentEntry{entry(3, "C"), entry(2, "B"), entry(1, "A")},
+			[]domain.RecapEntry{want(3, "C"), want(2, "B"), want(1, "A")}},
+		{"empty entries are skipped", []RecentEntry{entry(3, "C"), entry(2), entry(1, "A")},
+			[]domain.RecapEntry{want(3, "C"), want(1, "A")}},
+		{"at most three", []RecentEntry{entry(4, "D"), entry(3, "C"), entry(2, "B"), entry(1, "A")},
+			[]domain.RecapEntry{want(4, "D"), want(3, "C"), want(2, "B")}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := recap(tt.entries); got != tt.want {
-				t.Errorf("recap = %q, want %q", got, tt.want)
+			if got := recap(tt.entries); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("recap = %+v, want %+v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestRecapKeepsKinds(t *testing.T) {
+	got := recap([]RecentEntry{{ID: 1, Observations: []domain.RecapPoint{
+		{Kind: domain.ObservationFeeling, Text: "Tired"},
+		{Kind: domain.ObservationPlan, Text: "Write tests"},
+	}}})
+	if len(got) != 1 || got[0].Points[0].Kind != domain.ObservationFeeling || got[0].Points[1].Kind != domain.ObservationPlan {
+		t.Errorf("recap = %+v, want the observations' kinds", got)
 	}
 }

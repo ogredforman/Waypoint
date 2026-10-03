@@ -208,13 +208,29 @@ type ChangeOp struct {
 
 // Briefing is the cached "what's next" for a project.
 type Briefing struct {
-	ID          int64
-	ProjectID   int64
-	NextTaskID  *int64
-	NextReason  string
-	Recap       string
+	ID         int64
+	ProjectID  int64
+	NextTaskID *int64
+	NextReason string
+	// Recap is where the user left off: a few recent entries about the
+	// project, newest first.
+	Recap       []RecapEntry
 	Source      BriefingSource
 	GeneratedAt time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+}
+
+// RecapEntry is one entry in a briefing's recap, as a few short points.
+// CreatedAt is the entry's, read from it; it is ignored on write.
+type RecapEntry struct {
+	EntryID   int64
+	CreatedAt time.Time
+	Points    []RecapPoint
+}
+
+// RecapPoint is one thing an entry said, with the kind of observation it is.
+type RecapPoint struct {
+	Kind ObservationKind
+	Text string
 }

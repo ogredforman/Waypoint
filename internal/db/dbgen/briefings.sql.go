@@ -26,8 +26,43 @@ func (q *Queries) ClearBriefingNextTask(ctx context.Context, arg ClearBriefingNe
 	return err
 }
 
+const createBriefingRecapPoint = `-- name: CreateBriefingRecapPoint :exec
+INSERT INTO briefing_recap_points (briefing_id, entry_id, position, kind, text)
+VALUES (?, ?, ?, ?, ?)
+`
+
+type CreateBriefingRecapPointParams struct {
+	BriefingID int64
+	EntryID    int64
+	Position   int64
+	Kind       string
+	Text       string
+}
+
+func (q *Queries) CreateBriefingRecapPoint(ctx context.Context, arg CreateBriefingRecapPointParams) error {
+	_, err := q.db.ExecContext(ctx, createBriefingRecapPoint,
+		arg.BriefingID,
+		arg.EntryID,
+		arg.Position,
+		arg.Kind,
+		arg.Text,
+	)
+	return err
+}
+
+const deleteBriefingRecap = `-- name: DeleteBriefingRecap :exec
+DELETE FROM briefing_recap_points
+WHERE briefing_id = ?
+`
+
+// A refresh replaces the whole recap.
+func (q *Queries) DeleteBriefingRecap(ctx context.Context, briefingID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteBriefingRecap, briefingID)
+	return err
+}
+
 const getBriefingByProject = `-- name: GetBriefingByProject :one
-SELECT id, project_id, next_task_id, next_reason, recap, source, generated_at, created_at, updated_at FROM briefings
+SELECT id, project_id, next_task_id, next_reason, source, generated_at, created_at, updated_at FROM briefings
 WHERE project_id = ?
 `
 
@@ -39,7 +74,6 @@ func (q *Queries) GetBriefingByProject(ctx context.Context, projectID int64) (Br
 		&i.ProjectID,
 		&i.NextTaskID,
 		&i.NextReason,
-		&i.Recap,
 		&i.Source,
 		&i.GeneratedAt,
 		&i.CreatedAt,
@@ -48,29 +82,71 @@ func (q *Queries) GetBriefingByProject(ctx context.Context, projectID int64) (Br
 	return i, err
 }
 
+const listBriefingRecap = `-- name: ListBriefingRecap :many
+SELECT p.entry_id, p.kind, p.text, e.created_at AS entry_created_at
+FROM briefing_recap_points p
+JOIN entries e ON e.id = p.entry_id
+WHERE p.briefing_id = ?
+ORDER BY p.position
+`
+
+type ListBriefingRecapRow struct {
+	EntryID        int64
+	Kind           string
+	Text           string
+	EntryCreatedAt int64
+}
+
+// In recap order, each point with its entry's date.
+func (q *Queries) ListBriefingRecap(ctx context.Context, briefingID int64) ([]ListBriefingRecapRow, error) {
+	rows, err := q.db.QueryContext(ctx, listBriefingRecap, briefingID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListBriefingRecapRow{}
+	for rows.Next() {
+		var i ListBriefingRecapRow
+		if err := rows.Scan(
+			&i.EntryID,
+			&i.Kind,
+			&i.Text,
+			&i.EntryCreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertBriefing = `-- name: UpsertBriefing :one
 INSERT INTO briefings (
-    project_id, next_task_id, next_reason, recap, source, generated_at, created_at, updated_at
+    project_id, next_task_id, next_reason, source, generated_at, created_at, updated_at
 )
 VALUES (
-    ?1, ?2, ?3, ?4,
-    ?5, ?6, ?7, ?7
+    ?1, ?2, ?3,
+    ?4, ?5, ?6, ?6
 )
 ON CONFLICT (project_id) DO UPDATE
 SET next_task_id = excluded.next_task_id,
     next_reason = excluded.next_reason,
-    recap = excluded.recap,
     source = excluded.source,
     generated_at = excluded.generated_at,
     updated_at = excluded.updated_at
-RETURNING id, project_id, next_task_id, next_reason, recap, source, generated_at, created_at, updated_at
+RETURNING id, project_id, next_task_id, next_reason, source, generated_at, created_at, updated_at
 `
 
 type UpsertBriefingParams struct {
 	ProjectID   int64
 	NextTaskID  *int64
 	NextReason  string
-	Recap       string
 	Source      string
 	GeneratedAt int64
 	Now         int64
@@ -82,7 +158,6 @@ func (q *Queries) UpsertBriefing(ctx context.Context, arg UpsertBriefingParams) 
 		arg.ProjectID,
 		arg.NextTaskID,
 		arg.NextReason,
-		arg.Recap,
 		arg.Source,
 		arg.GeneratedAt,
 		arg.Now,
@@ -93,7 +168,6 @@ func (q *Queries) UpsertBriefing(ctx context.Context, arg UpsertBriefingParams) 
 		&i.ProjectID,
 		&i.NextTaskID,
 		&i.NextReason,
-		&i.Recap,
 		&i.Source,
 		&i.GeneratedAt,
 		&i.CreatedAt,

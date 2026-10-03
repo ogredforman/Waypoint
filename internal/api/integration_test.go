@@ -312,8 +312,8 @@ func TestE2ECoreLoop(t *testing.T) {
 	if len(b.Blockers) != 1 || b.Blockers[0].ID != blockers[0].ID {
 		t.Errorf("briefing blockers = %+v, want the open blocker", b.Blockers)
 	}
-	if b.Recap == "" {
-		t.Error("briefing recap is empty after an entry")
+	if len(b.Recap) == 0 || len(b.Recap[0].Points) == 0 {
+		t.Errorf("briefing recap = %+v, want the entry with its points", b.Recap)
 	}
 
 	a.noLeaks(body)

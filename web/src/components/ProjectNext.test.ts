@@ -11,7 +11,7 @@ function briefing(next: Task | null, reason = ''): Briefing {
     project_id: 7,
     next_task: next,
     next_reason: reason,
-    recap: '',
+    recap: [],
     source: 'heuristic',
     excerpt: null,
     blockers: [],

@@ -20,7 +20,7 @@ const briefing = (projectID: number, recap: string): Briefing => ({
   project_id: projectID,
   next_task: null,
   next_reason: '',
-  recap,
+  recap: [{ entry_id: 1, created_at: new Date().toISOString(), points: [{ kind: 'progress', text: recap }] }],
   source: 'heuristic',
   excerpt: null,
   blockers: [],

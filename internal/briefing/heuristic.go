@@ -15,8 +15,8 @@ const (
 	maxAlternatives = 2
 	// recapEntries is how many recent entries the recap covers.
 	recapEntries = 3
-	// recapSummaries caps the summaries quoted per entry.
-	recapSummaries = 2
+	// recapPoints caps the points shown per entry.
+	recapPoints = 3
 )
 
 // Reasons the heuristic gives. They are plain and never count what hasn't
@@ -172,36 +172,24 @@ func alternatives(st State, nextID *int64) []domain.Task {
 	return out
 }
 
-// recap writes one sentence per recent entry that has summaries, oldest
-// first, so it reads up to where the user left off. It is empty when there
-// is nothing to say.
-func recap(entries []RecentEntry) string {
-	var sentences []string // newest first
+// recap lists up to recapEntries recent entries that have something to say,
+// newest first, each with up to recapPoints of its observations' summaries.
+// It is empty when there is nothing to say.
+func recap(entries []RecentEntry) []domain.RecapEntry {
+	out := []domain.RecapEntry{}
 	for _, e := range entries {
-		if len(sentences) == recapEntries {
+		if len(out) == recapEntries {
 			break
 		}
-		var parts []string
-		for _, s := range e.Summaries {
-			s = strings.TrimRight(strings.TrimSpace(s), ".")
-			if s != "" && len(parts) < recapSummaries {
-				parts = append(parts, s)
+		var points []domain.RecapPoint
+		for _, o := range e.Observations {
+			if text := strings.TrimSpace(o.Text); text != "" && len(points) < recapPoints {
+				points = append(points, domain.RecapPoint{Kind: o.Kind, Text: text})
 			}
 		}
-		if len(parts) > 0 {
-			sentences = append(sentences, strings.Join(parts, "; ")+".")
+		if len(points) > 0 {
+			out = append(out, domain.RecapEntry{EntryID: e.ID, CreatedAt: e.CreatedAt, Points: points})
 		}
 	}
-	out := make([]string, len(sentences))
-	for i, s := range sentences {
-		label := "Then: "
-		switch {
-		case i == 0:
-			label = "Most recently: "
-		case i == len(sentences)-1:
-			label = "Earlier: "
-		}
-		out[len(sentences)-1-i] = label + s
-	}
-	return strings.Join(out, " ")
+	return out
 }

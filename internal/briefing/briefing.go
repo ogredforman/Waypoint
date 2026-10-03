@@ -9,7 +9,9 @@ import (
 
 // Briefer decides a project's next action and writes its recap. Brief returns
 // the briefing's ProjectID, NextTaskID, NextReason, Recap, and Source; the
-// Service stamps the rest. A NextTaskID must be one of st's open tasks.
+// Service stamps the rest. A NextTaskID must be one of st's open tasks. The
+// recap is a few of st.RecentEntries, newest first, each as short points of an
+// observation kind; the Service drops entries that aren't among them.
 type Briefer interface {
 	Brief(ctx context.Context, st State) (domain.Briefing, error)
 }
@@ -27,12 +29,12 @@ type State struct {
 	RecentEntries []RecentEntry
 }
 
-// RecentEntry is an entry as the summaries of its latest run's observations,
-// not its body.
+// RecentEntry is an entry as its latest run's observations, each a kind and a
+// summary, not its body.
 type RecentEntry struct {
-	ID        int64
-	CreatedAt time.Time
-	Summaries []string
+	ID           int64
+	CreatedAt    time.Time
+	Observations []domain.RecapPoint
 }
 
 // View is a project's briefing as the "Now" screen shows it: the cached

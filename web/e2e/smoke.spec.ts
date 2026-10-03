@@ -31,9 +31,11 @@ test('write → review → apply updates the project and the briefing', async ({
   await review.getByRole('button', { name: 'Accept all' }).click()
   await expect(review).toBeHidden()
 
-  // The briefing updates live: the new task is the next action, the blocker is in the way.
+  // The briefing updates live: the new task is the next action, the blocker is in the way, and
+  // the entry is where you left off.
   await expect(briefing.getByRole('link', { name: task })).toBeVisible()
-  await expect(briefing.getByRole('listitem').filter({ hasText: blocker })).toBeVisible()
+  await expect(briefing.getByRole('list', { name: 'In the way' }).getByText(blocker, { exact: true })).toBeVisible()
+  await expect(briefing.getByRole('list', { name: 'Where you left off' }).getByText('today').first()).toBeVisible()
 
   // The project screen lists both.
   await briefing.getByRole('link', { name: project }).click()
