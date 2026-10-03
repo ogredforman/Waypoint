@@ -107,6 +107,10 @@ Tasks:
 - [x] **1.5.3** Text areas grow with their content up to a maximum height and scroll only past it, with no resize handle. A thin scrollbar styled from theme tokens everywhere. Remove the health footer; show a calm banner only when the server can't be reached.
 - [x] **1.5.4** A `plan` observation kind (new migration rebuilding the `observations.kind` CHECK) with its own highlight colour. The mock's `todo:` lines produce one, so a new task is visible in the timeline, not only in the changeset. Update SPEC §6.1 and §10.4 and MOCK-TESTING.md.
 - [x] **1.5.5** Observation links to entities the same changeset creates: an extractor link may name a temp ID (`$new:N`); it is stored pending, resolved when that op is applied, and dropped if the op is rejected. The mock links `todo:`/`doing:`/`done:` highlights to the tasks they create, so Task detail shows them. Plan first (touches `internal/changeset` and the pipeline); update SPEC §6.2 and §7.1.
+- [ ] **1.5.5b** The diary's "About" project picker stays current: `DiaryInput` reloads its project list on `changeset.applied` and on reconnect (as `liveReload` does for the other screens), so a project created, renamed, or moved between statuses shows up without a page reload.
+- [ ] **1.5.5c** "From the diary" on the Project screen (the "recent entries" SPEC §11 lists but Stage 1 didn't build): the observations linked to the project (notes, decisions, feelings, progress, and the rest), newest first, each with its kind's highlight colour and a link to its entry, with a "show more" past the first page. A read endpoint for a project's linked observations. Task detail's observation list is the model.
+- [ ] **1.5.5d** The next step lives on the project: the Project screen shows the project's next action from its briefing at the top (task, reason, and a link to the task), and says so calmly when there isn't one. In the mock, a reply to "What's the next step?" treats each plain line as a `todo:` line, so answering proposes a task instead of leaving a note. Update SPEC §10.4 and MOCK-TESTING.md.
+- [ ] **1.5.5e** A Now screen you can read at a glance. Today "Where you left off" is one run-on string ("Earlier: …; … Then: … Most recently: …") with raw summaries strung together. Instead, each project is its own clearly separated block; the next action stands out first; "Where you left off" is a short list of recent entries, newest first, each with its relative date and its summaries shown as separate items in their kinds' highlight colours, linking to the entry. Blockers and low-energy alternatives stay brief, below. Plan first: the briefing's recap becomes structured (entries with dates and typed summaries) instead of one string, which changes the `briefings` table, the API type, and the heuristic; settle how the Stage 2 LLM recap (2.9) fits the same shape. Update SPEC §7.3 and §11.
 
 ### 1.5B. Settings and profiles
 - [x] **1.5.6** Settings store: a `settings` table (new migration) and `GET`/`PATCH /api/settings`. User preferences (active-project cap, questions per entry, and later theme and fonts) live here; `config.toml` keeps technical settings (port, data dir, mock latency), and its preference values only seed a new profile's defaults. Update SPEC §10.5.
@@ -117,6 +121,7 @@ Tasks:
 ### 1.5C. Appearance
 - [x] **1.5.10** Fonts bundled with the app (`@fontsource`, no external CDN). Two separate per-profile settings, each with a live preview in Settings: an **interface font** (Inter, Geist, Manrope, IBM Plex Sans, Atkinson Hyperlegible Next) and a **diary font** (the same five plus Literata, a serif, as the default).
 - [x] **1.5.11** Themes, per profile, chosen in Settings with preview swatches. Dark: **Midnight** (the current purple) and **Forest** (deep green, teal accent). Light: **Paper** (warm off-white, indigo accent), **Sage** (soft green), and **Dawn** (cream, amber accent). Every theme meets WCAG AA text contrast, and no accent is near the `danger` red. A new profile copies the current profile's appearance.
+- [ ] **1.5.11b** Appearance applies instantly: choosing a theme or font in Settings applies it to the whole app and saves it at once, with no Save button. A failed save puts the previous choice back and says so in one line.
 
 ### 1.5D. Organising and deleting
 - [ ] **1.5.12** Archive projects (ADR): an `archived` project status that hides the project from the Now screen, lists, project pickers, and the extraction snapshot. An "Archived" group on the Projects screen restores a project to `parked`. Update SPEC §6.
@@ -125,6 +130,7 @@ Tasks:
 - [ ] **1.5.15** Many projects stay tidy: the Projects screen gets a filter box, sorts each status group by last activity, and collapses Done and Archived by default. Project pickers (diary scope, the guessed-project picker in review) become searchable comboboxes.
 
 ### 1.5E. Richer tasks
+- [ ] **1.5.15b** Blockers on a task, optionally (the schema, `create_blocker`, and `update_blocker` already take a `task_id`): a blocker row can be moved onto a task or back to the whole project; Task detail lists the task's open blockers with add and resolve; in the mock, a `blocked:` line that names an open task in the project (best match, as `done:` does) proposes a blocker on that task, otherwise a project-wide one. Update SPEC §10.4 and MOCK-TESTING.md.
 - [ ] **1.5.16** Subtasks in the UI: the Project screen nests subtasks under their parent; Task detail shows them as a checklist with **Add step** (`create_task` with `parent_task_id`), a checkbox that marks a step done (or back to todo), reordering, and delete. The briefing may recommend a step and names its parent ("step 2 of *Set up CI*").
 - [ ] **1.5.17** Rich text editor (ADR; Tiptap or similar): word-processor editing with headings, bold and italic, bulleted, numbered, and check lists, and links, stored as markdown. Used for task notes, a project's why and definition of done, and an idea's body. The diary input stays plain text. Checklists in notes are free-form detail; steps the system should track are subtasks.
 - [ ] **1.5.18** Milestones in the backend: `create_milestone` {project_id, title, description?}, `update_milestone` {milestone_id, title?, description?, status?, position?}, `delete_milestone` (its tasks stay, with no milestone), and `milestone_id` accepted on `create_task` and `update_task`. A new migration rebuilds `change_ops` with the extended op-type CHECK (as in 1.4). Store, validation, applier, API, and tests. Plan first (touches the schema and `internal/changeset`); update SPEC §6.
@@ -135,6 +141,8 @@ Tasks:
 - Projects can be archived, restored, and deleted; diary entries and profiles can be deleted.
 - A task can have hand-made steps and formatted notes, and tasks can be grouped into milestones.
 - A `todo:` line shows a highlight in the diary, linked to its task once applied.
+- The Now screen reads at a glance: one next action per project, then where you left off as a short dated list.
+- A project's screen shows its next action and what the diary has said about it; a blocker can sit on a task.
 - `make test`, `make lint`, and `make e2e` pass.
 
 ---
