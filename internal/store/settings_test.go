@@ -20,7 +20,7 @@ func TestSettings(t *testing.T) {
 		t.Errorf("settings before seeding = %+v, want the defaults %+v", got, domain.DefaultSettings())
 	}
 
-	seeded := domain.Settings{ActiveProjectCap: 5, QuestionsPerEntry: 1}
+	seeded := domain.Settings{ActiveProjectCap: 5, QuestionsPerEntry: 1, InterfaceFont: domain.FontGeist, DiaryFont: domain.DiaryLiterata}
 	if err := s.SeedSettings(ctx, seeded); err != nil {
 		t.Fatal(err)
 	}
@@ -29,14 +29,14 @@ func TestSettings(t *testing.T) {
 	}
 
 	// A second seed, as at every startup, leaves the stored row alone.
-	if err := s.SeedSettings(ctx, domain.Settings{ActiveProjectCap: 2, QuestionsPerEntry: 0}); err != nil {
+	if err := s.SeedSettings(ctx, domain.DefaultSettings()); err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := s.GetSettings(ctx); got != seeded {
 		t.Errorf("after a second seed = %+v, want %+v unchanged", got, seeded)
 	}
 
-	updated := domain.Settings{ActiveProjectCap: 1, QuestionsPerEntry: 0}
+	updated := domain.Settings{ActiveProjectCap: 1, QuestionsPerEntry: 0, InterfaceFont: domain.FontAtkinsonHyperlegibleNext, DiaryFont: domain.DiaryFont(domain.FontIBMPlexSans)}
 	inTx(t, s, func(tx *Tx) error {
 		got, err := tx.UpdateSettings(ctx, updated)
 		if err == nil && got != updated {
@@ -55,7 +55,7 @@ func TestSettings(t *testing.T) {
 func TestSettingsUpdateWithoutSeed(t *testing.T) {
 	ctx := context.Background()
 	s, _, _ := newTestStore(t)
-	want := domain.Settings{ActiveProjectCap: 4, QuestionsPerEntry: 2}
+	want := domain.Settings{ActiveProjectCap: 4, QuestionsPerEntry: 2, InterfaceFont: domain.FontManrope, DiaryFont: domain.DiaryLiterata}
 	inTx(t, s, func(tx *Tx) error {
 		_, err := tx.UpdateSettings(ctx, want)
 		return err
@@ -68,10 +68,19 @@ func TestSettingsUpdateWithoutSeed(t *testing.T) {
 func TestSettingsRejectsInvalid(t *testing.T) {
 	ctx := context.Background()
 	s, sqlDB, _ := newTestStore(t)
+	with := func(change func(*domain.Settings)) domain.Settings {
+		s := domain.DefaultSettings()
+		change(&s)
+		return s
+	}
 	for _, bad := range []domain.Settings{
-		{ActiveProjectCap: 0, QuestionsPerEntry: 2},
-		{ActiveProjectCap: 3, QuestionsPerEntry: 3},
-		{ActiveProjectCap: 3, QuestionsPerEntry: -1},
+		with(func(s *domain.Settings) { s.ActiveProjectCap = 0 }),
+		with(func(s *domain.Settings) { s.QuestionsPerEntry = 3 }),
+		with(func(s *domain.Settings) { s.QuestionsPerEntry = -1 }),
+		with(func(s *domain.Settings) { s.InterfaceFont = "comic-sans" }),
+		with(func(s *domain.Settings) { s.InterfaceFont = "literata" }),
+		with(func(s *domain.Settings) { s.InterfaceFont = "" }),
+		with(func(s *domain.Settings) { s.DiaryFont = "papyrus" }),
 	} {
 		var ve *domain.ValidationError
 		if err := s.SeedSettings(ctx, bad); !errors.As(err, &ve) {

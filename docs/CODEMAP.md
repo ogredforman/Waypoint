@@ -32,7 +32,7 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   `Milestone`) in `types.go`; string enums with `Xxxs()` lists in `enums.go` (must match SQL CHECKs;
   `db/enums_test.go` enforces it); validation, `ValidationError`/`FieldError`, project status rules
   (`CheckNewProjectStatus`, `CheckProjectStatusChange`, `ActiveCapError`) in `validate.go`.
-  `settings.go`: `Settings` (user preferences per database), `DefaultSettings`, `MaxQuestionsPerEntry`.
+  `settings.go`: `Settings` (user preferences per database, incl. `InterfaceFont`/`DiaryFont`), `DefaultSettings`, `MaxQuestionsPerEntry`.
   `profile.go`: `Profile` (ID, Name), `CleanProfileName`, `ProfileSlug`, `ValidProfileID`, `ErrLastProfile`.
 - **db**: `Open` (modernc sqlite, WAL, FKs on), `Migrations`, `Migrate` (goose, embedded).
   `migrations/0000N_*.sql` (never edit committed ones), `queries/<entity>.sql` → sqlc output in
@@ -140,8 +140,14 @@ pieces. Tests sit next to the code as `*.test.ts`.
   `ParkedProjectRow.svelte` (activate, calm cap handling). `lib/ideas.ts`: `promoteTargets`, `defaultTarget`, `projectName`;
   `lib/projects.ts` `parkedProjects`.
 - Settings: `screens/Settings.svelte` (`/settings`, linked from the header; one `<section>` per group, "Focus" first:
-  active-project cap and questions per entry, saved as one PATCH of the changed fields; then "Profiles"). `lib/settings.ts`: `settingsPatch`,
+  active-project cap and questions per entry, saved as one PATCH of the changed fields; then "Appearance"; then "Profiles"). `lib/settings.ts`: `settingsPatch`,
   `parseCap`, `capNote` (a cap below the active count pauses nothing), `fieldProblems` (422 → per-field). `screens/Settings.test.ts`.
+- Appearance (fonts): `fonts.ts` (imported by `main.ts`) bundles the `@fontsource-variable/*` faces. `lib/appearance.ts`: `fonts`
+  (setting value → label and CSS stack), `interfaceFontChoices`/`diaryFontChoices`, `appearancePatch`, `applyAppearance`
+  (overrides `--font-sans`/`--font-diary` on `<html>`), `setAppearance` (after a save), `loadAppearance` (called by
+  `ProfileWorkspace` on mount, so on every profile switch). Settings' Appearance section: `components/AppearanceSettings.svelte`
+  (own form and Save, previews before saving). Diary text uses the `font-diary` utility. Tests: `lib/appearance.test.ts`,
+  `components/AppearanceSettings.test.ts`.
 - Theme: named tokens in `app.css` `@theme` (`canvas`/`surface`/`raised`/`line`, `ink`/`ink-muted`/
   `ink-faint`, `accent`/`accent-strong`/`accent-deep`/`on-accent`, `plan` (plan highlights; `lib/entries.ts` `highlightClass`), `shadow-glow`/`focus`/`edge`,
   `text-title`, `px-gutter`, `rounded-card`). Use these, not raw Tailwind colours. Thin scrollbars from tokens in `@layer base`.

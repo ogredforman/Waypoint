@@ -12,7 +12,12 @@ import (
 )
 
 func settingsDTO(s domain.Settings) apitypes.Settings {
-	return apitypes.Settings{ActiveProjectCap: s.ActiveProjectCap, QuestionsPerEntry: s.QuestionsPerEntry}
+	return apitypes.Settings{
+		ActiveProjectCap:  s.ActiveProjectCap,
+		QuestionsPerEntry: s.QuestionsPerEntry,
+		InterfaceFont:     s.InterfaceFont,
+		DiaryFont:         s.DiaryFont,
+	}
 }
 
 func (h *handlers) getSettings(w http.ResponseWriter, r *http.Request) {
@@ -48,22 +53,22 @@ func (h *handlers) patchSettings(w http.ResponseWriter, r *http.Request) {
 		var problems []domain.FieldError
 		for _, name := range slices.Sorted(maps.Keys(body)) {
 			raw := body[name]
-			var dst *int
+			var problem string
 			switch name {
 			case "active_project_cap":
-				dst = &s.ActiveProjectCap
+				problem = decodeField(raw, &s.ActiveProjectCap, "must be a whole number")
 			case "questions_per_entry":
-				dst = &s.QuestionsPerEntry
+				problem = decodeField(raw, &s.QuestionsPerEntry, "must be a whole number")
+			case "interface_font":
+				problem = decodeField(raw, &s.InterfaceFont, "must be a font name")
+			case "diary_font":
+				problem = decodeField(raw, &s.DiaryFont, "must be a font name")
 			default:
-				problems = append(problems, domain.FieldError{Field: name, Problem: "is not a known field"})
-				continue
+				problem = "is not a known field"
 			}
-			var v *int
-			if json.Unmarshal(raw, &v) != nil || v == nil {
-				problems = append(problems, domain.FieldError{Field: name, Problem: "must be a whole number"})
-				continue
+			if problem != "" {
+				problems = append(problems, domain.FieldError{Field: name, Problem: problem})
 			}
-			*dst = *v
 		}
 		if len(problems) > 0 {
 			return &domain.ValidationError{Entity: "settings", Problems: problems}
@@ -76,4 +81,16 @@ func (h *handlers) patchSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, settingsDTO(updated))
+}
+
+// decodeField sets *dst from raw, a settings field that may not be null. It
+// answers with the problem (wrongType when raw isn't a T), or "" when dst was
+// set. Ranges and allowed values are left to domain.Settings.Validate.
+func decodeField[T any](raw json.RawMessage, dst *T, wrongType string) string {
+	var v *T
+	if json.Unmarshal(raw, &v) != nil || v == nil {
+		return wrongType
+	}
+	*dst = *v
+	return ""
 }

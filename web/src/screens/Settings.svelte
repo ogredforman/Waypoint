@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import AppearanceSettings from '../components/AppearanceSettings.svelte'
   import ProfileSettings from '../components/ProfileSettings.svelte'
   import Button from '../components/ui/Button.svelte'
   import Input from '../components/ui/Input.svelte'
@@ -89,9 +90,9 @@
 </script>
 
 <!--
-  Each group of settings is its own <section> under the heading: "Focus" (the
-  profile in use), then "Profiles". Later ones (appearance, the extraction
-  provider) go between them.
+  Each group of settings is its own <section> under the heading: "Focus" and
+  "Appearance" (the profile in use), then "Profiles". Later ones (the
+  extraction provider) go before "Profiles".
 -->
 <section class="space-y-8">
   <div>
@@ -164,6 +165,8 @@
         </form>
       </Panel>
     </section>
+
+    <AppearanceSettings settings={saved} onsaved={(s) => (saved = s)} />
   {/if}
 
   <ProfileSettings />

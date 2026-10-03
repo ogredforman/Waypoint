@@ -452,14 +452,24 @@ export interface Settings {
    * QuestionsPerEntry is how many follow-up questions one entry may get, 0 to 2.
    */
   questions_per_entry: number /* int */;
+  /**
+   * InterfaceFont is the font of the whole interface.
+   */
+  interface_font: domain.InterfaceFont;
+  /**
+   * DiaryFont is the font diary entries are written and read in.
+   */
+  diary_font: domain.DiaryFont;
 }
 /**
  * UpdateSettingsRequest is the body of PATCH /api/settings. Only the fields
- * present change; neither may be null.
+ * present change; none may be null.
  */
 export interface UpdateSettingsRequest {
   active_project_cap?: number /* int */;
   questions_per_entry?: number /* int */;
+  interface_font?: domain.InterfaceFont;
+  diary_font?: domain.DiaryFont;
 }
 
 //////////

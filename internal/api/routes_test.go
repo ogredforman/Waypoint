@@ -52,7 +52,7 @@ func newServer(t *testing.T) *server {
 	logger, logs := jsonLogger()
 	st := store.New(sqlDB, time.Now)
 	briefings := briefing.NewService(st, briefing.Heuristic{}, time.Now, nil, logger)
-	if err := st.SeedSettings(context.Background(), domain.Settings{ActiveProjectCap: activeCap, QuestionsPerEntry: domain.MaxQuestionsPerEntry}); err != nil {
+	if err := st.SeedSettings(context.Background(), domain.Settings{ActiveProjectCap: activeCap, QuestionsPerEntry: domain.MaxQuestionsPerEntry, InterfaceFont: domain.FontInter, DiaryFont: domain.DiaryLiterata}); err != nil {
 		t.Fatal(err)
 	}
 	applier := changeset.NewApplier(st, briefings)
@@ -686,17 +686,21 @@ func TestBriefingRoutes(t *testing.T) {
 func TestSettingsRoutes(t *testing.T) {
 	s := newServer(t)
 	settings := ok[apitypes.Settings](s, http.StatusOK, "GET", "/api/profiles/t/settings", nil)
-	if want := (apitypes.Settings{ActiveProjectCap: activeCap, QuestionsPerEntry: 2}); settings != want {
+	if want := (apitypes.Settings{ActiveProjectCap: activeCap, QuestionsPerEntry: 2, InterfaceFont: "inter", DiaryFont: "literata"}); settings != want {
 		t.Errorf("settings = %+v, want %+v", settings, want)
 	}
 
 	// Absent fields stay as they are.
 	settings = ok[apitypes.Settings](s, http.StatusOK, "PATCH", "/api/profiles/t/settings", `{"questions_per_entry": 0}`)
-	if want := (apitypes.Settings{ActiveProjectCap: activeCap, QuestionsPerEntry: 0}); settings != want {
+	if want := (apitypes.Settings{ActiveProjectCap: activeCap, QuestionsPerEntry: 0, InterfaceFont: "inter", DiaryFont: "literata"}); settings != want {
 		t.Errorf("after PATCH = %+v, want %+v", settings, want)
 	}
 	settings = ok[apitypes.Settings](s, http.StatusOK, "PATCH", "/api/profiles/t/settings", `{"active_project_cap": 5, "questions_per_entry": 1}`)
-	if want := (apitypes.Settings{ActiveProjectCap: 5, QuestionsPerEntry: 1}); settings != want {
+	if want := (apitypes.Settings{ActiveProjectCap: 5, QuestionsPerEntry: 1, InterfaceFont: "inter", DiaryFont: "literata"}); settings != want {
+		t.Errorf("after PATCH = %+v, want %+v", settings, want)
+	}
+	settings = ok[apitypes.Settings](s, http.StatusOK, "PATCH", "/api/profiles/t/settings", `{"interface_font": "atkinson-hyperlegible-next", "diary_font": "geist"}`)
+	if want := (apitypes.Settings{ActiveProjectCap: 5, QuestionsPerEntry: 1, InterfaceFont: "atkinson-hyperlegible-next", DiaryFont: "geist"}); settings != want {
 		t.Errorf("after PATCH = %+v, want %+v", settings, want)
 	}
 	if got := ok[apitypes.Settings](s, http.StatusOK, "GET", "/api/profiles/t/settings", nil); got != settings {
@@ -713,6 +717,12 @@ func TestSettingsRoutes(t *testing.T) {
 		`{"active_project_cap": "4"}`,
 		`{"theme": "forest"}`,
 		`{"active_project_cap": 4, "port": 80}`,
+		`{"interface_font": "literata"}`,
+		`{"interface_font": "comic-sans"}`,
+		`{"interface_font": null}`,
+		`{"interface_font": 3}`,
+		`{"diary_font": ""}`,
+		`{"diary_font": null}`,
 	} {
 		e := s.fails(http.StatusUnprocessableEntity, "invalid", "PATCH", "/api/profiles/t/settings", body)
 		if len(e.Problems) == 0 {

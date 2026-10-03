@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/ogredforman/waypoint/internal/domain"
 )
 
 func fakeEnv(m map[string]string) LookupEnv {
@@ -381,3 +383,16 @@ func TestEnsureDataDir(t *testing.T) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// The config seeds the caps; everything it doesn't set keeps the built-in default.
+func TestSettingsDefaults(t *testing.T) {
+	got := Config{ActiveProjectCap: 5, QuestionsPerEntry: 1}.SettingsDefaults()
+	want := domain.DefaultSettings()
+	want.ActiveProjectCap, want.QuestionsPerEntry = 5, 1
+	if got != want {
+		t.Errorf("SettingsDefaults = %+v, want %+v", got, want)
+	}
+	if err := got.Validate(); err != nil {
+		t.Error(err)
+	}
+}

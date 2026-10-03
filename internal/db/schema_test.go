@@ -109,8 +109,8 @@ func TestCoreSchema(t *testing.T) {
 	if err := sqlDB.QueryRowContext(ctx, "SELECT max(version_id) FROM goose_db_version").Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != 7 {
-		t.Errorf("schema version %d, want 7", version)
+	if version != 8 {
+		t.Errorf("schema version %d, want 8", version)
 	}
 	if got := appTables(t, sqlDB); !slices.Equal(got, coreTables) {
 		t.Errorf("tables %v, want %v", got, coreTables)
@@ -176,6 +176,8 @@ func TestCoreSchemaRejects(t *testing.T) {
 		{"settings cap below 1", check, `INSERT INTO settings (id, active_project_cap, questions_per_entry, created_at, updated_at) VALUES (1, 0, 2, 1, 1)`},
 		{"settings questions above 2", check, `INSERT INTO settings (id, active_project_cap, questions_per_entry, created_at, updated_at) VALUES (1, 3, 3, 1, 1)`},
 		{"settings questions negative", check, `INSERT INTO settings (id, active_project_cap, questions_per_entry, created_at, updated_at) VALUES (1, 3, -1, 1, 1)`},
+		{"settings interface font", check, `INSERT INTO settings (id, active_project_cap, questions_per_entry, interface_font, created_at, updated_at) VALUES (1, 3, 2, 'literata', 1, 1)`},
+		{"settings diary font", check, `INSERT INTO settings (id, active_project_cap, questions_per_entry, diary_font, created_at, updated_at) VALUES (1, 3, 2, 'papyrus', 1, 1)`},
 		{"profile second row", check, `INSERT INTO profile (id, name, created_at, updated_at) VALUES (2, 'x', 1, 1)`},
 		{"profile blank name", check, `UPDATE profile SET name = '  ' WHERE id = 1`},
 		{"idea status", check, `INSERT INTO ideas (title, status, created_at, updated_at) VALUES ('x', 'active', 1, 1)`},
@@ -421,5 +423,43 @@ func TestObservationPlanRebuild(t *testing.T) {
 	}
 	if got := ids(t, sqlDB, `SELECT observation_id FROM observation_links ORDER BY id`); !slices.Equal(got, []int64{1, 2}) {
 		t.Errorf("links after down point at %v, want [1 2]", got)
+	}
+}
+
+// A settings row stored before the font columns gets the default fonts, and
+// going down keeps the rest of it.
+func TestSettingsFontsMigration(t *testing.T) {
+	ctx := context.Background()
+	fsys, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB := openTemp(t)
+	provider, err := goose.NewProvider(goose.DialectSQLite3, sqlDB, fsys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.UpTo(ctx, 7); err != nil {
+		t.Fatal(err)
+	}
+	exec(t, sqlDB, `INSERT INTO settings (id, active_project_cap, questions_per_entry, created_at, updated_at) VALUES (1, 4, 1, 1, 1)`)
+
+	if _, err := provider.UpTo(ctx, 8); err != nil {
+		t.Fatal(err)
+	}
+	var ui, diary string
+	var limit int
+	if err := sqlDB.QueryRowContext(ctx, `SELECT active_project_cap, interface_font, diary_font FROM settings`).Scan(&limit, &ui, &diary); err != nil {
+		t.Fatal(err)
+	}
+	if limit != 4 || ui != "inter" || diary != "literata" {
+		t.Errorf("after up: cap %d, fonts %q and %q; want 4, inter and literata", limit, ui, diary)
+	}
+
+	if _, err := provider.DownTo(ctx, 7); err != nil {
+		t.Fatal(err)
+	}
+	if err := sqlDB.QueryRowContext(ctx, `SELECT active_project_cap FROM settings`).Scan(&limit); err != nil || limit != 4 {
+		t.Errorf("after down: cap %d, %v; want 4", limit, err)
 	}
 }

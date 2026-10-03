@@ -1,4 +1,5 @@
 import { mount } from 'svelte'
+import './fonts'
 import './app.css'
 import App from './App.svelte'
 import { chooseProfile, waitingMessage } from './lib/profile.svelte'

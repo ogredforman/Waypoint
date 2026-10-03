@@ -32,7 +32,7 @@ import (
 )
 
 // seed is the config's settings, which every new profile starts with.
-var seed = domain.Settings{ActiveProjectCap: 4, QuestionsPerEntry: 1}
+var seed = domain.Settings{ActiveProjectCap: 4, QuestionsPerEntry: 1, InterfaceFont: domain.FontInter, DiaryFont: domain.DiaryLiterata}
 
 // env is a data dir that managers are opened on in turn, as server restarts.
 type env struct {
@@ -209,7 +209,9 @@ func TestAdoptLegacyDatabase(t *testing.T) {
 		t.Fatal(err)
 	}
 	st := store.New(sqlDB, time.Now)
-	if err := st.SeedSettings(ctx, domain.Settings{ActiveProjectCap: 7, QuestionsPerEntry: 0}); err != nil {
+	// Raw SQL: the store writes columns added after this schema (the fonts).
+	if _, err := sqlDB.ExecContext(ctx, `INSERT INTO settings (id, active_project_cap, questions_per_entry, created_at, updated_at)
+		VALUES (1, 7, 0, 1, 1)`); err != nil {
 		t.Fatal(err)
 	}
 	if err := st.InTx(ctx, func(tx *store.Tx) error {
@@ -243,8 +245,8 @@ func TestAdoptLegacyDatabase(t *testing.T) {
 	}
 	var s apitypes.Settings
 	a.call(http.StatusOK, "GET", "/api/profiles/personal/settings", "", &s)
-	if s.ActiveProjectCap != 7 || s.QuestionsPerEntry != 0 {
-		t.Errorf("settings = %+v, want the stored ones kept, not the seed", s)
+	if s.ActiveProjectCap != 7 || s.QuestionsPerEntry != 0 || s.InterfaceFont != domain.FontInter || s.DiaryFont != domain.DiaryLiterata {
+		t.Errorf("settings = %+v, want the stored ones kept, not the seed, with the default fonts", s)
 	}
 	for _, suffix := range []string{"", "-wal", "-shm"} {
 		if exists(t, e.legacy()+suffix) {

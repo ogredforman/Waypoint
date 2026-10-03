@@ -279,3 +279,39 @@ func BriefingSources() []BriefingSource {
 }
 
 func (s BriefingSource) Valid() bool { return slices.Contains(BriefingSources(), s) }
+
+// InterfaceFont is the font of the app's interface, one of the fonts bundled
+// with the frontend (SPEC §10.5).
+type InterfaceFont string
+
+const (
+	FontInter                    InterfaceFont = "inter"
+	FontGeist                    InterfaceFont = "geist"
+	FontManrope                  InterfaceFont = "manrope"
+	FontIBMPlexSans              InterfaceFont = "ibm-plex-sans"
+	FontAtkinsonHyperlegibleNext InterfaceFont = "atkinson-hyperlegible-next"
+)
+
+func InterfaceFonts() []InterfaceFont {
+	return []InterfaceFont{FontInter, FontGeist, FontManrope, FontIBMPlexSans, FontAtkinsonHyperlegibleNext}
+}
+
+func (f InterfaceFont) Valid() bool { return slices.Contains(InterfaceFonts(), f) }
+
+// DiaryFont is the font diary entries are written and read in: Literata, a
+// serif, or any interface font.
+type DiaryFont string
+
+// DiaryLiterata is the default diary font; the others share their values with
+// InterfaceFont.
+const DiaryLiterata DiaryFont = "literata"
+
+func DiaryFonts() []DiaryFont {
+	out := []DiaryFont{DiaryLiterata}
+	for _, f := range InterfaceFonts() {
+		out = append(out, DiaryFont(f))
+	}
+	return out
+}
+
+func (f DiaryFont) Valid() bool { return slices.Contains(DiaryFonts(), f) }

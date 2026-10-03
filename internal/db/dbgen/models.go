@@ -162,6 +162,8 @@ type Setting struct {
 	QuestionsPerEntry int64
 	CreatedAt         int64
 	UpdatedAt         int64
+	InterfaceFont     string
+	DiaryFont         string
 }
 
 type Task struct {

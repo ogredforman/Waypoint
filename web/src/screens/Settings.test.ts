@@ -29,7 +29,7 @@ function json(v: unknown, status = 200): Response {
 
 beforeEach(() => {
   fetchMock.mockClear()
-  settings = { active_project_cap: 3, questions_per_entry: 2 }
+  settings = { active_project_cap: 3, questions_per_entry: 2, interface_font: 'inter', diary_font: 'literata' }
   projects = [project(1, 'active'), project(2, 'active'), project(3, 'parked')]
   patchReply = null
   vi.stubGlobal('fetch', fetchMock)

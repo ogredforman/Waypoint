@@ -62,7 +62,7 @@ func startApp(t *testing.T, dbPath string, ext extract.Extractor) *app {
 	st := store.New(sqlDB, time.Now)
 	snapshots := pipeline.NewSnapshotBuilder(st, time.Now, 5)
 	briefings := briefing.NewService(st, briefing.Heuristic{}, time.Now, hub, logger)
-	if err := st.SeedSettings(context.Background(), domain.Settings{ActiveProjectCap: activeCap, QuestionsPerEntry: domain.MaxQuestionsPerEntry}); err != nil {
+	if err := st.SeedSettings(context.Background(), domain.Settings{ActiveProjectCap: activeCap, QuestionsPerEntry: domain.MaxQuestionsPerEntry, InterfaceFont: domain.FontInter, DiaryFont: domain.DiaryLiterata}); err != nil {
 		t.Fatal(err)
 	}
 	applier := changeset.NewApplier(st, changeset.AfterApplies{briefings, hub})

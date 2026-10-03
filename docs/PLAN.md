@@ -115,7 +115,7 @@ Tasks:
 - [x] **1.5.9** Profile switcher in the app shell; the browser remembers the active profile. Create and rename profiles; delete one from Settings, confirmed by typing its name, with copy saying plainly that everything in it goes. Deleting the active profile switches to another first.
 
 ### 1.5C. Appearance
-- [ ] **1.5.10** Fonts bundled with the app (`@fontsource`, no external CDN). Two separate per-profile settings, each with a live preview in Settings: an **interface font** (Inter, Geist, Manrope, IBM Plex Sans, Atkinson Hyperlegible Next) and a **diary font** (the same five plus Literata, a serif, as the default).
+- [x] **1.5.10** Fonts bundled with the app (`@fontsource`, no external CDN). Two separate per-profile settings, each with a live preview in Settings: an **interface font** (Inter, Geist, Manrope, IBM Plex Sans, Atkinson Hyperlegible Next) and a **diary font** (the same five plus Literata, a serif, as the default).
 - [ ] **1.5.11** Themes, per profile, chosen in Settings with preview swatches. Dark: **Midnight** (the current purple) and **Forest** (deep green, teal accent). Light: **Paper** (warm off-white, indigo accent), **Sage** (soft green), and **Dawn** (cream, amber accent). Every theme meets WCAG AA text contrast, and no accent is near the `danger` red. A new profile copies the current profile's appearance.
 
 ### 1.5D. Organising and deleting
@@ -240,3 +240,4 @@ Ideas and tangents captured mid-work (via `/park`). Not scheduled. Review them a
 - [ ] Tell the extractor the profile's question limit (e.g. a `MaxQuestions` field on `ExtractInput`) so the LLM prompt asks for no more than `questions_per_entry`; today the worker drops the extras after validation (1.5.6) (parked 2026-10-01; suggested stage: 2, with the extraction prompt)
 - [ ] A `settings.updated` SSE event, so other open tabs pick up a changed cap without reloading; screens read `GET /api/settings` when they load (parked 2026-10-01; suggested stage: 1.5, with 1.5.7 if the Settings screen needs it)
 - [ ] Other tabs pick up profile changes: the profile list is loaded once per page (1.5.9), so a profile added, renamed, or deleted in another tab only shows after a reload, and a tab whose profile was deleted elsewhere gets 404s until then. A `profiles.changed` server-wide event, or re-reading the list on focus, would fix both (parked 2026-10-01; suggested stage: 1.5)
+- [ ] Real italic font files for the briefing quote, if the browser's synthetic slant looks bad once seen. 1.5.10 bundles only upright faces, so italics are synthesized (parked 2026-10-02; suggested stage: 1.5, with 1.5.11)

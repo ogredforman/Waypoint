@@ -54,9 +54,14 @@ func (c Config) Addr() string {
 	return "127.0.0.1:" + strconv.Itoa(c.Port)
 }
 
-// SettingsDefaults are the settings a database without any is seeded with.
+// SettingsDefaults are the settings a database without any is seeded with:
+// the config's caps, and the built-in defaults for everything config.toml
+// doesn't set (the fonts).
 func (c Config) SettingsDefaults() domain.Settings {
-	return domain.Settings{ActiveProjectCap: c.ActiveProjectCap, QuestionsPerEntry: c.QuestionsPerEntry}
+	s := domain.DefaultSettings()
+	s.ActiveProjectCap = c.ActiveProjectCap
+	s.QuestionsPerEntry = c.QuestionsPerEntry
+	return s
 }
 
 // ProfilesDir holds one SQLite database per profile (ADR 0005).

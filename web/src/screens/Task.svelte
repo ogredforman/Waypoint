@@ -88,7 +88,7 @@
       {#if detail.origin_entry}
         <Card data-origin-entry={detail.origin_entry.id}>
           <p class="text-xs text-ink-faint">{when(detail.origin_entry.created_at)}</p>
-          <p class="mt-1 text-sm leading-relaxed break-words whitespace-pre-wrap text-ink">{detail.origin_entry.body}</p>
+          <p class="mt-1 font-diary text-sm leading-relaxed break-words whitespace-pre-wrap text-ink">{detail.origin_entry.body}</p>
         </Card>
       {:else}
         <p class="text-sm text-ink-muted">Added by hand.</p>
@@ -110,7 +110,7 @@
                     <li data-observation-id={o.id} class="text-sm">
                       <span class="text-ink-muted">{kindLabel(o.kind)}:</span>
                       <span class="text-ink">{o.summary}</span>
-                      {#if o.quote}<blockquote class="mt-1 border-l-2 border-accent/40 pl-2 text-ink-muted">“{o.quote}”</blockquote>{/if}
+                      {#if o.quote}<blockquote class="mt-1 border-l-2 border-accent/40 pl-2 font-diary text-ink-muted">“{o.quote}”</blockquote>{/if}
                     </li>
                   {/each}
                 </ul>

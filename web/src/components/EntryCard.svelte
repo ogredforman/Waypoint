@@ -101,7 +101,7 @@
     </p>
   {/if}
 
-  <p class="text-sm leading-relaxed break-words whitespace-pre-wrap text-ink">{#each segs as s, i (i)}{@const href = s.observation && observationHref(s.observation)}{#if !s.observation}{s.text}{:else if href}<a {href} title={observationLabel(s.observation)} class="rounded-sm underline underline-offset-2 {highlightClass(s.observation.kind, true)}">{s.text}</a>{:else}<mark title={observationLabel(s.observation)} class="rounded-sm text-ink {highlightClass(s.observation.kind, false)}">{s.text}</mark>{/if}{/each}</p>
+  <p class="font-diary text-sm leading-relaxed break-words whitespace-pre-wrap text-ink">{#each segs as s, i (i)}{@const href = s.observation && observationHref(s.observation)}{#if !s.observation}{s.text}{:else if href}<a {href} title={observationLabel(s.observation)} class="rounded-sm underline underline-offset-2 {highlightClass(s.observation.kind, true)}">{s.text}</a>{:else}<mark title={observationLabel(s.observation)} class="rounded-sm text-ink {highlightClass(s.observation.kind, false)}">{s.text}</mark>{/if}{/each}</p>
 
   {#if item.error}
     <p class="text-xs text-ink-muted">{item.error}</p>

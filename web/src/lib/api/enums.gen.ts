@@ -44,3 +44,9 @@ export type ChangeOpStatus = (typeof changeOpStatusValues)[number];
 
 export const briefingSourceValues = ["heuristic", "llm"] as const;
 export type BriefingSource = (typeof briefingSourceValues)[number];
+
+export const interfaceFontValues = ["inter", "geist", "manrope", "ibm-plex-sans", "atkinson-hyperlegible-next"] as const;
+export type InterfaceFont = (typeof interfaceFontValues)[number];
+
+export const diaryFontValues = ["literata", "inter", "geist", "manrope", "ibm-plex-sans", "atkinson-hyperlegible-next"] as const;
+export type DiaryFont = (typeof diaryFontValues)[number];

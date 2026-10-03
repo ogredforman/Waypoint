@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { loadAppearance } from '../lib/appearance'
   import { startEvents } from '../lib/events'
   import type { Route } from '../lib/router'
   import { followEvents } from '../lib/timeline.svelte'
@@ -19,6 +20,8 @@
   let { route, wide }: { route: Route; wide: boolean } = $props()
 
   onMount(() => {
+    // This profile's fonts; the previous profile's stay until they arrive.
+    void loadAppearance()
     // Subscribe before connecting, so no event slips past the timeline.
     const stopTimeline = followEvents()
     const stopEvents = startEvents()

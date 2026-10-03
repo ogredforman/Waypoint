@@ -20,10 +20,16 @@ func (r reader) GetSettings(ctx context.Context) (domain.Settings, error) {
 	if err != nil {
 		return domain.Settings{}, fmt.Errorf("get settings: %w", err)
 	}
+	return settingsFromRow(row), nil
+}
+
+func settingsFromRow(row dbgen.Setting) domain.Settings {
 	return domain.Settings{
 		ActiveProjectCap:  int(row.ActiveProjectCap),
 		QuestionsPerEntry: int(row.QuestionsPerEntry),
-	}, nil
+		InterfaceFont:     domain.InterfaceFont(row.InterfaceFont),
+		DiaryFont:         domain.DiaryFont(row.DiaryFont),
+	}
 }
 
 // SeedSettings stores s as the database's settings if it has none yet. Stored
@@ -37,6 +43,8 @@ func (s *Store) SeedSettings(ctx context.Context, set domain.Settings) error {
 		err := tx.q.InsertSettingsIfMissing(ctx, dbgen.InsertSettingsIfMissingParams{
 			ActiveProjectCap:  int64(set.ActiveProjectCap),
 			QuestionsPerEntry: int64(set.QuestionsPerEntry),
+			InterfaceFont:     string(set.InterfaceFont),
+			DiaryFont:         string(set.DiaryFont),
 			Now:               tx.nowMS(),
 		})
 		if err != nil {
@@ -54,13 +62,12 @@ func (tx *Tx) UpdateSettings(ctx context.Context, s domain.Settings) (domain.Set
 	row, err := tx.q.UpsertSettings(ctx, dbgen.UpsertSettingsParams{
 		ActiveProjectCap:  int64(s.ActiveProjectCap),
 		QuestionsPerEntry: int64(s.QuestionsPerEntry),
+		InterfaceFont:     string(s.InterfaceFont),
+		DiaryFont:         string(s.DiaryFont),
 		Now:               tx.nowMS(),
 	})
 	if err != nil {
 		return domain.Settings{}, fmt.Errorf("update settings: %w", err)
 	}
-	return domain.Settings{
-		ActiveProjectCap:  int(row.ActiveProjectCap),
-		QuestionsPerEntry: int(row.QuestionsPerEntry),
-	}, nil
+	return settingsFromRow(row), nil
 }

@@ -55,6 +55,8 @@ var enums = []enum{
 	{"OpType", values(domain.OpTypes())},
 	{"ChangeOpStatus", values(domain.ChangeOpStatuses())},
 	{"BriefingSource", values(domain.BriefingSources())},
+	{"InterfaceFont", values(domain.InterfaceFonts())},
+	{"DiaryFont", values(domain.DiaryFonts())},
 }
 
 func main() {

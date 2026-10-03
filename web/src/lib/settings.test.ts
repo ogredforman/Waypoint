@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from './api/client'
+import type { Settings } from './api/types.gen'
 import { capNote, capProblem, fieldProblems, parseCap, settingsPatch } from './settings'
 
-const saved = { active_project_cap: 3, questions_per_entry: 2 }
+const saved: Settings = { active_project_cap: 3, questions_per_entry: 2, interface_font: 'inter', diary_font: 'literata' }
 
 describe('parseCap', () => {
   it('accepts whole numbers of at least 1', () => {
