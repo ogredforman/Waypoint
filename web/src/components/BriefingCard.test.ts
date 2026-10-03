@@ -62,6 +62,7 @@ describe('BriefingCard', () => {
     expect(at.every((i) => i >= 0)).toBe(true)
     expect([...at].sort((a, b) => a - b)).toEqual(at)
     expect(target.querySelector('a[href="/tasks/1"]')).not.toBeNull()
+    expect(target.querySelector('a[href="/diary?entry=9"] time')).not.toBeNull()
   })
 
   it('lists recent entries newest first, each dated, with its points as separate items', () => {

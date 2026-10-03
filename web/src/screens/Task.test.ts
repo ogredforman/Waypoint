@@ -67,7 +67,9 @@ describe('Task screen', () => {
     expect(target.querySelector('a')?.textContent).toBe('← Waypoint')
     expect(target.textContent).toContain('In progress')
     expect(target.querySelector('[data-origin-entry="1"]')?.textContent).toContain('todo: Write docs')
+    expect(target.querySelector('[data-origin-entry="1"] a')?.getAttribute('href')).toBe('/diary?entry=1')
     const groups = [...target.querySelectorAll('[data-entry-id]')]
+    for (const g of groups) expect(g.querySelector('a')?.getAttribute('href')).toBe(`/diary?entry=${g.getAttribute('data-entry-id')}`)
     expect(groups.map((g) => [...g.querySelectorAll('[data-observation-id]')].map((o) => o.getAttribute('data-observation-id')))).toEqual([
       ['10', '11'],
       ['12'],

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchRoute, pageTitle, paths, sectionOf, shouldIntercept, type Click, type Link } from './router'
+import { entryParam, matchRoute, pageTitle, paths, sectionOf, shouldIntercept, type Click, type Link } from './router'
 
 describe('matchRoute', () => {
   it('matches the top-level screens', () => {
@@ -98,5 +98,19 @@ describe('shouldIntercept', () => {
 
   it('still takes app paths that merely start with "api"', () => {
     expect(shouldIntercept(click, { ...link, href: `${origin}/apiary` }, origin)).toBe(true)
+  })
+})
+
+describe('entryParam', () => {
+  it('reads the entry a diary link points at', () => {
+    expect(paths.diaryEntry(12)).toBe('/diary?entry=12')
+    expect(entryParam(new URL(paths.diaryEntry(12), 'http://x').search)).toBe(12)
+    expect(entryParam('?other=1&entry=3')).toBe(3)
+  })
+
+  it('ignores a missing or malformed entry', () => {
+    for (const s of ['', '?entry=', '?entry=0', '?entry=-1', '?entry=1.5', '?entry=abc', '?entry=99999999999999999999']) {
+      expect(entryParam(s)).toBeNull()
+    }
   })
 })

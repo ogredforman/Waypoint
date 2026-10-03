@@ -22,7 +22,7 @@ vi.mock('./api/client', async (importOriginal) => {
   }
 })
 
-const { addEntry, followEvents, loadEntry, loadOlder, loadTimeline, pageSize, reprocessEntry, timeline } = await import('./timeline.svelte')
+const { addEntry, followEvents, loadEntry, loadOlder, loadThrough, loadTimeline, pageSize, reprocessEntry, timeline } = await import('./timeline.svelte')
 
 const stopFollowing = followEvents()
 const stopEvents = startEvents(fakeOpen)
@@ -69,6 +69,26 @@ beforeEach(() => {
 })
 
 describe('timeline', () => {
+  it('loads older pages until the linked entry is in the timeline', async () => {
+    routes.set(first, page([6, 5], 5))
+    routes.set(older(5), page([4, 3], 3))
+    routes.set(older(3), page([2, 1], null))
+    expect(await loadThrough(4)).toBe('found')
+    expect(ids()).toEqual([6, 5, 4, 3])
+  })
+
+  it('stops paging once older pages cannot hold the linked entry', async () => {
+    routes.set(first, page([6, 4], 4))
+    expect(await loadThrough(5)).toBe('absent')
+    expect(ids()).toEqual([6, 4])
+  })
+
+  it('stops paging when an older page fails', async () => {
+    routes.set(first, page([6, 5], 5))
+    expect(await loadThrough(2)).toBe('failed')
+    expect(ids()).toEqual([6, 5])
+  })
+
   it('loads the newest page with each entry detail', async () => {
     routes.set(first, page([3, 2], 2))
     await loadTimeline()

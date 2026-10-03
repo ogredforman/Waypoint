@@ -93,7 +93,7 @@ Svelte 5 runes + TS + Tailwind, Vitest. `main.ts` → `App.svelte`. `lib/api/cli
 typed API client (the only place that calls `fetch`); `apiPath` puts `/api/…` under the profile set by `useProfile`,
 with generated `types.gen.ts`/`enums.gen.ts`; named calls (`listProjects`, `getSettings`, `updateSettings`,
 `listProfiles`/`createProfile`/`renameProfile`/`deleteProfile`, `listProjectObservations`, `getBriefing`) are thin wrappers over `getJSON`/`patchJSON`, and new code uses them.
-`lib/router.ts` + `lib/navigation.svelte.ts`: client-side routing; every screen's `<h1>` takes `{@attach pageHeading}` (focus after navigation). `screens/`: page components
+`lib/router.ts` + `lib/navigation.svelte.ts`: client-side routing (`paths`, incl. `paths.diaryEntry(id)` → `/diary?entry=N`, read back by `entryParam(current.search)`); every screen's `<h1>` takes `{@attach pageHeading}` (focus after navigation). `screens/`: page components
 (`Now`, `Diary`, `Projects`, `Project`, `Task`, `ParkingLot`, `Settings`, `NotFound`). `components/`: reusable
 pieces. Tests sit next to the code as `*.test.ts`.
 
@@ -118,8 +118,10 @@ pieces. Tests sit next to the code as `*.test.ts`.
   outlives the panel/overlay; one per profile: `switchDraft`, `restoreDraft`, `draftSession`).
 - Diary timeline: `components/EntryTimeline.svelte` → `EntryCard.svelte` (highlights, run state) →
   `FollowUpQuestion.svelte` (answer/dismiss). `lib/timeline.svelte.ts`: shared timeline state (`loadTimeline`,
-  `loadOlder`, `loadEntry`, `addEntry`, `reprocessEntry`, `followEvents`). `lib/entries.ts`: `segments`, `observationHref`, detail helpers,
+  `loadOlder`, `loadThrough` (pages back to one entry), `loadEntry`, `addEntry`, `reprocessEntry`, `followEvents`). `lib/entries.ts`: `segments`, `observationHref`, detail helpers,
   reading again (`canReprocess`, `reprocessImpact`, `reprocessWarning`). `components/EntryCard.test.ts`.
+  Entry links: `screens/Diary` passes `?entry=N` as `focusEntry` through `DiaryContent` to `EntryTimeline` (`loadThrough`, scroll, brief
+  `highlighted` ring on `EntryCard`); `components/EntryTimeline.test.ts`.
 - Changeset review: `EntryCard` → `components/ChangesetReview.svelte` (one per pending changeset; project
   picker, Apply / Accept all) → `ChangeOpRow.svelte` (accept/reject/edit). `lib/review.ts`: pure logic
   (`reject`/`accept` cascades over `$new:N`, `guessedProject`, `noProject`, `applyRequest`, `describe` using

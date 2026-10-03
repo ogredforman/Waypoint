@@ -7,6 +7,7 @@
   import { highlightClass, kindLabel } from '../lib/entries'
   import { on } from '../lib/events'
   import { latest, liveReload } from '../lib/live'
+  import { paths } from '../lib/router'
   import { observationTimeline } from '../lib/tasks'
 
   let { projectId }: { projectId: number } = $props()
@@ -92,7 +93,7 @@
       {#each timeline as g (g.entryId)}
         <li data-entry-id={g.entryId}>
           <Card>
-            <p class="text-xs text-ink-faint">{when(g.at)}</p>
+            <p class="text-xs"><a href={paths.diaryEntry(g.entryId)} class="text-ink-faint hover:text-accent">{when(g.at)}</a></p>
             <ul class="mt-2 space-y-2">
               {#each g.observations as o (o.id)}
                 <li data-observation-id={o.id} class="text-sm">

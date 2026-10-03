@@ -46,6 +46,19 @@ describe('pageHeading', () => {
     expect(document.activeElement).toBe(h)
   })
 
+  it('keeps the query string current through navigate and back', async () => {
+    const { current, navigate, startRouting } = await load()
+    const stop = startRouting()
+    navigate('/diary?entry=4')
+    expect(current.search).toBe('?entry=4')
+    navigate('/diary?entry=7')
+    expect(current.search).toBe('?entry=7')
+    history.replaceState(null, '', '/diary?entry=4')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    expect(current.search).toBe('?entry=4')
+    stop()
+  })
+
   it('leaves focus alone when only the query string changes', async () => {
     const { navigate, pageHeading } = await load()
     navigate('/?tab=recap')

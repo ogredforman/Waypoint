@@ -49,9 +49,9 @@
         <ol class="mt-2 space-y-3" aria-labelledby="recap-{project.id}">
           {#each briefing.recap as entry (entry.entry_id)}
             <li class="flex gap-3 text-sm">
-              <time datetime={entry.created_at} title={longDate(entry.created_at)} class="w-24 shrink-0 text-ink-faint">
-                {relativeDay(entry.created_at)}
-              </time>
+              <a href={paths.diaryEntry(entry.entry_id)} class="w-24 shrink-0 text-ink-faint hover:text-accent">
+                <time datetime={entry.created_at} title={longDate(entry.created_at)}>{relativeDay(entry.created_at)}</time>
+              </a>
               <ul class="flex min-w-0 flex-wrap gap-1.5">
                 {#each entry.points as point, i (i)}
                   <li class="rounded px-1.5 py-0.5 text-ink {highlightClass(point.kind, false)}" title={kindLabel(point.kind)}>

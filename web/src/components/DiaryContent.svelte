@@ -1,6 +1,9 @@
 <script lang="ts">
   import DiaryInput from './DiaryInput.svelte'
   import EntryTimeline from './EntryTimeline.svelte'
+
+  // focusEntry is the entry a /diary?entry=N link points at; only the full-page diary passes it.
+  let { focusEntry = null }: { focusEntry?: number | null } = $props()
 </script>
 
 <!--
@@ -11,5 +14,5 @@
 -->
 <div class="space-y-6">
   <DiaryInput />
-  <EntryTimeline />
+  <EntryTimeline {focusEntry} />
 </div>

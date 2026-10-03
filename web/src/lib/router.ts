@@ -17,6 +17,7 @@ export type Section = 'now' | 'diary' | 'projects' | 'parkingLot' | 'settings'
 export const paths = {
   now: '/',
   diary: '/diary',
+  diaryEntry: (id: number) => `/diary?entry=${id}`,
   projects: '/projects',
   project: (id: number) => `/projects/${id}`,
   task: (id: number) => `/tasks/${id}`,
@@ -46,6 +47,13 @@ export function matchRoute(pathname: string): Route {
     if (id !== null) return { name: m[1] === 'projects' ? 'project' : 'task', id }
   }
   return { name: 'notFound' }
+}
+
+// entryParam reads the entry a /diary link points at (?entry=N) from a URL's
+// query string. null when there isn't one, or it isn't an ID.
+export function entryParam(search: string): number | null {
+  const s = new URLSearchParams(search).get('entry')
+  return s === null ? null : parseID(s)
 }
 
 // parseID accepts the positive integer IDs the API hands out, nothing else.

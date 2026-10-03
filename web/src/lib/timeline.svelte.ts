@@ -102,6 +102,24 @@ export async function loadOlder(): Promise<void> {
   }
 }
 
+// loadThrough loads the newest page, then older pages until the entry with
+// this ID is in the timeline (for a /diary?entry=N link). It reports 'found', 'absent'
+// once older pages can't hold the entry, or 'failed' when a page didn't load
+// (the timeline's error says why).
+export async function loadThrough(id: number): Promise<'found' | 'absent' | 'failed'> {
+  await loadTimeline()
+  const has = () => timeline.items.some((i) => i.entry.id === id)
+  while (!has()) {
+    if (timeline.status !== 'ready') return 'failed'
+    const before = timeline.nextBefore
+    // before is exclusive: older pages only hold IDs below it.
+    if (before === null || before <= id) return 'absent'
+    await loadOlder()
+    if (timeline.nextBefore === before) return 'failed' // the page failed, or another load was under way
+  }
+  return 'found'
+}
+
 // loadEntry (re)loads one entry's detail, if the entry is in the timeline.
 export async function loadEntry(id: number): Promise<void> {
   const seq = ++entryLoadSeq

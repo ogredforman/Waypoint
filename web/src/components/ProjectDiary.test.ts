@@ -63,6 +63,7 @@ describe('ProjectDiary', () => {
     await render()
     expect(entryIds()).toEqual([3, 1])
     const first = target.querySelector('li[data-entry-id="3"]')!
+    expect(first.querySelector('a')?.getAttribute('href')).toBe('/diary?entry=3')
     expect(first.querySelectorAll('li[data-observation-id]')).toHaveLength(2)
     expect(first.textContent).toContain('“Tired!”')
     const plan = [...first.querySelectorAll('span')].find((s) => s.textContent === 'Add tests')!

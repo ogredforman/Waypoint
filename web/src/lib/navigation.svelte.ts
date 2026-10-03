@@ -5,6 +5,7 @@ import { matchRoute, shouldIntercept, type Route } from './router'
 // navigate calls.
 
 let path = $state(window.location.pathname)
+let search = $state(window.location.search)
 const route = $derived(matchRoute(path))
 
 // headingFocus is a request, made when the page changes, to move focus to the
@@ -27,6 +28,10 @@ export const current = {
   get route(): Route {
     return route
   },
+  // search is the query string, e.g. ?entry=N on /diary.
+  get search(): string {
+    return search
+  },
 }
 
 // navigate moves to another page of the app without reloading it.
@@ -39,6 +44,7 @@ export function navigate(to: string, options: { replace?: boolean } = {}): void 
   } else {
     history.pushState(null, '', target)
   }
+  search = url.search
   moveTo(url.pathname)
   window.scrollTo(0, 0)
 }
@@ -46,7 +52,10 @@ export function navigate(to: string, options: { replace?: boolean } = {}): void 
 // startRouting follows back/forward and handles in-app link clicks. It
 // returns a function that stops both.
 export function startRouting(): () => void {
-  const onPopState = () => moveTo(window.location.pathname)
+  const onPopState = () => {
+    search = window.location.search
+    moveTo(window.location.pathname)
+  }
   const onClick = (e: MouseEvent) => {
     const a = e.target instanceof Element ? e.target.closest('a') : null
     if (!a || !a.hasAttribute('href')) return

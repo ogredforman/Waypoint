@@ -31,7 +31,15 @@
     projectTitle,
     replyTo,
     projects,
-  }: { item: TimelineItem; projectTitle: string | null; replyTo: Question | null; projects: Project[] } = $props()
+    highlighted = false,
+  }: {
+    item: TimelineItem
+    projectTitle: string | null
+    replyTo: Question | null
+    projects: Project[]
+    // highlighted marks the entry a /diary?entry=N link opened, for a moment.
+    highlighted?: boolean
+  } = $props()
 
   const entry = $derived(item.entry)
   const detail = $derived(item.detail)
@@ -86,7 +94,7 @@
   }
 </script>
 
-<Card class="space-y-3">
+<Card class={['space-y-3 motion-safe:transition-shadow motion-safe:duration-700', highlighted && 'ring-2 ring-accent']}>
   <div class="flex flex-wrap items-baseline gap-x-2 text-xs text-ink-muted">
     <time datetime={entry.created_at}>{when}</time>
     {#if entry.project_id !== null}

@@ -87,7 +87,9 @@
       <h2 id="task-origin" class="font-medium text-ink">Where it came from</h2>
       {#if detail.origin_entry}
         <Card data-origin-entry={detail.origin_entry.id}>
-          <p class="text-xs text-ink-faint">{when(detail.origin_entry.created_at)}</p>
+          <p class="text-xs">
+            <a href={paths.diaryEntry(detail.origin_entry.id)} class="text-ink-faint hover:text-accent">{when(detail.origin_entry.created_at)}</a>
+          </p>
           <p class="mt-1 font-diary text-sm leading-relaxed break-words whitespace-pre-wrap text-ink">{detail.origin_entry.body}</p>
         </Card>
       {:else}
@@ -104,7 +106,7 @@
           {#each timeline as g (g.entryId)}
             <li data-entry-id={g.entryId}>
               <Card>
-                <p class="text-xs text-ink-faint">{when(g.at)}</p>
+                <p class="text-xs"><a href={paths.diaryEntry(g.entryId)} class="text-ink-faint hover:text-accent">{when(g.at)}</a></p>
                 <ul class="mt-2 space-y-2">
                   {#each g.observations as o (o.id)}
                     <li data-observation-id={o.id} class="text-sm">
