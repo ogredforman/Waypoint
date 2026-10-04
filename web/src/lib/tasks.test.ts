@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { TaskStatus } from './api/enums.gen'
 import type { LinkedObservation, Task } from './api/types.gen'
-import { groupTasks, newTaskRequest, observationTimeline, taskFields, taskPatch } from './tasks'
+import { groupTasks, nestTasks, newStepRequest, newTaskRequest, observationTimeline, stepLabel, stepStatus, taskFields, taskPatch } from './tasks'
 
 function task(id: number, status: TaskStatus, position: number, extra: Partial<Task> = {}): Task {
   return {
@@ -39,6 +39,39 @@ describe('groupTasks', () => {
   it('leaves out empty sections', () => {
     expect(groupTasks([task(1, 'todo', 1)]).map((g) => g.status)).toEqual(['todo'])
     expect(groupTasks([])).toEqual([])
+  })
+})
+
+describe('nestTasks', () => {
+  it("groups only top-level tasks and keeps each task's steps under it by position", () => {
+    const tree = nestTasks([
+      task(1, 'todo', 1),
+      task(2, 'done', 4, { parent_task_id: 1 }),
+      task(3, 'todo', 3, { parent_task_id: 1 }),
+      task(4, 'in_progress', 5, { parent_task_id: 3 }),
+      task(5, 'done', 6),
+    ])
+    expect(tree.groups.map((g) => [g.status, g.tasks.map((t) => t.id)])).toEqual([
+      ['todo', [1]],
+      ['done', [5]],
+    ])
+    expect(tree.steps.get(1)?.map((t) => t.id)).toEqual([3, 2])
+    expect(tree.steps.get(3)?.map((t) => t.id)).toEqual([4])
+  })
+
+  it('treats a task whose parent is not in the list as top-level', () => {
+    const tree = nestTasks([task(2, 'todo', 1, { parent_task_id: 9 })])
+    expect(tree.groups[0].tasks.map((t) => t.id)).toEqual([2])
+    expect(tree.steps.size).toBe(0)
+  })
+})
+
+describe('steps', () => {
+  it('builds a step request, ticks to done and back to todo, and names a step', () => {
+    expect(newStepRequest('  Pick a runner ', 4)).toEqual({ title: 'Pick a runner', parent_task_id: 4 })
+    expect(stepStatus(true)).toBe('done')
+    expect(stepStatus(false)).toBe('todo')
+    expect(stepLabel({ parent_task_id: 4, parent_title: 'Set up CI', number: 2 })).toBe('Step 2 of')
   })
 })
 

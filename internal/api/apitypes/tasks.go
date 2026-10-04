@@ -54,6 +54,8 @@ type TaskDetail struct {
 	Observations []LinkedObservation `json:"observations"`
 	// Blockers are the open blockers on this task, oldest first.
 	Blockers []Blocker `json:"blockers"`
+	// Steps are the task's direct subtasks, by position.
+	Steps []Task `json:"steps"`
 }
 
 // LinkedObservation is an observation linked to a task, with the words of
@@ -77,7 +79,8 @@ const (
 )
 
 // MoveTaskRequest is the body of POST /api/tasks/{id}/move. The task swaps
-// position with its neighbour in the same status group; the response is the
+// position with its neighbour among its siblings: tasks with the same parent
+// and, for top-level tasks, the same status; the response is the
 // tasks whose position changed, none when it is already at that end.
 type MoveTaskRequest struct {
 	Direction MoveDirection `json:"direction"`

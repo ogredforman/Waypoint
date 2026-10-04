@@ -308,6 +308,9 @@ func TestGet(t *testing.T) {
 	if v.Next == nil || v.Next.ID != a || nextOf(v.Briefing) != a {
 		t.Errorf("next = %+v, want task %d", v.Next, a)
 	}
+	if v.Step != nil {
+		t.Errorf("step = %+v, want none for a top-level task", v.Step)
+	}
 	if v.Excerpt == nil || v.Excerpt.EntryID != e.ID || v.Excerpt.Text != "halfway through the briefer" {
 		t.Errorf("excerpt = %+v, want the newest entry about the task", v.Excerpt)
 	}
@@ -326,6 +329,31 @@ func TestGet(t *testing.T) {
 	}
 	if len(v.Blockers) != 0 || len(v.Alternatives) != 2 {
 		t.Errorf("after resolving: blockers %+v, alternatives %+v", v.Blockers, v.Alternatives)
+	}
+}
+
+func TestGetNamesTheStep(t *testing.T) {
+	f := newFixture(t)
+	p := f.project("Waypoint", domain.ProjectActive)
+	parent := f.task(p, "Set up CI", nil)
+	step := func(title string) int64 {
+		return f.manual(changeset.CreateTask{ProjectID: changeset.ID(p), Title: title, ParentTaskID: ptr(changeset.ID(parent))}).Created[1]
+	}
+	first := step("Pick a runner")
+	second := step("Write the workflow")
+	step("Add a badge")
+	f.task(p, "Other work", nil)
+	f.manual(changeset.SetTaskStatus{TaskID: changeset.ID(first), Status: domain.TaskDone})
+
+	v, err := f.svc.Get(context.Background(), p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.Next == nil || v.Next.ID != second {
+		t.Fatalf("next = %+v, want step %d", v.Next, second)
+	}
+	if v.Step == nil || v.Step.Parent.ID != parent || v.Step.Parent.Title != "Set up CI" || v.Step.Number != 2 {
+		t.Errorf("step = %+v, want step 2 of task %d", v.Step, parent)
 	}
 }
 

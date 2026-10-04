@@ -69,7 +69,7 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   changeset (keeping only `questions_per_entry` questions), emits `Event`s via `Notifier`, calls `AfterRun.EntryProcessed`). Failures recorded on
   the run, never partial state.
 - **briefing**: `Briefer` interface, `Heuristic` implementation (`heuristic.go`), `Service`
-  (`Refresh`, `Get` → `View`, `EntryDeleted`; drops recap entries the Briefer wasn't shown; implements `changeset.AfterApply` and `pipeline.AfterRun`; notifies
+  (`Refresh`, `Get` → `View` (with `Step`: the next task's parent and step number, → `Briefing.next_step`), `EntryDeleted`; drops recap entries the Briefer wasn't shown; implements `changeset.AfterApply` and `pipeline.AfterRun`; notifies
   `BriefingUpdated`). Briefings are cached per project in the DB; the recap (`[]domain.RecapEntry`, newest first, points with observation kinds) in `briefing_recap_points`.
 - **profile**: `Manager` runs every profile (ADR 0005): `Open` (removes half-built `*.db.new`, moves the legacy
   `waypoint.db` in as "Personal", starts each `profiles/<id>.db`), `List`, `Create` (optionally copying another profile's appearance), `Rename`, `Delete`, `Serve`, `Ping`,
@@ -138,7 +138,8 @@ pieces. Tests sit next to the code as `*.test.ts`.
   only), `statusOptions`, `activateCapMessage`. `lib/api/client.ts` also has `patchJSON`/`deleteJSON` (204 → undefined).
   Tasks: `components/ProjectTasks.svelte` (list grouped by status, add form, move up/down) → `TaskRow.svelte` (view,
   inline edit, status, delete with confirmation); move up/down is one `POST /api/tasks/{id}/move` (`api/tasks.go`
-  `moveTask`, `movePositions`). `lib/tasks.ts`: `groupTasks`, `taskPatch`, `newTaskRequest`.
+  `moveTask`, `movePositions`: among siblings, i.e. same parent, and same status for top-level tasks). Steps nest under their parent through `TaskRow`'s `children` snippet.
+  `lib/tasks.ts`: `groupTasks`, `nestTasks` (top-level groups + steps by parent), `taskPatch`, `newTaskRequest`, `newStepRequest`, `stepStatus`, `stepLabel`.
   Blockers: `components/ProjectBlockers.svelte` (open, then resolved) → `BlockerRow.svelte` (resolve, delete with confirmation, and with `tasks` a "Blocks" picker that moves an open blocker between tasks and the whole project);
   `ProjectBlockers` also has the add form with an optional open-task picker; `lib/blockers.ts`: `splitBlockers`, `openTasks`, `newBlockerRequest`, `blockerTargets`, `moveBlockerRequest`. Ideas: `components/ProjectIdeas.svelte` (this project's parked ideas) → `IdeaRow.svelte`.
   Delete (ADR 0008): `components/ProjectDelete.svelte` (at the foot of the screen; `getProjectDeletion` preview, `lib/projects.ts` `deletionSummary`,
@@ -147,7 +148,7 @@ pieces. Tests sit next to the code as `*.test.ts`.
   Next action: `components/ProjectNext.svelte` (`getBriefing`, reloads on this project's `briefing.updated` and on reconnect); `components/ProjectNext.test.ts`.
   From the diary: `components/ProjectDiary.svelte` (`listProjectObservations`, grouped by `observationTimeline`, "Show more", reloads on `entry.processed` too); `components/ProjectDiary.test.ts`.
 - Task detail: `screens/Task.svelte` (`GET /api/tasks/{id}`: fields, origin entry, linked observations grouped by entry
-  via `lib/tasks.ts` `observationTimeline`; otherwise read-only, edits live on the Project screen) → `components/TaskBlockers.svelte` (the task's open blockers from `TaskDetail.blockers`: resolve, delete, add on this task). `lib/entries.ts` `kindLabel`.
+  via `lib/tasks.ts` `observationTimeline`; otherwise read-only, edits live on the Project screen) → `components/TaskSteps.svelte` (`TaskDetail.steps` as a checklist: add, tick done/todo, move, delete; `TaskSteps.test.ts`) and `components/TaskBlockers.svelte` (the task's open blockers from `TaskDetail.blockers`: resolve, delete, add on this task). `lib/entries.ts` `kindLabel`.
 - Parking lot: `screens/ParkingLot.svelte` (all parked ideas and parked projects) → `components/IdeaRow.svelte` (promote to a
   task in a chosen project or to a parked project, delete with confirmation; also used by `ProjectIdeas`) and
   `ParkedProjectRow.svelte` (activate, calm cap handling). `lib/ideas.ts`: `promoteTargets`, `defaultTarget`, `projectName`;

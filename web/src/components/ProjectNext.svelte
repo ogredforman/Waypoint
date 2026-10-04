@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { stepLabel } from '../lib/tasks'
   import Button from './ui/Button.svelte'
   import Card from './ui/Card.svelte'
   import { onMount } from 'svelte'
@@ -56,6 +57,12 @@
       <p class="mt-1 text-lg font-medium">
         <a href={paths.task(briefing.next_task.id)} class="hover:text-accent">{briefing.next_task.title}</a>
       </p>
+      {#if briefing.next_step}
+        <p class="mt-1 text-sm text-ink-muted">
+          {stepLabel(briefing.next_step)}
+          <a href={paths.task(briefing.next_step.parent_task_id)} class="text-ink hover:text-accent">{briefing.next_step.parent_title}</a>
+        </p>
+      {/if}
       {#if briefing.next_reason}<p class="mt-2 text-sm text-ink-muted">{briefing.next_reason}</p>{/if}
     </Card>
   {:else}

@@ -66,6 +66,8 @@ type Briefing struct {
 	ProjectID  int64  `json:"project_id"`
 	NextTask   *Task  `json:"next_task" tstype:"Task | null,required"`
 	NextReason string `json:"next_reason"`
+	// NextStep says whose step NextTask is, when it is a subtask.
+	NextStep *StepOf `json:"next_step" tstype:"StepOf | null,required"`
 	// Recap is where the user left off: a few recent entries about the
 	// project, newest first.
 	Recap  []RecapEntry          `json:"recap"`
@@ -78,6 +80,15 @@ type Briefing struct {
 	// started now instead.
 	Alternatives []Task    `json:"alternatives"`
 	GeneratedAt  time.Time `json:"generated_at"`
+}
+
+// StepOf places a subtask in its parent's steps: "step Number of
+// ParentTitle".
+type StepOf struct {
+	ParentTaskID int64  `json:"parent_task_id"`
+	ParentTitle  string `json:"parent_title"`
+	// Number counts from 1, in the parent's step order.
+	Number int `json:"number"`
 }
 
 // RecapEntry is one entry in a briefing's recap, as a few short points.

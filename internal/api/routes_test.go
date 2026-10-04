@@ -325,6 +325,65 @@ func TestMoveTask(t *testing.T) {
 	s.fails(http.StatusNotFound, "not_found", "POST", "/api/profiles/t/tasks/999/move", `{"direction": "up"}`)
 }
 
+func TestTaskSteps(t *testing.T) {
+	s := newServer(t)
+	p := s.project("Waypoint", domain.ProjectActive)
+	tasksURL := fmt.Sprintf("/api/profiles/t/projects/%d/tasks", p.ID)
+	parent := ok[apitypes.Task](s, http.StatusCreated, "POST", tasksURL, map[string]any{"title": "Set up CI"})
+	newStep := func(title string) apitypes.Task {
+		t.Helper()
+		return ok[apitypes.Task](s, http.StatusCreated, "POST", tasksURL, map[string]any{"title": title, "parent_task_id": parent.ID})
+	}
+	a := newStep("Pick a runner")
+	b := newStep("Write the workflow")
+	c := newStep("Add a badge")
+	other := ok[apitypes.Task](s, http.StatusCreated, "POST", tasksURL, map[string]any{"title": "Other work"})
+	ok[apitypes.Task](s, http.StatusOK, "PATCH", fmt.Sprintf("/api/profiles/t/tasks/%d", a.ID), map[string]any{"status": "done"})
+	steps := func() []string {
+		t.Helper()
+		var titles []string
+		for _, st := range ok[apitypes.TaskDetail](s, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/tasks/%d", parent.ID), nil).Steps {
+			titles = append(titles, st.Title)
+		}
+		return titles
+	}
+	if got := steps(); !slices.Equal(got, []string{"Pick a runner", "Write the workflow", "Add a badge"}) {
+		t.Errorf("steps = %v", got)
+	}
+	move := func(task apitypes.Task, dir string) int {
+		t.Helper()
+		return len(ok[[]apitypes.Task](s, http.StatusOK, "POST", fmt.Sprintf("/api/profiles/t/tasks/%d/move", task.ID), map[string]any{"direction": dir}))
+	}
+	// Steps are one checklist: the todo step moves above the done one.
+	if n := move(b, "up"); n != 2 {
+		t.Errorf("move step up moved %d tasks, want 2", n)
+	}
+	if got := steps(); !slices.Equal(got, []string{"Write the workflow", "Pick a runner", "Add a badge"}) {
+		t.Errorf("steps after move = %v", got)
+	}
+	// The briefing names the step it recommends: the first open step.
+	br := ok[apitypes.Briefing](s, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/projects/%d/briefing", p.ID), nil)
+	if br.NextTask == nil || br.NextTask.ID != b.ID {
+		t.Fatalf("next task = %+v, want step %d", br.NextTask, b.ID)
+	}
+	if br.NextStep == nil || *br.NextStep != (apitypes.StepOf{ParentTaskID: parent.ID, ParentTitle: "Set up CI", Number: 1}) {
+		t.Errorf("next step = %+v, want step 1 of Set up CI", br.NextStep)
+	}
+
+	// The last step can't move down past a top-level task.
+	if n := move(c, "down"); n != 0 {
+		t.Errorf("move last step down moved %d tasks, want none", n)
+	}
+	// A top-level task moves past the steps to its sibling.
+	if n := move(other, "up"); n != 2 {
+		t.Errorf("move top-level task up moved %d tasks, want 2", n)
+	}
+	detail := ok[apitypes.TaskDetail](s, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/tasks/%d", other.ID), nil)
+	if detail.Task.Position != parent.Position {
+		t.Errorf("other's position = %d, want the parent's old %d", detail.Task.Position, parent.Position)
+	}
+}
+
 func TestTaskDetailShowsLinkedObservations(t *testing.T) {
 	s := newServer(t)
 	s.runWorker()

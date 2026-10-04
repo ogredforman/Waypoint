@@ -2,6 +2,7 @@
   import Button from '../components/ui/Button.svelte'
   import { onMount } from 'svelte'
   import TaskBlockers from '../components/TaskBlockers.svelte'
+  import TaskSteps from '../components/TaskSteps.svelte'
   import Card from '../components/ui/Card.svelte'
   import { ApiError, getJSON } from '../lib/api/client'
   import { latest, liveReload } from '../lib/live'
@@ -83,6 +84,8 @@
       </p>
       {#if task.notes}<p class="text-sm leading-relaxed whitespace-pre-wrap text-ink">{task.notes}</p>{/if}
     </header>
+
+    <TaskSteps {task} bind:steps={detail.steps} />
 
     <TaskBlockers {task} bind:blockers={detail.blockers} />
 

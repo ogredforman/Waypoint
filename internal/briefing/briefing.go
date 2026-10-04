@@ -44,6 +44,9 @@ type View struct {
 	Briefing domain.Briefing
 	// Next is the task Briefing.NextTaskID names, or nil if there is none.
 	Next *domain.Task
+	// Step places Next among its parent's steps, or is nil if Next is not a
+	// subtask.
+	Step *Step
 	// Excerpt is the most recent entry text about Next, or nil if none.
 	Excerpt *Excerpt
 	// Blockers are the project's open blockers, oldest first.
@@ -51,6 +54,13 @@ type View struct {
 	// Alternatives are up to 2 small or low-energy tasks that can be started
 	// now, other than Next.
 	Alternatives []domain.Task
+}
+
+// Step is a subtask's place in its parent's steps.
+type Step struct {
+	Parent domain.Task
+	// Number counts from 1, by position (ties by id).
+	Number int
 }
 
 // Excerpt is the part of an entry an observation covers.

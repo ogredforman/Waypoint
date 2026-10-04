@@ -31,6 +31,7 @@ function detail(extra: Partial<TaskDetail> = {}): TaskDetail {
     origin_entry: { id: 1, body: 'todo: Write docs', project_id: 7, reply_to_question_id: null, created_at: '2026-09-29T09:00:00Z' },
     observations: [obs(10, 1, 'Plans docs'), obs(11, 1, 'Starts them'), obs(12, 2, 'Half done')],
     blockers: [],
+    steps: [],
     ...extra,
   }
 }

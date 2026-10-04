@@ -92,7 +92,8 @@ function writes(): { url: string; method?: string; body: unknown }[] {
     .map(([url, init]) => ({ url, method: init?.method, body: init?.body ? JSON.parse(init.body as string) : undefined }))
 }
 function titles(group: string): string[] {
-  return [...target.querySelectorAll(`ul[aria-label="${group}"] > li a`)].map((a) => a.textContent ?? '')
+  // Only the list's own rows, not the steps nested in them.
+  return [...target.querySelectorAll(`ul[aria-label="${group}"] > li > div a`)].map((a) => a.textContent ?? '')
 }
 
 describe('ProjectTasks', () => {
@@ -171,5 +172,20 @@ describe('ProjectTasks', () => {
     await settle()
     expect(writes()).toEqual([{ url: '/api/tasks/1', method: 'DELETE', body: undefined }])
     expect(target.textContent).toContain('No tasks yet')
+  })
+
+  it('nests steps under their parent whatever their status, each with its own moves', async () => {
+    await render([
+      task(1, 'todo', 1, { title: 'Set up CI' }),
+      task(2, 'done', 2, { title: 'Pick a runner', parent_task_id: 1 }),
+      task(3, 'todo', 3, { title: 'Write the workflow', parent_task_id: 1 }),
+      task(4, 'todo', 4, { title: 'Other' }),
+    ])
+    expect(titles('To do')).toEqual(['Set up CI', 'Other'])
+    expect(titles('Steps of Set up CI')).toEqual(['Pick a runner', 'Write the workflow'])
+    expect(target.querySelector('ul[aria-label="Done"]')).toBeNull()
+    expect(button('Move Pick a runner up').disabled).toBe(true)
+    expect(button('Move Write the workflow up').disabled).toBe(false)
+    expect(button('Move Write the workflow down').disabled).toBe(true)
   })
 })

@@ -211,6 +211,7 @@ func (s *Service) view(ctx context.Context, projectID int64) (View, error) {
 				return errStale
 			}
 			v.Next = &st.Tasks[i]
+			v.Step = stepOf(st.Tasks, *v.Next)
 			if v.Excerpt, err = excerpt(ctx, tx, *id); err != nil {
 				return err
 			}
@@ -220,6 +221,28 @@ func (s *Service) view(ctx context.Context, projectID int64) (View, error) {
 		return nil
 	})
 	return v, err
+}
+
+// stepOf places t among its parent's subtasks, or returns nil if t has no
+// parent in tasks. tasks are in position order, ties by id.
+func stepOf(tasks []domain.Task, t domain.Task) *Step {
+	if t.ParentTaskID == nil {
+		return nil
+	}
+	i := slices.IndexFunc(tasks, func(x domain.Task) bool { return x.ID == *t.ParentTaskID })
+	if i < 0 {
+		return nil
+	}
+	step := Step{Parent: tasks[i]}
+	for _, x := range tasks {
+		if x.ParentTaskID != nil && *x.ParentTaskID == *t.ParentTaskID {
+			step.Number++
+		}
+		if x.ID == t.ID {
+			break
+		}
+	}
+	return &step
 }
 
 // excerpt returns the text of the newest observation linked to the task, or

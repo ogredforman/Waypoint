@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { stepLabel } from '../lib/tasks'
   import type { Briefing, Project } from '../lib/api/types.gen'
   import { relativeDay } from '../lib/dates'
   import { highlightClass, kindLabel } from '../lib/entries'
@@ -27,6 +28,12 @@
         <p class="mt-1 text-lg font-medium">
           <a href={paths.task(briefing.next_task.id)} class="hover:text-accent">{briefing.next_task.title}</a>
         </p>
+        {#if briefing.next_step}
+          <p class="mt-1 text-sm text-ink-muted">
+            {stepLabel(briefing.next_step)}
+            <a href={paths.task(briefing.next_step.parent_task_id)} class="text-ink hover:text-accent">{briefing.next_step.parent_title}</a>
+          </p>
+        {/if}
         {#if briefing.next_reason}<p class="mt-2 text-sm text-ink-muted">{briefing.next_reason}</p>{/if}
         {#if briefing.excerpt}
           <blockquote class="mt-3 border-l-2 border-accent/40 pl-3 text-sm text-ink-muted italic">

@@ -143,6 +143,9 @@ func briefingDTO(v briefing.View) apitypes.Briefing {
 		t := taskDTO(*v.Next)
 		b.NextTask = &t
 	}
+	if v.Step != nil {
+		b.NextStep = &apitypes.StepOf{ParentTaskID: v.Step.Parent.ID, ParentTitle: v.Step.Parent.Title, Number: v.Step.Number}
+	}
 	if v.Excerpt != nil {
 		b.Excerpt = &apitypes.Excerpt{EntryID: v.Excerpt.EntryID, CreatedAt: v.Excerpt.CreatedAt, Text: v.Excerpt.Text}
 	}

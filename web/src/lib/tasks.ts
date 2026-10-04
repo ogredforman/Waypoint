@@ -1,5 +1,5 @@
 import type { Energy, TaskSize, TaskStatus } from './api/enums.gen'
-import type { CreateTaskRequest, LinkedObservation, MoveDirection, Task, UpdateTaskRequest } from './api/types.gen'
+import type { CreateTaskRequest, LinkedObservation, MoveDirection, StepOf, Task, UpdateTaskRequest } from './api/types.gen'
 
 export interface TaskGroup {
   status: TaskStatus
@@ -27,6 +27,51 @@ export function groupTasks(tasks: Task[]): TaskGroup[] {
   return groupOrder
     .map(({ status, label }) => ({ status, label, tasks: tasks.filter((t) => t.status === status).sort(byPosition) }))
     .filter((g) => g.tasks.length > 0)
+}
+
+export interface TaskTree {
+  groups: TaskGroup[]
+  // steps holds each task's subtasks by parent id, ordered by position.
+  steps: Map<number, Task[]>
+}
+
+// nestTasks is groupTasks for a list with subtasks: only top-level tasks are
+// grouped by status, and each task's steps sit under it whatever their
+// status. A task whose parent isn't in the list counts as top-level.
+export function nestTasks(tasks: Task[]): TaskTree {
+  const ids = new Set(tasks.map((t) => t.id))
+  const steps = new Map<number, Task[]>()
+  const top: Task[] = []
+  for (const t of tasks) {
+    if (t.parent_task_id !== null && ids.has(t.parent_task_id)) {
+      steps.set(t.parent_task_id, [...(steps.get(t.parent_task_id) ?? []), t])
+    } else top.push(t)
+  }
+  for (const list of steps.values()) list.sort(byPosition)
+  return { groups: groupTasks(top), steps }
+}
+
+// sortSteps orders a task's steps as the server does.
+export function sortSteps(steps: Task[]): Task[] {
+  return [...steps].sort(byPosition)
+}
+
+// stepStatus is the status a step's checkbox sets: done when ticked, back to
+// todo when not.
+export function stepStatus(checked: boolean): TaskStatus {
+  return checked ? 'done' : 'todo'
+}
+
+// newStepRequest builds the POST /api/projects/{id}/tasks body for a step of
+// the parent task.
+export function newStepRequest(title: string, parentTaskId: number): CreateTaskRequest {
+  return { title: title.trim(), parent_task_id: parentTaskId }
+}
+
+// stepLabel is how a briefing names a recommended step's place: "Step 2 of",
+// followed by the parent's title.
+export function stepLabel(s: StepOf): string {
+  return `Step ${s.number} of`
 }
 
 export type Direction = MoveDirection

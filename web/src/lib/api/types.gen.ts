@@ -455,6 +455,10 @@ export interface Briefing {
   next_task: Task | null;
   next_reason: string;
   /**
+   * NextStep says whose step NextTask is, when it is a subtask.
+   */
+  next_step: StepOf | null;
+  /**
    * Recap is where the user left off: a few recent entries about the
    * project, newest first.
    */
@@ -474,6 +478,18 @@ export interface Briefing {
    */
   alternatives: Task[];
   generated_at: string;
+}
+/**
+ * StepOf places a subtask in its parent's steps: "step Number of
+ * ParentTitle".
+ */
+export interface StepOf {
+  parent_task_id: number /* int64 */;
+  parent_title: string;
+  /**
+   * Number counts from 1, in the parent's step order.
+   */
+  number: number /* int */;
 }
 /**
  * RecapEntry is one entry in a briefing's recap, as a few short points.
@@ -596,6 +612,10 @@ export interface TaskDetail {
    * Blockers are the open blockers on this task, oldest first.
    */
   blockers: Blocker[];
+  /**
+   * Steps are the task's direct subtasks, by position.
+   */
+  steps: Task[];
 }
 /**
  * LinkedObservation is an observation linked to a task, with the words of
@@ -618,7 +638,8 @@ export const MoveDirectionDown = "down";
 export type MoveDirection = typeof MoveDirectionUp | typeof MoveDirectionDown;
 /**
  * MoveTaskRequest is the body of POST /api/tasks/{id}/move. The task swaps
- * position with its neighbour in the same status group; the response is the
+ * position with its neighbour among its siblings: tasks with the same parent
+ * and, for top-level tasks, the same status; the response is the
  * tasks whose position changed, none when it is already at that end.
  */
 export interface MoveTaskRequest {

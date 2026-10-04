@@ -24,6 +24,7 @@ const briefing = (over: Partial<Briefing> = {}): Briefing => ({
   project_id: 3,
   next_task: task(1, 'Write the recap'),
   next_reason: "It's next on your list.",
+  next_step: null,
   recap: [],
   source: 'heuristic',
   excerpt: null,
@@ -64,6 +65,12 @@ describe('BriefingCard', () => {
     expect([...at].sort((a, b) => a - b)).toEqual(at)
     expect(target.querySelector('a[href="/tasks/1"]')).not.toBeNull()
     expect(target.querySelector('a[href="/diary?entry=9"] time')).not.toBeNull()
+  })
+
+  it('names the parent when the next action is a step', () => {
+    show(briefing({ next_step: { parent_task_id: 5, parent_title: 'Set up CI', number: 2 } }))
+    expect(target.textContent).toContain('Step 2 of')
+    expect(target.querySelector('a[href="/tasks/5"]')?.textContent).toBe('Set up CI')
   })
 
   it('lists recent entries newest first, each dated, with its points as separate items', () => {

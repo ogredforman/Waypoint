@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte'
   import { ApiError, deleteJSON, patchJSON } from '../lib/api/client'
   import { energyValues, taskSizeValues, type TaskStatus } from '../lib/api/enums.gen'
   import type { Task } from '../lib/api/types.gen'
@@ -17,6 +18,7 @@
     onchanged,
     ondeleted,
     onmove,
+    children,
   }: {
     task: Task
     canMoveUp: boolean
@@ -25,6 +27,8 @@
     onchanged: (t: Task) => void
     ondeleted: (id: number) => void
     onmove: (dir: Direction) => void
+    // children are the task's steps, nested under it.
+    children?: Snippet
   } = $props()
 
   let editing = $state(false)
@@ -206,4 +210,5 @@
     {/if}
     {#if notice}<p class="mt-2 text-sm text-accent" role="status">{notice}</p>{/if}
   {/if}
+  {@render children?.()}
 </li>

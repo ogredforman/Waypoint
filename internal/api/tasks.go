@@ -144,7 +144,10 @@ func (h *handlers) getTask(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
-		detail.Blockers, err = taskBlockers(r.Context(), tx, t)
+		if detail.Blockers, err = taskBlockers(r.Context(), tx, t); err != nil {
+			return err
+		}
+		detail.Steps, err = taskSteps(r.Context(), tx, t)
 		return err
 	})
 	if err != nil {
@@ -164,6 +167,21 @@ func taskBlockers(ctx context.Context, tx *store.ReadTx, t domain.Task) ([]apity
 	for _, b := range bs {
 		if b.Status == domain.BlockerOpen && b.TaskID != nil && *b.TaskID == t.ID {
 			out = append(out, blockerDTO(b))
+		}
+	}
+	return out, nil
+}
+
+// taskSteps returns the task's direct subtasks, by position (ties by id).
+func taskSteps(ctx context.Context, tx *store.ReadTx, t domain.Task) ([]apitypes.Task, error) {
+	ts, err := tx.ListTasksByProject(ctx, t.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+	out := []apitypes.Task{}
+	for _, x := range ts {
+		if x.ParentTaskID != nil && *x.ParentTaskID == t.ID {
+			out = append(out, taskDTO(x))
 		}
 	}
 	return out, nil
@@ -221,7 +239,7 @@ func linkedObservations(ctx context.Context, tx *store.ReadTx, targetType domain
 }
 
 // moveTask takes an apitypes.MoveTaskRequest and swaps the task's position
-// with its neighbour in the same status group, as one changeset. It returns
+// with its neighbour among its siblings (see movePositions), as one changeset. It returns
 // the tasks it moved: none when the task is already at that end, so a
 // repeated click on a stale screen is harmless. The neighbour is read just
 // before the apply, not in its transaction; with a single user that's fine.
@@ -276,13 +294,15 @@ func (h *handlers) moveTask(w http.ResponseWriter, r *http.Request) {
 }
 
 // movePositions returns the position changes that move t past its
-// neighbour in the same status group (ordered by position, then id): the
-// two positions swap. Equal positions can't swap, so t alone steps one past
+// neighbour among its siblings (ordered by position, then id): the two
+// positions swap. Siblings share t's parent; top-level tasks must also share
+// its status (the Project screen groups them by status), while a task's
+// steps are one checklist whatever their status. Equal positions can't swap, so t alone steps one past
 // the neighbour. It returns nil when t is already at that end.
 func movePositions(tasks []domain.Task, t domain.Task, dir apitypes.MoveDirection) []changeset.UpdateTask {
 	var group []domain.Task
 	for _, x := range tasks {
-		if x.Status == t.Status {
+		if sameParent(x, t) && (t.ParentTaskID != nil || x.Status == t.Status) {
 			group = append(group, x)
 		}
 	}
@@ -310,4 +330,11 @@ func movePositions(tasks []domain.Task, t domain.Task, dir apitypes.MoveDirectio
 		{TaskID: changeset.ID(t.ID), Position: &tPos},
 		{TaskID: changeset.ID(n.ID), Position: &nPos},
 	}
+}
+
+func sameParent(a, b domain.Task) bool {
+	if a.ParentTaskID == nil || b.ParentTaskID == nil {
+		return a.ParentTaskID == nil && b.ParentTaskID == nil
+	}
+	return *a.ParentTaskID == *b.ParentTaskID
 }
