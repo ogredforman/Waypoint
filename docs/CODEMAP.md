@@ -139,15 +139,15 @@ pieces. Tests sit next to the code as `*.test.ts`.
   Tasks: `components/ProjectTasks.svelte` (list grouped by status, add form, move up/down) → `TaskRow.svelte` (view,
   inline edit, status, delete with confirmation); move up/down is one `POST /api/tasks/{id}/move` (`api/tasks.go`
   `moveTask`, `movePositions`). `lib/tasks.ts`: `groupTasks`, `taskPatch`, `newTaskRequest`.
-  Blockers: `components/ProjectBlockers.svelte` (open, then resolved) → `BlockerRow.svelte` (resolve, delete with confirmation);
-  `ProjectBlockers` also has the add form with an optional open-task picker; `lib/blockers.ts`: `splitBlockers`, `openTasks`, `newBlockerRequest`. Ideas: `components/ProjectIdeas.svelte` (this project's parked ideas) → `IdeaRow.svelte`.
+  Blockers: `components/ProjectBlockers.svelte` (open, then resolved) → `BlockerRow.svelte` (resolve, delete with confirmation, and with `tasks` a "Blocks" picker that moves an open blocker between tasks and the whole project);
+  `ProjectBlockers` also has the add form with an optional open-task picker; `lib/blockers.ts`: `splitBlockers`, `openTasks`, `newBlockerRequest`, `blockerTargets`, `moveBlockerRequest`. Ideas: `components/ProjectIdeas.svelte` (this project's parked ideas) → `IdeaRow.svelte`.
   Delete (ADR 0008): `components/ProjectDelete.svelte` (at the foot of the screen; `getProjectDeletion` preview, `lib/projects.ts` `deletionSummary`,
   keep or delete its entries, then `deleteProject` and go to Projects). Elsewhere a deleted project drops out: `lib/diary.ts` `knownScope` (diary scope),
   and the timeline re-reads projects on `changeset.applied` and unscopes entries whose project is gone. `components/ProjectDelete.test.ts`.
   Next action: `components/ProjectNext.svelte` (`getBriefing`, reloads on this project's `briefing.updated` and on reconnect); `components/ProjectNext.test.ts`.
   From the diary: `components/ProjectDiary.svelte` (`listProjectObservations`, grouped by `observationTimeline`, "Show more", reloads on `entry.processed` too); `components/ProjectDiary.test.ts`.
 - Task detail: `screens/Task.svelte` (`GET /api/tasks/{id}`: fields, origin entry, linked observations grouped by entry
-  via `lib/tasks.ts` `observationTimeline`; read-only, edits live on the Project screen). `lib/entries.ts` `kindLabel`.
+  via `lib/tasks.ts` `observationTimeline`; otherwise read-only, edits live on the Project screen) → `components/TaskBlockers.svelte` (the task's open blockers from `TaskDetail.blockers`: resolve, delete, add on this task). `lib/entries.ts` `kindLabel`.
 - Parking lot: `screens/ParkingLot.svelte` (all parked ideas and parked projects) → `components/IdeaRow.svelte` (promote to a
   task in a chosen project or to a parked project, delete with confirmation; also used by `ProjectIdeas`) and
   `ParkedProjectRow.svelte` (activate, calm cap handling). `lib/ideas.ts`: `promoteTargets`, `defaultTarget`, `projectName`;

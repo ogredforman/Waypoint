@@ -147,7 +147,7 @@ func splitLines(body string) []line {
 	return out
 }
 
-// taskCandidate is a task a done:/doing: line may name: an open task from the
+// taskCandidate is a task a done:/doing:/blocked: line may name: an open task from the
 // snapshot, or one created earlier in this entry.
 type taskCandidate struct {
 	ref       changeset.Ref
@@ -256,7 +256,7 @@ func (b *builder) pickProject() {
 	}
 	for _, l := range b.lines {
 		switch l.prefix {
-		case prefixDone, prefixDoing:
+		case prefixDone, prefixDoing, prefixBlocked:
 			if t, _ := b.matchTask(l.text); t != nil {
 				score[t.projectID] += matchClue
 			}
@@ -301,13 +301,8 @@ func (b *builder) line(l line) error {
 			made = true
 		}
 	case prefixBlocked:
-		b.observe(l, domain.ObservationBlocker)
+		err = b.blocked(l)
 		made = true
-		if b.project != 0 {
-			err = b.op(l, domain.OpCreateBlocker, b.projectConf, changeset.CreateBlocker{
-				ProjectID: changeset.ID(b.project), Description: l.text,
-			})
-		}
 	case prefixUnblocked:
 		if bl, score := b.matchBlocker(l.text); bl != nil {
 			bl.resolved = true
@@ -367,6 +362,30 @@ func (b *builder) setStatus(l line, status domain.TaskStatus) (bool, error) {
 	}
 	t.status = status
 	return true, b.op(l, domain.OpSetTaskStatus, score, changeset.SetTaskStatus{TaskID: t.ref, Status: status})
+}
+
+// blocked handles blocked:. The blocker goes on the open task of the entry's
+// project that the line names, if any, else on the whole project. With no
+// project there is only the observation.
+func (b *builder) blocked(l line) error {
+	t, score := b.matchProjectTask(l.text)
+	if t == nil {
+		b.observe(l, domain.ObservationBlocker)
+		if b.project == 0 {
+			return nil
+		}
+		return b.op(l, domain.OpCreateBlocker, b.projectConf, changeset.CreateBlocker{
+			ProjectID: changeset.ID(b.project), Description: l.text,
+		})
+	}
+	if !t.ref.IsTemp() {
+		b.touched[t.ref.ID] = true
+	}
+	b.observe(l, domain.ObservationBlocker, t)
+	ref := t.ref
+	return b.op(l, domain.OpCreateBlocker, min(b.projectConf, score), changeset.CreateBlocker{
+		ProjectID: changeset.ID(b.project), TaskID: &ref, Description: l.text,
+	})
 }
 
 // createTask proposes a new task in the entry's project and makes it a
@@ -446,6 +465,22 @@ func (b *builder) matchTask(text string) (*taskCandidate, float64) {
 	var best *taskCandidate
 	bestScore := 0.0
 	for _, t := range b.tasks {
+		if s := similarity(text, t.title); s >= matchThreshold && s > bestScore {
+			best, bestScore = t, s
+		}
+	}
+	return best, bestScore
+}
+
+// matchProjectTask returns the open task of the entry's project whose title
+// best matches text, and the match score, or nil if none is close enough.
+func (b *builder) matchProjectTask(text string) (*taskCandidate, float64) {
+	var best *taskCandidate
+	bestScore := 0.0
+	for _, t := range b.tasks {
+		if b.project == 0 || t.projectID != b.project || (t.status != domain.TaskTodo && t.status != domain.TaskInProgress) {
+			continue
+		}
 		if s := similarity(text, t.title); s >= matchThreshold && s > bestScore {
 			best, bestScore = t, s
 		}

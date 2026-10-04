@@ -1,6 +1,7 @@
 <script lang="ts">
   import Button from '../components/ui/Button.svelte'
   import { onMount } from 'svelte'
+  import TaskBlockers from '../components/TaskBlockers.svelte'
   import Card from '../components/ui/Card.svelte'
   import { ApiError, getJSON } from '../lib/api/client'
   import { latest, liveReload } from '../lib/live'
@@ -82,6 +83,8 @@
       </p>
       {#if task.notes}<p class="text-sm leading-relaxed whitespace-pre-wrap text-ink">{task.notes}</p>{/if}
     </header>
+
+    <TaskBlockers {task} bind:blockers={detail.blockers} />
 
     <section class="space-y-2" aria-labelledby="task-origin">
       <h2 id="task-origin" class="font-medium text-ink">Where it came from</h2>

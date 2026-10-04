@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { flushSync, mount, unmount } from 'svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { LinkedObservation, Project, TaskDetail } from '../lib/api/types.gen'
+import type { Blocker, LinkedObservation, Project, TaskDetail } from '../lib/api/types.gen'
 import { startEvents } from '../lib/events'
 import { FakeEventSource, fakeOpen } from '../lib/events.fake'
 import Task from './Task.svelte'
@@ -30,6 +30,7 @@ function detail(extra: Partial<TaskDetail> = {}): TaskDetail {
     },
     origin_entry: { id: 1, body: 'todo: Write docs', project_id: 7, reply_to_question_id: null, created_at: '2026-09-29T09:00:00Z' },
     observations: [obs(10, 1, 'Plans docs'), obs(11, 1, 'Starts them'), obs(12, 2, 'Half done')],
+    blockers: [],
     ...extra,
   }
 }
@@ -76,6 +77,50 @@ describe('Task screen', () => {
     ])
     expect(groups[0].textContent).toContain('Progress:')
     expect(groups[0].textContent).toContain('“quote 10”')
+  })
+
+  it("lists the task's open blockers, resolves one, and adds one on the task", async () => {
+    const blocker = (id: number, description: string): Blocker => ({
+      id, project_id: 7, task_id: 3, description, status: 'open', origin_entry_id: null, resolved_entry_id: null, created_at: '', updated_at: '',
+    })
+    const writes: { url: string; method: string; body: unknown }[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET'
+        if (method === 'GET') return new Response(JSON.stringify(url.startsWith('/api/tasks/') ? detail({ blockers: [blocker(1, 'no key'), blocker(2, 'no van')] }) : project))
+        const body = JSON.parse(init!.body as string)
+        writes.push({ url, method, body })
+        if (method === 'POST') return new Response(JSON.stringify(blocker(9, body.description)), { status: 201 })
+        return new Response(JSON.stringify({ ...blocker(1, 'no key'), status: 'resolved' }))
+      }),
+    )
+    target = document.createElement('div')
+    document.body.append(target)
+    component = mount(Task, { target, props: { id: 3 } })
+    const listed = () => [...target.querySelectorAll('ul[aria-label="Open blockers"] > li p:first-child')].map((p) => p.textContent)
+    const until = (want: string[]) =>
+      vi.waitFor(() => {
+        flushSync()
+        expect(listed()).toEqual(want)
+      })
+    await until(['no key', 'no van'])
+    expect(target.querySelector('ul[aria-label="Open blockers"] a')).toBeNull()
+    expect(target.querySelector('ul[aria-label="Open blockers"] select')).toBeNull()
+
+    ;[...target.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Resolve')!.click()
+    await until(['no van'])
+
+    const input = target.querySelector<HTMLInputElement>('#task-blocker-description')!
+    input.value = 'no map'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+    ;[...target.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Add')!.click()
+    await until(['no van', 'no map'])
+    expect(writes).toEqual([
+      { url: '/api/blockers/1', method: 'PATCH', body: { status: 'resolved' } },
+      { url: '/api/projects/7/blockers', method: 'POST', body: { description: 'no map', task_id: 3 } },
+    ])
   })
 
   it('says calmly when a task was added by hand and has nothing written about it', async () => {

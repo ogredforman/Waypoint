@@ -92,6 +92,17 @@ group('project picker', () => {
     ])
   })
 
+  it('moving a blocker off an existing task leaves it project-wide, but keeps a new task', () => {
+    const blockers: ChangeOp[] = [
+      { ...ops[0], id: 60, op_type: 'create_blocker', payload: { project_id: 7, task_id: 3, description: 'no key' } },
+      { ...ops[0], id: 61, op_type: 'create_blocker', payload: { project_id: 7, task_id: '$new:1', description: 'no van' } },
+    ]
+    expect(applyRequest(blockers, acceptRest(blockers, {}), { from: 7, to: 9 })).toEqual([
+      { id: 60, decision: 'edit', payload: { project_id: 9, description: 'no key' } },
+      { id: 61, decision: 'edit', payload: { project_id: 9, task_id: '$new:1', description: 'no van' } },
+    ])
+  })
+
   it('none removes the project from ideas', () => {
     expect(applyRequest(ops, acceptRest(ops, {}), { from: 7, to: null })).toEqual([
       { id: 10, decision: 'reject' },

@@ -171,6 +171,9 @@ export function applyRequest(ops: ChangeOp[], choices: Choices, move: ProjectMov
       payload = { ...(payload ?? op.payload) }
       if (move.to === null) delete payload.project_id
       else payload.project_id = move.to
+      // A blocker on an existing task can't follow it to another project; it
+      // covers the new project instead. A task made in this changeset moves too.
+      if (op.op_type === 'create_blocker' && typeof payload.task_id === 'number') delete payload.task_id
     }
     out.push(payload ? { id: op.id, decision: 'edit', payload } : { id: op.id, decision: 'accept' })
   }

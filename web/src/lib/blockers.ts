@@ -1,4 +1,4 @@
-import type { Blocker, CreateBlockerRequest, Task } from './api/types.gen'
+import type { Blocker, CreateBlockerRequest, Task, UpdateBlockerRequest } from './api/types.gen'
 
 // splitBlockers separates open blockers (oldest first, so the longest-standing
 // one leads) from resolved ones (most recently resolved first).
@@ -24,4 +24,18 @@ export function newBlockerRequest(description: string, taskId: number | ''): Cre
   const req: CreateBlockerRequest = { description: description.trim() }
   if (taskId !== '') req.task_id = taskId
   return req
+}
+
+// blockerTargets lists the tasks an open blocker can be moved onto: the open
+// tasks, and the task it is on now even if that one is finished.
+export function blockerTargets(tasks: Task[], blocker: Blocker): Task[] {
+  const open = openTasks(tasks)
+  const current = tasks.find((t) => t.id === blocker.task_id)
+  return current && !open.includes(current) ? [...open, current] : open
+}
+
+// moveBlockerRequest builds the PATCH /api/blockers/{id} body that puts a
+// blocker on a task, or back on the whole project ('').
+export function moveBlockerRequest(taskId: number | ''): UpdateBlockerRequest {
+  return { task_id: taskId === '' ? null : taskId }
 }

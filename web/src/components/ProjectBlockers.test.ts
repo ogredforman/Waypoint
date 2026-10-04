@@ -40,7 +40,10 @@ const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
   }
   const id = Number(url.split('/').pop())
   if (method === 'DELETE') return new Response(null, { status: 204 })
-  return json({ ...blockers.find((b) => b.id === id)!, status: 'resolved', updated_at: '2026-09-30' })
+  const body = JSON.parse(init!.body as string)
+  const b = blockers.find((b) => b.id === id)!
+  if ('task_id' in body) return json({ ...b, task_id: body.task_id })
+  return json({ ...b, status: 'resolved', updated_at: '2026-09-30' })
 })
 
 function json(v: unknown, status = 200): Response {
@@ -175,6 +178,42 @@ describe('ProjectBlockers', () => {
     await settle()
     expect(target.querySelector('[role="status"]')?.textContent).toBe('Something went wrong.')
     expect(descriptions('Open')).toEqual(['B1'])
+  })
+
+  it('moves an open blocker onto a task and back to the whole project', async () => {
+    tasks = [task(1, 'done', 0), task(2, 'todo', 1)]
+    await render([blocker(4, 'open'), blocker(5, 'resolved', { task_id: 1 })])
+    const select = target.querySelector<HTMLSelectElement>('[data-blocker-id="4"] select')!
+    expect([...select.options].map((o) => o.textContent)).toEqual(['Whole project', 'T2'])
+    expect(target.querySelector('[data-blocker-id="5"] select')).toBeNull()
+    expect(target.querySelector('[data-blocker-id="5"] a')?.textContent).toBe('Blocks T1 →')
+
+    select.value = '2'
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+    await settle()
+    expect(target.querySelector('[data-blocker-id="4"] a')?.getAttribute('href')).toBe('/tasks/2')
+    blockers = [{ ...blockers[0], task_id: 2 }, blockers[1]]
+    const moved = target.querySelector<HTMLSelectElement>('[data-blocker-id="4"] select')!
+    moved.value = ''
+    moved.dispatchEvent(new Event('change', { bubbles: true }))
+    await settle()
+    expect(writes()).toEqual([
+      { url: '/api/blockers/4', method: 'PATCH', body: { task_id: 2 } },
+      { url: '/api/blockers/4', method: 'PATCH', body: { task_id: null } },
+    ])
+    expect(target.querySelector('[data-blocker-id="4"] a')).toBeNull()
+  })
+
+  it('puts the choice back when a move fails', async () => {
+    tasks = [task(2, 'todo', 1)]
+    await render([blocker(4, 'open')])
+    failWrites = true
+    const select = target.querySelector<HTMLSelectElement>('[data-blocker-id="4"] select')!
+    select.value = '2'
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+    await settle()
+    expect(select.value).toBe('')
+    expect(target.querySelector('[role="status"]')?.textContent).toBe('Something went wrong.')
   })
 
   it('deletes only after confirming', async () => {

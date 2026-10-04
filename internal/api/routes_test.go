@@ -426,6 +426,33 @@ func TestProjectObservations(t *testing.T) {
 	}
 }
 
+func TestTaskDetailShowsOpenBlockers(t *testing.T) {
+	s := newServer(t)
+	p := s.project("Waypoint", domain.ProjectActive)
+	tasksURL := fmt.Sprintf("/api/profiles/t/projects/%d/tasks", p.ID)
+	task := ok[apitypes.Task](s, http.StatusCreated, "POST", tasksURL, `{"title": "Ship"}`)
+	other := ok[apitypes.Task](s, http.StatusCreated, "POST", tasksURL, `{"title": "Test"}`)
+	blockersURL := fmt.Sprintf("/api/profiles/t/projects/%d/blockers", p.ID)
+	first := ok[apitypes.Blocker](s, http.StatusCreated, "POST", blockersURL, map[string]any{"description": "no key", "task_id": task.ID})
+	second := ok[apitypes.Blocker](s, http.StatusCreated, "POST", blockersURL, map[string]any{"description": "no van", "task_id": task.ID})
+	gone := ok[apitypes.Blocker](s, http.StatusCreated, "POST", blockersURL, map[string]any{"description": "no map", "task_id": task.ID})
+	ok[apitypes.Blocker](s, http.StatusOK, "PATCH", fmt.Sprintf("/api/profiles/t/blockers/%d", gone.ID), `{"status": "resolved"}`)
+	ok[apitypes.Blocker](s, http.StatusCreated, "POST", blockersURL, map[string]any{"description": "no tests", "task_id": other.ID})
+	ok[apitypes.Blocker](s, http.StatusCreated, "POST", blockersURL, `{"description": "waiting on parts"}`)
+
+	detail := ok[apitypes.TaskDetail](s, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/tasks/%d", task.ID), nil)
+	var ids []int64
+	for _, b := range detail.Blockers {
+		ids = append(ids, b.ID)
+	}
+	if want := []int64{first.ID, second.ID}; !slices.Equal(ids, want) {
+		t.Errorf("task blockers = %v, want the open ones on the task %v", ids, want)
+	}
+	if b := ok[apitypes.TaskDetail](s, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/tasks/%d", other.ID), nil).Blockers; len(b) != 1 {
+		t.Errorf("other task blockers = %+v, want one", b)
+	}
+}
+
 func TestBlockerRoutes(t *testing.T) {
 	s := newServer(t)
 	p := s.project("Waypoint", domain.ProjectActive)

@@ -343,7 +343,7 @@ The mock is deterministic and rule-based, so the whole system can be built and t
 | `done: <text>` | progress observation; `set_task_status` done on the best fuzzy title match, or `create_task` + done |
 | `doing: <text>` | progress observation; `set_task_status` in_progress |
 | `todo: <text>` | plan observation; `create_task` |
-| `blocked: <text>` | blocker observation; `create_blocker` |
+| `blocked: <text>` | blocker observation; `create_blocker` on the best-matching open task of the entry's project, else on the whole project |
 | `unblocked: <text>` | `resolve_blocker` on the best match |
 | `idea: <text>` | idea observation; `park_idea` |
 | `feel: <text>` | feeling observation |
@@ -352,7 +352,7 @@ The mock is deterministic and rule-based, so the whole system can be built and t
 
 Questions: if the entry has no `todo:`/`doing:` lines, ask "What's the next step?" If a task has been in progress for more than 3 days with no blocker, ask about blockers. An entry that replies to a question (`reply_to_question_id`) never gets that same question again; the extractor sees the replied-to question in `ExtractInput.ReplyTo`. In a reply to "What's the next step?", every plain line is read as a `todo:` line, so answering proposes a task (or stays a note when there's no project to put it in). The mock may add artificial latency (configurable) to exercise the async UI.
 
-New tasks, blockers, and ideas go into the entry's project. For an entry with no project, the mock guesses one: the only project in the snapshot, else the one with the most clues (words of its title in the entry, and lines naming its tasks or blockers), else the first project with low confidence. Ops on a guessed project carry a lower confidence and say so in their rationale; the review UI lets the user pick another project or none. `done:`, `doing:`, and `unblocked:` match across all projects; an observation naming a task links to that task's project. Observations aren't linked to a project guessed without any clue, since the picker moves ops, not observations. A task created from a `todo:`, `done:`, or `doing:` line is linked from that line's observation by temporary ID, even on a guessed project, since the task moves with its op. A prefixed line that yields nothing (no match, or no project to use) becomes a note.
+New tasks, blockers, and ideas go into the entry's project. For an entry with no project, the mock guesses one: the only project in the snapshot, else the one with the most clues (words of its title in the entry, and lines naming its tasks or blockers), else the first project with low confidence. Ops on a guessed project carry a lower confidence and say so in their rationale; the review UI lets the user pick another project or none. `done:`, `doing:`, and `unblocked:` match across all projects; `blocked:` matches only the open tasks of the project the blocker goes into (including tasks the entry creates), and a matched `blocked:` line counts as a clue like `done:`. An observation naming a task links to that task and its project. Picking another project in review takes a blocker off an existing task of the guessed one. Observations aren't linked to a project guessed without any clue, since the picker moves ops, not observations. A task created from a `todo:`, `done:`, or `doing:` line is linked from that line's observation by temporary ID, even on a guessed project, since the task moves with its op. A prefixed line that yields nothing (no match, or no project to use) becomes a note.
 
 ### 10.5 API outline
 
@@ -374,7 +374,7 @@ GET    /api/projects                  POST /api/projects
 GET    /api/projects/{id}             PATCH /api/projects/{id}
 DELETE /api/projects/{id}?entries=keep|delete   GET /api/projects/{id}/deletion (what deleting takes with it)
 GET    /api/projects/{id}/tasks       POST /api/projects/{id}/tasks
-PATCH  /api/tasks/{id}                GET  /api/tasks/{id} (incl. linked observations + origin)
+PATCH  /api/tasks/{id}                GET  /api/tasks/{id} (incl. linked observations, open blockers + origin)
 DELETE /api/tasks/{id}               POST /api/tasks/{id}/move   body: { direction: up|down }
 GET    /api/projects/{id}/blockers    POST /api/projects/{id}/blockers
 PATCH  /api/blockers/{id}             DELETE /api/blockers/{id}

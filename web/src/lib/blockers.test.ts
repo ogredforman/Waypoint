@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Blocker, Task } from './api/types.gen'
-import { newBlockerRequest, openTasks, splitBlockers } from './blockers'
+import { blockerTargets, moveBlockerRequest, newBlockerRequest, openTasks, splitBlockers } from './blockers'
 
 function blocker(id: number, status: Blocker['status'], created_at: string, updated_at = created_at): Blocker {
   return {
@@ -45,5 +45,26 @@ describe('newBlockerRequest', () => {
   it('trims the description and leaves out an empty task', () => {
     expect(newBlockerRequest('  no key  ', '')).toEqual({ description: 'no key' })
     expect(newBlockerRequest('no key', 5)).toEqual({ description: 'no key', task_id: 5 })
+  })
+})
+
+describe('blockerTargets', () => {
+  const task = (id: number, status: Task['status'], position: number) => ({ id, status, position }) as Task
+  const tasks = [task(1, 'done', 0), task(2, 'todo', 1), task(3, 'in_progress', 2)]
+
+  it('offers the open tasks', () => {
+    expect(blockerTargets(tasks, blocker(9, 'open', '')).map((t) => t.id)).toEqual([2, 3])
+  })
+
+  it('keeps the task the blocker is on, even if it is done', () => {
+    expect(blockerTargets(tasks, { ...blocker(9, 'open', ''), task_id: 1 }).map((t) => t.id)).toEqual([2, 3, 1])
+    expect(blockerTargets(tasks, { ...blocker(9, 'open', ''), task_id: 3 }).map((t) => t.id)).toEqual([2, 3])
+  })
+})
+
+describe('moveBlockerRequest', () => {
+  it('names the task, or clears it for the whole project', () => {
+    expect(moveBlockerRequest(4)).toEqual({ task_id: 4 })
+    expect(moveBlockerRequest('')).toEqual({ task_id: null })
   })
 })

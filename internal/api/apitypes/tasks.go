@@ -52,6 +52,8 @@ type TaskDetail struct {
 	// Observations are those linked to the task, oldest first. Of a
 	// reprocessed entry, only the latest run's count.
 	Observations []LinkedObservation `json:"observations"`
+	// Blockers are the open blockers on this task, oldest first.
+	Blockers []Blocker `json:"blockers"`
 }
 
 // LinkedObservation is an observation linked to a task, with the words of

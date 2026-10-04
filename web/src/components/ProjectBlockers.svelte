@@ -13,7 +13,7 @@
 
   let blockers = $state<Blocker[] | null>(null)
   let loadError = $state('')
-  let tasks = $state<Task[]>([])
+  let tasks = $state<Task[]>([]) // all of the project's tasks
   let description = $state('')
   let taskId = $state<number | ''>('')
   let adding = $state(false)
@@ -23,21 +23,21 @@
   const selectClass =
     'mt-1 max-w-64 rounded-control border border-line bg-canvas px-3 py-2 text-ink transition focus:border-accent focus:shadow-focus focus:outline-none'
 
+  const pickable = $derived(openTasks(tasks))
   const groups = $derived(blockers === null ? null : splitBlockers(blockers))
 
   const loads = latest()
   const taskLoads = latest()
 
-  // loadTasks fills the task picker with the project's open tasks. If it
-  // fails, the picker keeps what it had; the blocker can still go on the
-  // project alone.
+  // loadTasks reads the project's tasks for the pickers. If it fails, they
+  // keep what they had; a blocker can still go on the project alone.
   async function loadTasks() {
     const current = taskLoads()
     try {
-      const list = openTasks(await getJSON<Task[]>(`/api/projects/${projectId}/tasks`))
+      const list = await getJSON<Task[]>(`/api/projects/${projectId}/tasks`)
       if (!current()) return
       tasks = list
-      if (taskId !== '' && !list.some((t) => t.id === taskId)) taskId = ''
+      if (taskId !== '' && !openTasks(list).some((t) => t.id === taskId)) taskId = ''
     } catch {
       // Keep the picker as it is.
     }
@@ -108,7 +108,7 @@
     <label for="new-blocker-task" class="sr-only">Blocks task (optional)</label>
     <select id="new-blocker-task" bind:value={taskId} class={selectClass}>
       <option value="">No task</option>
-      {#each tasks as t (t.id)}<option value={t.id}>{t.title}</option>{/each}
+      {#each pickable as t (t.id)}<option value={t.id}>{t.title}</option>{/each}
     </select>
     <Button type="submit" class="mt-1" disabled={adding}>{adding ? 'Adding…' : 'Add'}</Button>
   </form>
@@ -130,7 +130,7 @@
         <Panel>
           <ul class="divide-y divide-line" aria-label="Open">
             {#each groups.open as b (b.id)}
-              <BlockerRow blocker={b} onchanged={replace} ondeleted={removed} />
+              <BlockerRow blocker={b} {tasks} onchanged={replace} ondeleted={removed} />
             {/each}
           </ul>
         </Panel>
@@ -142,7 +142,7 @@
         <Panel>
           <ul class="divide-y divide-line" aria-label="Resolved">
             {#each groups.resolved as b (b.id)}
-              <BlockerRow blocker={b} onchanged={replace} ondeleted={removed} />
+              <BlockerRow blocker={b} {tasks} onchanged={replace} ondeleted={removed} />
             {/each}
           </ul>
         </Panel>

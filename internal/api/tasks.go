@@ -141,6 +141,10 @@ func (h *handlers) getTask(w http.ResponseWriter, r *http.Request) {
 			detail.OriginEntry = &origin
 		}
 		detail.Observations, err = linkedObservations(r.Context(), tx, domain.TargetTask, id)
+		if err != nil {
+			return err
+		}
+		detail.Blockers, err = taskBlockers(r.Context(), tx, t)
 		return err
 	})
 	if err != nil {
@@ -148,6 +152,21 @@ func (h *handlers) getTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, detail)
+}
+
+// taskBlockers returns the open blockers on the task, oldest first.
+func taskBlockers(ctx context.Context, tx *store.ReadTx, t domain.Task) ([]apitypes.Blocker, error) {
+	bs, err := tx.ListBlockersByProject(ctx, t.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+	out := []apitypes.Blocker{}
+	for _, b := range bs {
+		if b.Status == domain.BlockerOpen && b.TaskID != nil && *b.TaskID == t.ID {
+			out = append(out, blockerDTO(b))
+		}
+	}
+	return out, nil
 }
 
 // linkedObservations returns the observations linked to a target, oldest

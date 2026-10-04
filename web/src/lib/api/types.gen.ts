@@ -592,6 +592,10 @@ export interface TaskDetail {
    * reprocessed entry, only the latest run's count.
    */
   observations: LinkedObservation[];
+  /**
+   * Blockers are the open blockers on this task, oldest first.
+   */
+  blockers: Blocker[];
 }
 /**
  * LinkedObservation is an observation linked to a task, with the words of

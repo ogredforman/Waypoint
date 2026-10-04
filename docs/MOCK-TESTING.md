@@ -79,7 +79,7 @@ is either a *prefixed line* or a *note*.
 | `todo: <title>` | `plan` (its own highlight colour) | `create_task` in the entry's project |
 | `doing: <title>` | `progress` | `set_task_status → in_progress` on the best-matching open task; if none matches, `create_task` and then `set_task_status` on it |
 | `done: <title>` | `progress` | `set_task_status → done` on the best match; if none matches, `create_task` and then `set_task_status` on it |
-| `blocked: <description>` | `blocker` | `create_blocker` (project-wide) in the entry's project |
+| `blocked: <description>` | `blocker` | `create_blocker` in the entry's project: on the open task of that project the line names (best match), else on the whole project |
 | `unblocked: <description>` | none | `resolve_blocker` on the best-matching open blocker |
 | `idea: <title>` | `idea` | `park_idea`, attached to the entry's project if there is one |
 | `feel: <text>` | `feeling` | none |
@@ -107,7 +107,7 @@ New tasks, blockers, and ideas go into one project per entry, chosen like this:
 3. **Unscoped, several projects:** the one with the most *clues*. Confidence `0.7`.
    - +1 for each word of the project's title that appears anywhere in the entry's line texts
      (prefix words don't count, so a project called "Todo app" doesn't win every `todo:` line);
-   - +2 for each `done:`/`doing:` line that matches one of its tasks, and each `unblocked:` line
+   - +2 for each `done:`/`doing:`/`blocked:` line that matches one of its tasks, and each `unblocked:` line
      that matches one of its blockers.
    - Ties go to the first project in the snapshot (lowest ID).
 4. **No clues at all:** the first project, confidence `0.3`. Notes and other observations are
@@ -115,10 +115,13 @@ New tasks, blockers, and ideas go into one project per entry, chosen like this:
 
 Ops on a guessed project say "project guessed from the entry" in their rationale, and the review UI
 shows a **"Project: X (guessed)"** picker. Picking another project rewrites `project_id` on those
-ops. Picking **none** rejects the task and blocker ops and detaches the ideas.
+ops. A blocker on an existing task of the guessed project goes to the new project as a whole.
+ Picking **none** rejects the task and blocker ops and detaches the ideas.
 
 **Matching ignores scope.** `done:`, `doing:`, and `unblocked:` search the open tasks and blockers of
 *every* project in the snapshot, even in a scoped entry. Scope only decides where *new* things go.
+`blocked:` is the exception: it only looks for a task in the project the blocker goes into, so a
+line naming another project's task gives a project-wide blocker.
 
 ### 2.4 What the mock can see (the snapshot)
 
@@ -168,7 +171,8 @@ doing: SSE hub
 ```
 
 → `create_task "add the SSE hub"`, then `set_task_status $new:1 → in_progress`. Rejecting the
-create in review also rejects the status change that depends on it.
+create in review also rejects the status change that depends on it. A `blocked:` line works the same way:
+`blocked: add the SSE hub after the router` puts the blocker on `$new:1`.
 
 Blockers created in the same entry are **not** candidates for `unblocked:`, and each blocker can be
 resolved at most once per entry (a second `unblocked:` for it becomes a note).
@@ -219,6 +223,7 @@ lines as notes. **Dismissing** just closes the question.
 | Guessed: from clues | 0.7 |
 | Guessed: no clues | 0.3 |
 | `done:`/`doing:`/`unblocked:` on a match | the match score (0.5–1.0) |
+| `blocked:` on a task | the lower of the match score and the project confidence |
 | `done:`/`doing:` that had to create the task | the project confidence above |
 
 ---
@@ -256,8 +261,9 @@ One card per **active** project:
   …"), quoting up to the **first 2 observation summaries** of each. Put the line you want remembered
   near the top of the entry.
 
-Mock blockers are always **project-wide** (`blocked:` has no task to attach to), so they never change
-the next action. They do suppress the stalled-task question.
+A `blocked:` line that names an open task puts the blocker on that task, so the task stops being the
+next action until the blocker is resolved. A project-wide blocker never changes the next action. Either
+kind suppresses the stalled-task question (a task blocker only for its own task).
 
 ---
 
@@ -293,6 +299,9 @@ shows this entry. Then try the edges:
 - `done: ordered the lumber` → "ordered" isn't "order", 1 of 3 words → 0.33 → **no match**, so it
   creates a new task and marks it done. Reject both ops.
 - `done: ground` → matches *level the ground* even though you might mean something else.
+- `blocked: level the ground needs a dry day` → `create_blocker` on *level the ground*. Apply: the
+  Task screen lists it under Blockers, and the Project screen's blocker row lets you move it back to
+  the whole project.
 
 ### C. Questions
 - `feel: tired today` → "What's the next step?". Answer with `todo: buy screws`. The reply makes a
@@ -409,7 +418,6 @@ material or Stage 2 prompt requirements.
 - No duplicate check on `todo:`.
 - No stemming; chatty `done:` lines miss and silently create a new done task.
 - One-word lines can match the wrong task.
-- `blocked:` can't name a task, so blockers never affect the next action.
 - `done:` on an already-done task creates a duplicate done task.
 - `unblocked:` can't resolve a blocker created earlier in the same entry.
 - Notes never link to tasks, even when they name one; only `todo:`/`done:`/`doing:` do.

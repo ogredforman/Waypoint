@@ -147,6 +147,36 @@ func TestPrefixes(t *testing.T) {
 			wantOps: []string{`create_blocker {"project_id":1,"description":"no test machine"}`},
 		},
 		{
+			name:    "blocked naming a task puts the blocker on it",
+			body:    "blocked: set up CI needs a runner",
+			wantObs: []string{"blocker [blocked: set up CI needs a runner] project:1 task:11"},
+			wantOps: []string{`create_blocker {"project_id":1,"task_id":11,"description":"set up CI needs a runner"}`},
+		},
+		{
+			name:    "blocked naming a task in another project stays project-wide",
+			body:    "blocked: buy lumber",
+			wantObs: []string{"blocker [blocked: buy lumber] project:1"},
+			wantOps: []string{`create_blocker {"project_id":1,"description":"buy lumber"}`},
+		},
+		{
+			name:    "blocked naming a task created earlier in the entry",
+			body:    "todo: add the SSE hub\nblocked: add the SSE hub after the router",
+			wantObs: []string{"plan [todo: add the SSE hub] project:1 task:$new:1", "blocker [blocked: add the SSE hub after the router] project:1 task:$new:1"},
+			wantOps: []string{
+				`create_task {"project_id":1,"title":"add the SSE hub"}`,
+				`create_blocker {"project_id":1,"task_id":"$new:1","description":"add the SSE hub after the router"}`,
+			},
+		},
+		{
+			name:    "blocked naming a task done earlier in the entry stays project-wide",
+			body:    "done: set up CI\nblocked: set up CI again",
+			wantObs: []string{"progress [done: set up CI] project:1 task:11", "blocker [blocked: set up CI again] project:1"},
+			wantOps: []string{
+				`set_task_status {"task_id":11,"status":"done"}`,
+				`create_blocker {"project_id":1,"description":"set up CI again"}`,
+			},
+		},
+		{
 			name:    "unblocked matches a blocker",
 			body:    "unblocked: SQLite driver release is out",
 			wantOps: []string{`resolve_blocker {"blocker_id":20}`},
@@ -253,6 +283,13 @@ func TestProjectGuess(t *testing.T) {
 			wantOps: []string{
 				`create_task {"project_id":1,"title":"tests"}`,
 			},
+			wantConf:  cluedProjectGuess,
+			wantGuess: true,
+		},
+		{
+			name:      "a blocked line naming a task",
+			body:      "blocked: buy lumber when the yard opens",
+			wantOps:   []string{`create_blocker {"project_id":2,"task_id":12,"description":"buy lumber when the yard opens"}`},
 			wantConf:  cluedProjectGuess,
 			wantGuess: true,
 		},
