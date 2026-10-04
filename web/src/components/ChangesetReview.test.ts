@@ -82,11 +82,12 @@ function click(el: HTMLElement) {
   el.click()
   flushSync()
 }
-function pick(value: string) {
-  const select = target.querySelector('select')!
-  select.value = value
-  select.dispatchEvent(new Event('change', { bubbles: true }))
-  flushSync()
+const picker = () => target.querySelector<HTMLInputElement>('[role=combobox]')!
+function pick(label: string) {
+  click(picker())
+  const option = [...target.querySelectorAll<HTMLElement>('[role=option]')].find((o) => o.textContent?.trim() === label)
+  if (!option) throw new Error(`no ${label} option`)
+  click(option)
 }
 async function sentBody() {
   await vi.waitFor(() => expect(fetchMock.mock.calls.some(([u]) => u === '/api/changesets/3/apply')).toBe(true))
@@ -97,7 +98,7 @@ async function sentBody() {
 describe('ChangesetReview', () => {
   it('shows each op as a sentence, under the guessed project', () => {
     expect(rows().map(sentence)).toEqual(['New task: Write docs', 'Mark “Write docs” done', 'Park idea: Dark mode'])
-    expect(target.querySelector('select')!.value).toBe('7')
+    expect(picker().value).toBe('Waypoint')
     expect(target.textContent).toContain('(guessed)')
     expect(button(target, 'Apply').disabled).toBe(true)
   })
@@ -122,14 +123,14 @@ describe('ChangesetReview', () => {
   })
 
   it("with no project, tasks and blockers can't be accepted", () => {
-    pick('')
+    pick('No project')
     click(button(rows()[0], 'Undo'))
     expect(button(rows()[0], 'Accept').disabled).toBe(true)
     expect(rows()[0].textContent).toContain('need a project')
   })
 
   it('accept all with no project rejects the task and unties the idea', async () => {
-    pick('')
+    pick('No project')
     click(button(target, 'Accept all'))
     expect(await sentBody()).toEqual({
       ops: [
@@ -141,7 +142,7 @@ describe('ChangesetReview', () => {
   })
 
   it('edits an op and moves it to the chosen project', async () => {
-    pick('9')
+    pick('Garden')
     click(button(rows()[0], 'Edit'))
     const input = rows()[0].querySelector('input')!
     input.value = 'Write the docs'

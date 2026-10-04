@@ -7,9 +7,9 @@
   import { latest, liveReload } from '../lib/live'
   import { current } from '../lib/navigation.svelte'
   import { addEntry } from '../lib/timeline.svelte'
+  import ProjectPicker from './ProjectPicker.svelte'
   import Button from './ui/Button.svelte'
   import Textarea from './ui/Textarea.svelte'
-  import { fieldClass } from './ui/field'
 
   // The diary input: free text, an optional project it's about (the project on screen by
   // default), and Ctrl/Cmd+Enter to save. The draft lives in diaryDraft so it outlasts this copy.
@@ -26,9 +26,8 @@
   )
   const options = $derived(scopeOptions(projects, scope))
 
-  function pick(e: Event) {
-    const v = (e.currentTarget as HTMLSelectElement).value
-    draft.choice = { projectID: v === '' ? null : Number(v), path: current.path }
+  function pick(projectID: number | null) {
+    draft.choice = { projectID, path: current.path }
   }
 
   async function save() {
@@ -103,19 +102,18 @@
   />
 
   <div class="flex flex-wrap items-center gap-2">
-    <label class="flex min-w-0 flex-1 items-center gap-2 text-label text-ink-muted">
-      <span class="shrink-0">About</span>
-      <select class={[fieldClass, 'min-w-0 py-1.5 text-sm']} value={scope === null ? '' : String(scope)} onchange={pick}>
-        <option value="">No project</option>
-        {#if scope !== null && !options.some((p) => p.id === scope)}
-          <!-- The project list hasn't loaded (or failed to); still show what the entry will be about. -->
-          <option value={String(scope)}>This project</option>
-        {/if}
-        {#each options as p (p.id)}
-          <option value={String(p.id)}>{p.title}</option>
-        {/each}
-      </select>
-    </label>
+    <div class="flex min-w-0 flex-1 items-center gap-2 text-label text-ink-muted">
+      <label for="diary-scope" class="shrink-0">About</label>
+      <!-- Before the project list loads, a scope it lacks still shows what the entry will be about. -->
+      <ProjectPicker
+        id="diary-scope"
+        class="min-w-0 flex-1"
+        projects={options}
+        value={scope}
+        onpick={pick}
+        missingLabel="This project"
+      />
+    </div>
     <Button type="submit" disabled={saving || draft.body.trim() === ''}>{saving ? 'Writing…' : 'Write Entry'}</Button>
   </div>
 

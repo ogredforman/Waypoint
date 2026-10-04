@@ -21,7 +21,8 @@ test('write → review → apply updates the project and the briefing', async ({
   await expect(briefing.getByText('Nothing here is ready to start yet.')).toBeVisible()
 
   // Write the entry in the diary panel, about the new project.
-  await page.getByLabel('About').selectOption({ label: project })
+  await page.getByRole('combobox', { name: 'About' }).fill('shed')
+  await page.getByRole('option', { name: project }).click()
   await page.getByLabel('Diary entry').fill(`Cleared the corner today.\ntodo: ${task}\nblocked: ${blocker}`)
   await page.getByLabel('Diary entry').press('Control+Enter')
 

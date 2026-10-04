@@ -19,6 +19,7 @@
   import { pickable } from '../lib/projects'
   import { loadEntry } from '../lib/timeline.svelte'
   import ChangeOpRow from './ChangeOpRow.svelte'
+  import ProjectPicker from './ProjectPicker.svelte'
   import Button from './ui/Button.svelte'
 
   // A pending changeset under the entry that produced it (SPEC §7.1 step 7). The user decides each
@@ -54,9 +55,9 @@
     return dep ? `This needs “${describe(dep, ops, choices)}”, which you rejected. Undo that to accept this.` : null
   }
 
-  function pick(value: string) {
+  function pick(projectID: number | null) {
     if (guessed === null) return
-    picked = value === '' ? null : Number(value)
+    picked = projectID
     if (picked === null) choices = noProject(ops, choices, guessed)
   }
 
@@ -94,21 +95,15 @@
   {#if guessed !== null}
     <div class="flex flex-wrap items-center gap-2 text-sm">
       <label for="cs-{changeset.id}-project" class="text-ink-muted">Project</label>
-      <select
+      <ProjectPicker
         id="cs-{changeset.id}-project"
-        class="rounded-control border border-line bg-surface px-2 py-1 text-sm text-ink"
-        value={target === null ? '' : String(target)}
-        onchange={(e) => pick(e.currentTarget.value)}
+        class="w-56 max-w-full"
+        projects={choosable}
+        value={target}
+        onpick={pick}
+        missingLabel="The guessed project"
         disabled={busy}
-      >
-        {#each choosable as p (p.id)}
-          <option value={String(p.id)}>{p.title}</option>
-        {/each}
-        {#if !choosable.some((p) => p.id === guessed)}
-          <option value={String(guessed)}>The guessed project</option>
-        {/if}
-        <option value="">No project</option>
-      </select>
+      />
       {#if target === guessed}
         <span class="text-xs text-ink-muted">(guessed)</span>
       {:else if target === null}

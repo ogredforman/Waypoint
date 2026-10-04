@@ -53,8 +53,15 @@ async function render(projects: Project[]) {
   await settle()
 }
 
+// options opens the About picker, reads its choices, and closes it again.
 function options(): string[] {
-  return [...target.querySelectorAll('option')].map((o) => o.textContent?.trim() ?? '')
+  const input = target.querySelector<HTMLInputElement>('[role=combobox]')!
+  input.click()
+  flushSync()
+  const list = [...target.querySelectorAll('[role=option]')].map((o) => o.textContent?.trim() ?? '')
+  input.dispatchEvent(new Event('blur'))
+  flushSync()
+  return list
 }
 
 const applied = () => FakeEventSource.latest().emit('changeset.applied', { changeset_id: 1, project_ids: [] })
