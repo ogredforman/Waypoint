@@ -234,6 +234,65 @@ func (q *Queries) GetProject(ctx context.Context, id int64) (Project, error) {
 	return i, err
 }
 
+const getProjectActivity = `-- name: GetProjectActivity :one
+SELECT CAST(MAX(p.updated_at,
+                COALESCE((SELECT MAX(t.updated_at) FROM tasks t WHERE t.project_id = p.id), 0),
+                COALESCE((SELECT MAX(b.updated_at) FROM blockers b WHERE b.project_id = p.id), 0),
+                COALESCE((SELECT MAX(i.updated_at) FROM ideas i WHERE i.project_id = p.id), 0),
+                COALESCE((SELECT MAX(e.created_at) FROM entries e WHERE e.project_id = p.id), 0)) AS INTEGER) AS last_activity
+FROM projects p
+WHERE p.id = ?
+`
+
+func (q *Queries) GetProjectActivity(ctx context.Context, id int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getProjectActivity, id)
+	var last_activity int64
+	err := row.Scan(&last_activity)
+	return last_activity, err
+}
+
+const listProjectActivity = `-- name: ListProjectActivity :many
+
+SELECT p.id AS project_id,
+       CAST(MAX(p.updated_at,
+                COALESCE((SELECT MAX(t.updated_at) FROM tasks t WHERE t.project_id = p.id), 0),
+                COALESCE((SELECT MAX(b.updated_at) FROM blockers b WHERE b.project_id = p.id), 0),
+                COALESCE((SELECT MAX(i.updated_at) FROM ideas i WHERE i.project_id = p.id), 0),
+                COALESCE((SELECT MAX(e.created_at) FROM entries e WHERE e.project_id = p.id), 0)) AS INTEGER) AS last_activity
+FROM projects p
+`
+
+type ListProjectActivityRow struct {
+	ProjectID    int64
+	LastActivity int64
+}
+
+// Last activity: the latest of the project's own edits, changes to its tasks,
+// blockers, and ideas, and its newest diary entry. Never earlier than
+// updated_at, so every project has one.
+func (q *Queries) ListProjectActivity(ctx context.Context) ([]ListProjectActivityRow, error) {
+	rows, err := q.db.QueryContext(ctx, listProjectActivity)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListProjectActivityRow{}
+	for rows.Next() {
+		var i ListProjectActivityRow
+		if err := rows.Scan(&i.ProjectID, &i.LastActivity); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProjectEntryIDs = `-- name: ListProjectEntryIDs :many
 SELECT id FROM entries
 WHERE project_id = ?

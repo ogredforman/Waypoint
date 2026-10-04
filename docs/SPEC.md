@@ -192,6 +192,7 @@ Requirements are tagged by the stage in which they're first needed: **[P]** Prot
 - [P] Create, view, edit, and change status of projects.
 - [P] Enforce the active-project cap (a setting, default 3). Any project status can change to any other; the cap only stops a project from *becoming* active when the cap is reached. Projects already active stay active if the cap is lowered. A manually created project may start active (if there is room) or parked; a project proposed by extraction (`create_project`) is always parked (§6.2).
 - [P] Archive a project (status `archived`) to put it out of sight: it leaves the Now screen, the Parking lot, the project pickers (diary scope, review, promote targets; still shown when it is the one already chosen), and the extraction snapshot. The Projects screen lists archived projects last, under "Archived", each with **Restore**, which makes it parked again.
+- [P] The Projects screen stays tidy with many projects: a filter box narrows it by title, each status group lists the most recently active project first, and Done and Archived start collapsed (a filter opens any group with a match). A project's last activity (`last_activity_at` on every project in the API) is the latest of its own edits, changes to its tasks, blockers, and ideas, and its newest diary entry.
 - [L] Milestones.
 
 **Tasks**

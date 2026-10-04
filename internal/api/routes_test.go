@@ -354,6 +354,27 @@ func TestTaskDetailShowsLinkedObservations(t *testing.T) {
 	}
 }
 
+func TestProjectLastActivity(t *testing.T) {
+	s := newServer(t)
+	p := s.project("Waypoint", domain.ProjectActive)
+	if !p.LastActivityAt.Equal(p.UpdatedAt) {
+		t.Errorf("new project: last activity %v, want its updated_at %v", p.LastActivityAt, p.UpdatedAt)
+	}
+	quiet := s.project("Garden", domain.ProjectParked)
+
+	task := ok[apitypes.Task](s, http.StatusCreated, "POST", fmt.Sprintf("/api/profiles/t/projects/%d/tasks", p.ID), `{"title": "Write tests"}`)
+	got := ok[apitypes.Project](s, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/projects/%d", p.ID), nil)
+	if !got.LastActivityAt.Equal(task.UpdatedAt) {
+		t.Errorf("after a task: last activity %v, want the task's %v", got.LastActivityAt, task.UpdatedAt)
+	}
+	for _, l := range ok[[]apitypes.Project](s, http.StatusOK, "GET", "/api/profiles/t/projects", nil) {
+		want := map[int64]time.Time{p.ID: task.UpdatedAt, quiet.ID: quiet.UpdatedAt}[l.ID]
+		if !l.LastActivityAt.Equal(want) {
+			t.Errorf("listed %q: last activity %v, want %v", l.Title, l.LastActivityAt, want)
+		}
+	}
+}
+
 func TestProjectObservations(t *testing.T) {
 	s := newServer(t)
 	s.runWorker()

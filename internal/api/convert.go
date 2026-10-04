@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 	"unicode/utf16"
 
 	"github.com/ogredforman/waypoint/internal/api/apitypes"
@@ -16,7 +17,9 @@ import (
 // Conversions from domain values to wire DTOs. Lists are never nil, so they
 // encode as [] rather than null.
 
-func projectDTO(p domain.Project) apitypes.Project {
+// projectDTO converts p; lastActivity comes from the store's ProjectActivity
+// or GetProjectActivity.
+func projectDTO(p domain.Project, lastActivity time.Time) apitypes.Project {
 	return apitypes.Project{
 		ID:               p.ID,
 		Title:            p.Title,
@@ -25,6 +28,7 @@ func projectDTO(p domain.Project) apitypes.Project {
 		Status:           p.Status,
 		CreatedAt:        p.CreatedAt,
 		UpdatedAt:        p.UpdatedAt,
+		LastActivityAt:   lastActivity,
 	}
 }
 

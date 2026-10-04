@@ -15,6 +15,7 @@ function project(id: number, status: Project['status'], extra: Partial<Project> 
     status,
     created_at: '',
     updated_at: '',
+    last_activity_at: '',
     ...extra,
   }
 }

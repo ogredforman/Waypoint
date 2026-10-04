@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/ogredforman/waypoint/internal/db/dbgen"
 	"github.com/ogredforman/waypoint/internal/domain"
@@ -39,6 +40,30 @@ func (r reader) ListProjects(ctx context.Context) ([]domain.Project, error) {
 		out[i] = projectFromRow(row)
 	}
 	return out, nil
+}
+
+// ProjectActivity returns every project's last activity, by project ID: the
+// latest of its own edits, changes to its tasks, blockers, and ideas, and its
+// newest diary entry.
+func (r reader) ProjectActivity(ctx context.Context) (map[int64]time.Time, error) {
+	rows, err := r.q.ListProjectActivity(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list project activity: %w", err)
+	}
+	out := make(map[int64]time.Time, len(rows))
+	for _, row := range rows {
+		out[row.ProjectID] = fromMS(row.LastActivity)
+	}
+	return out, nil
+}
+
+// GetProjectActivity returns one project's last activity, as ProjectActivity.
+func (r reader) GetProjectActivity(ctx context.Context, id int64) (time.Time, error) {
+	ms, err := r.q.GetProjectActivity(ctx, id)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("get project %d activity: %w", id, notFound(err))
+	}
+	return fromMS(ms), nil
 }
 
 // CountActiveProjects returns how many projects are active, for checking the

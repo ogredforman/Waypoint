@@ -14,6 +14,9 @@ type Project struct {
 	Status           domain.ProjectStatus `json:"status"`
 	CreatedAt        time.Time            `json:"created_at"`
 	UpdatedAt        time.Time            `json:"updated_at"`
+	// LastActivityAt is the latest of the project's own edits, changes to its
+	// tasks, blockers, and ideas, and its newest diary entry.
+	LastActivityAt time.Time `json:"last_activity_at"`
 }
 
 // CreateProjectRequest is the body of POST /api/projects. A project is

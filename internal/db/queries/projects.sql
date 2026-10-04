@@ -11,6 +11,28 @@ WHERE id = ?;
 SELECT * FROM projects
 ORDER BY created_at, id;
 
+-- Last activity: the latest of the project's own edits, changes to its tasks,
+-- blockers, and ideas, and its newest diary entry. Never earlier than
+-- updated_at, so every project has one.
+
+-- name: ListProjectActivity :many
+SELECT p.id AS project_id,
+       CAST(MAX(p.updated_at,
+                COALESCE((SELECT MAX(t.updated_at) FROM tasks t WHERE t.project_id = p.id), 0),
+                COALESCE((SELECT MAX(b.updated_at) FROM blockers b WHERE b.project_id = p.id), 0),
+                COALESCE((SELECT MAX(i.updated_at) FROM ideas i WHERE i.project_id = p.id), 0),
+                COALESCE((SELECT MAX(e.created_at) FROM entries e WHERE e.project_id = p.id), 0)) AS INTEGER) AS last_activity
+FROM projects p;
+
+-- name: GetProjectActivity :one
+SELECT CAST(MAX(p.updated_at,
+                COALESCE((SELECT MAX(t.updated_at) FROM tasks t WHERE t.project_id = p.id), 0),
+                COALESCE((SELECT MAX(b.updated_at) FROM blockers b WHERE b.project_id = p.id), 0),
+                COALESCE((SELECT MAX(i.updated_at) FROM ideas i WHERE i.project_id = p.id), 0),
+                COALESCE((SELECT MAX(e.created_at) FROM entries e WHERE e.project_id = p.id), 0)) AS INTEGER) AS last_activity
+FROM projects p
+WHERE p.id = ?;
+
 -- name: UpdateProject :one
 UPDATE projects
 SET title = ?, why = ?, definition_of_done = ?, status = ?, updated_at = ?

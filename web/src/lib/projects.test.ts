@@ -10,7 +10,9 @@ import {
   countActive,
   deletionSummary,
   entriesLabel,
+  filterProjects,
   groupByStatus,
+  collapsedByDefault,
   newProjectRequest,
   projectFields,
   projectPatch,
@@ -18,11 +20,11 @@ import {
 } from './projects'
 
 function project(id: number, status: ProjectStatus): Project {
-  return { id, title: `P${id}`, why: '', definition_of_done: '', status, created_at: '', updated_at: '' }
+  return { id, title: `P${id}`, why: '', definition_of_done: '', status, created_at: '', updated_at: '', last_activity_at: '' }
 }
 
 describe('groupByStatus', () => {
-  it('orders sections active, paused, parked, done and keeps project order', () => {
+  it('orders sections active, paused, parked, done and keeps project order on ties', () => {
     const groups = groupByStatus([
       project(6, 'archived'),
       project(1, 'done'),
@@ -36,9 +38,37 @@ describe('groupByStatus', () => {
     expect(groups[0].projects.map((p) => p.id)).toEqual([3, 5])
   })
 
+  it('puts the most recently active project first within a section', () => {
+    const at = (id: number, when: string): Project => ({ ...project(id, 'parked'), last_activity_at: when })
+    const [group] = groupByStatus([at(1, '2026-10-01T09:00:00Z'), at(2, '2026-10-03T09:00:00Z'), at(3, ''), at(4, '2026-10-02T09:00:00Z')])
+    expect(group.projects.map((p) => p.id)).toEqual([2, 4, 1, 3])
+  })
+
   it('leaves out empty sections', () => {
     expect(groupByStatus([project(1, 'parked')]).map((g) => g.status)).toEqual(['parked'])
     expect(groupByStatus([])).toEqual([])
+  })
+})
+
+describe('filterProjects', () => {
+  const list = [
+    { ...project(1, 'active'), title: 'Garden beds' },
+    { ...project(2, 'parked'), title: 'Learn Go' },
+  ]
+
+  it('keeps titles containing the query, ignoring case and surrounding space', () => {
+    expect(filterProjects(list, ' gARDen ').map((p) => p.id)).toEqual([1])
+    expect(filterProjects(list, 'violin')).toEqual([])
+  })
+
+  it('keeps everything for a blank query', () => {
+    expect(filterProjects(list, '  ')).toBe(list)
+  })
+})
+
+describe('collapsedByDefault', () => {
+  it('closes done and archived sections only', () => {
+    expect(['active', 'paused', 'parked', 'done', 'archived'].filter((s) => collapsedByDefault(s as ProjectStatus))).toEqual(['done', 'archived'])
   })
 })
 

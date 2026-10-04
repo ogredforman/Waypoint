@@ -395,6 +395,11 @@ export interface Project {
   status: domain.ProjectStatus;
   created_at: string;
   updated_at: string;
+  /**
+   * LastActivityAt is the latest of the project's own edits, changes to its
+   * tasks, blockers, and ideas, and its newest diary entry.
+   */
+  last_activity_at: string;
 }
 /**
  * CreateProjectRequest is the body of POST /api/projects. A project is

@@ -165,12 +165,11 @@ func (h *handlers) promoteIdea(w http.ResponseWriter, r *http.Request) {
 		dto := taskDTO(t)
 		out.Task = &dto
 	} else {
-		p, err := h.store.GetProject(r.Context(), res.Created[1])
+		dto, err := h.projectView(r.Context(), res.Created[1])
 		if err != nil {
 			h.fail(w, r, err)
 			return
 		}
-		dto := projectDTO(p)
 		out.Project = &dto
 	}
 	writeJSON(w, http.StatusOK, out)

@@ -45,7 +45,7 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   `FinishExtractionRun`, `UpsertBriefing` (replaces the recap points too), question answer/dismiss) are on `*Tx`. One file per entity.
   `ErrNotFound` for missing rows. Entries are never updated; `Tx.DeleteEntry` removes one whole with what came from it (ADR 0007).
   `Tx.DeleteProject` removes a project with everything in it and unscopes its entries (ADR 0008); `CountProjectContents` (→ `ProjectContents`),
-  `ListProjectEntryIDs`, `CountRunningProjectRuns`. `ErrRunInProgress` lives here (`pipeline.ErrRunInProgress` is the same value). Settings (`settings.go`): `GetSettings`
+  `ListProjectEntryIDs`, `CountRunningProjectRuns`, `ProjectActivity` (→ map of last activity by project) / `GetProjectActivity`. `ErrRunInProgress` lives here (`pipeline.ErrRunInProgress` is the same value). Settings (`settings.go`): `GetSettings`
   (defaults if no row), `Store.SeedSettings` (insert if missing), `Tx.UpdateSettings`. Pending observation links (to `$new:N`,
   keyed by change op): `CreatePendingLink`, `ListPendingLinksByOp`, `ResolvePendingLinks`, `DropPendingLinks`.
   Profile row (`profile.go`): `GetProfile` (name, created), `Tx.SetProfileName`.
@@ -79,7 +79,7 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   `profiles.go` (`Profiles` interface, `/api/profiles` routes, hands `/api/profiles/{profile}/*` to `Profiles.Serve`);
   `NewRouter(Deps{Logger, Web, Profiles})` is the root, `NewProfileHandler(ProfileDeps{…})` one profile's data routes and `/events`,
   `projects.go` also has `GET /projects/{id}/observations`, `DELETE /projects/{id}?entries=keep|delete` and `GET /projects/{id}/deletion` (paged by entry; `pageQuery` in `entries.go` reads `before`/`limit`),
-  `convert.go` (domain → apitypes), `respond.go` (JSON encode/decode, `h.fail` maps errors to the
+  `convert.go` (domain → apitypes; `projectDTO` takes the last activity, `handlers.projectView` reads a project with it), `respond.go` (JSON encode/decode, `h.fail` maps errors to the
   single error shape, `badRequest`), `events.go` (`Hub`: SSE `/api/events`, `Publish`, `Notify`,
   `BriefingUpdated`, `Applied` → `changeset.applied`, `EntryDeleted` → `entry.deleted`), `serve.go`. Handlers are thin: decode, call a service, encode.
   **api/apitypes**: request/response/event DTOs; `gen/` generates `web/src/lib/api/*.gen.ts`
@@ -130,8 +130,8 @@ pieces. Tests sit next to the code as `*.test.ts`.
   the op's `refs`, `editFields`).
 - Now: `screens/Now.svelte` loads active projects' briefings into `components/BriefingCard.svelte` (one block per project: next action, recap as a dated list, blockers and alternatives); `components/BriefingCard.test.ts`, `screens/Now.test.ts`.
   `lib/dates.ts` `relativeDay` ("today", "yesterday", "3 days ago", then the date).
-  `lib/projects.ts`: grouping, `activeProjects`, `pickable` (the rule every project picker uses: no done or archived projects unless already chosen), cap helpers.
-- Projects: `screens/Projects.svelte` (status groups, new project form, **Restore** on archived projects → parked); `screens/Projects.test.ts`.
+  `lib/projects.ts`: grouping (`groupByStatus`, newest `last_activity_at` first), `filterProjects`, `collapsedByDefault`, `activeProjects`, `pickable` (the rule every project picker uses: no done or archived projects unless already chosen), cap helpers.
+- Projects: `screens/Projects.svelte` (filter box, status groups with Done and Archived collapsible, new project form, **Restore** on archived projects → parked); `screens/Projects.test.ts`.
 - Project: `screens/Project.svelte` → `components/ProjectHeader.svelte` (view/edit title, why, definition of done)
   and `ProjectStatus.svelte` (status buttons, calm cap handling). `lib/projects.ts`: `projectPatch` (changed fields
   only), `statusOptions`, `activateCapMessage`. `lib/api/client.ts` also has `patchJSON`/`deleteJSON` (204 → undefined).

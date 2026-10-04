@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -16,7 +17,28 @@ func (h *handlers) listProjects(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, mapSlice(projects, projectDTO))
+	activity, err := h.store.ProjectActivity(r.Context())
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, mapSlice(projects, func(p domain.Project) apitypes.Project {
+		return projectDTO(p, activity[p.ID])
+	}))
+}
+
+// projectView reads project id with its last activity, for responses about
+// one project.
+func (h *handlers) projectView(ctx context.Context, id int64) (apitypes.Project, error) {
+	p, err := h.store.GetProject(ctx, id)
+	if err != nil {
+		return apitypes.Project{}, err
+	}
+	at, err := h.store.GetProjectActivity(ctx, id)
+	if err != nil {
+		return apitypes.Project{}, err
+	}
+	return projectDTO(p, at), nil
 }
 
 func (h *handlers) getProject(w http.ResponseWriter, r *http.Request) {
@@ -25,12 +47,12 @@ func (h *handlers) getProject(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	p, err := h.store.GetProject(r.Context(), id)
+	dto, err := h.projectView(r.Context(), id)
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, projectDTO(p))
+	writeJSON(w, http.StatusOK, dto)
 }
 
 // projectDeletion says what deleting the project would take with it, for the
@@ -172,12 +194,12 @@ func (h *handlers) createProject(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	p, err := h.store.GetProject(r.Context(), res.Created[1])
+	dto, err := h.projectView(r.Context(), res.Created[1])
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, projectDTO(p))
+	writeJSON(w, http.StatusCreated, dto)
 }
 
 // updateProject takes an apitypes.UpdateProjectRequest.
@@ -205,12 +227,12 @@ func (h *handlers) updateProject(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	p, err := h.store.GetProject(r.Context(), id)
+	dto, err := h.projectView(r.Context(), id)
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, projectDTO(p))
+	writeJSON(w, http.StatusOK, dto)
 }
 
 func (h *handlers) listTasks(w http.ResponseWriter, r *http.Request) {

@@ -6,7 +6,7 @@ import { startEvents } from '../lib/events'
 import { FakeEventSource, fakeOpen } from '../lib/events.fake'
 import Task from './Task.svelte'
 
-const project: Project = { id: 7, title: 'Waypoint', why: '', definition_of_done: '', status: 'active', created_at: '', updated_at: '' }
+const project: Project = { id: 7, title: 'Waypoint', why: '', definition_of_done: '', status: 'active', created_at: '', updated_at: '', last_activity_at: '' }
 
 function obs(id: number, entry_id: number, summary: string): LinkedObservation {
   return { id, entry_id, entry_created_at: '2026-09-30T10:00:00Z', kind: 'progress', summary, quote: `quote ${id}`, confidence: 1 }

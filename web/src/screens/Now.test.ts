@@ -14,6 +14,7 @@ const project = (id: number, title: string): Project => ({
   status: 'active',
   created_at: '',
   updated_at: '',
+  last_activity_at: '',
 })
 
 const briefing = (projectID: number, recap: string): Briefing => ({

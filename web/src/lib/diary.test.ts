@@ -4,7 +4,7 @@ import type { Project } from './api/types.gen'
 import { entryRequest, isSubmitShortcut, knownScope, resolveScope, scopeOptions, screenProjectID } from './diary'
 
 function project(id: number, status: ProjectStatus): Project {
-  return { id, title: `P${id}`, why: '', definition_of_done: '', status, created_at: '', updated_at: '' }
+  return { id, title: `P${id}`, why: '', definition_of_done: '', status, created_at: '', updated_at: '', last_activity_at: '' }
 }
 
 describe('isSubmitShortcut', () => {

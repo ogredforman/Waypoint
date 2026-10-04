@@ -13,6 +13,7 @@ const garden: Project = {
   status: 'parked',
   created_at: '',
   updated_at: '',
+  last_activity_at: '',
 }
 
 let target: HTMLElement

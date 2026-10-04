@@ -16,11 +16,31 @@ const groupOrder: { status: ProjectStatus; label: string }[] = [
 ]
 
 // groupByStatus sorts projects into the Projects screen's sections, active
-// first. Empty sections are left out; projects keep their order within one.
+// first. Empty sections are left out. Within one, the project with the most
+// recent activity comes first; ties keep their order.
 export function groupByStatus(projects: Project[]): ProjectGroup[] {
   return groupOrder
-    .map(({ status, label }) => ({ status, label, projects: projects.filter((p) => p.status === status) }))
+    .map(({ status, label }) => ({ status, label, projects: byLastActivity(projects.filter((p) => p.status === status)) }))
     .filter((g) => g.projects.length > 0)
+}
+
+function byLastActivity(projects: Project[]): Project[] {
+  const at = (p: Project) => Date.parse(p.last_activity_at) || 0
+  return [...projects].sort((a, b) => at(b) - at(a))
+}
+
+// collapsedByDefault reports whether a Projects screen section starts closed:
+// finished and archived projects stay out of the way until asked for.
+export function collapsedByDefault(status: ProjectStatus): boolean {
+  return status === 'done' || status === 'archived'
+}
+
+// filterProjects keeps the projects whose title contains query, ignoring case
+// and surrounding space. A blank query keeps them all.
+export function filterProjects(projects: Project[], query: string): Project[] {
+  const q = query.trim().toLocaleLowerCase()
+  if (!q) return projects
+  return projects.filter((p) => p.title.toLocaleLowerCase().includes(q))
 }
 
 // pickable reports whether a project belongs in a project picker (diary

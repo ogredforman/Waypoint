@@ -11,6 +11,7 @@ function project(id: number, status: Project['status']): Project {
     status,
     created_at: '',
     updated_at: '',
+    last_activity_at: '',
   }
 }
 function idea(projectId: number | null): Idea {

@@ -5,7 +5,7 @@ import type { Project, Settings as SettingsBody } from '../lib/api/types.gen'
 import Settings from './Settings.svelte'
 
 function project(id: number, status: Project['status']): Project {
-  return { id, title: `P${id}`, why: '', definition_of_done: '', status, created_at: '', updated_at: '' }
+  return { id, title: `P${id}`, why: '', definition_of_done: '', status, created_at: '', updated_at: '', last_activity_at: '' }
 }
 
 let target: HTMLElement

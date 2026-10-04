@@ -8,7 +8,7 @@ import { FakeEventSource, fakeOpen } from '../lib/events.fake'
 import DiaryInput from './DiaryInput.svelte'
 
 function project(id: number, title: string, status: ProjectStatus = 'active'): Project {
-  return { id, title, why: '', definition_of_done: '', status, created_at: '', updated_at: '' }
+  return { id, title, why: '', definition_of_done: '', status, created_at: '', updated_at: '', last_activity_at: '' }
 }
 
 let target: HTMLElement
