@@ -31,6 +31,8 @@ const (
 	eventBriefingUpdated = "briefing.updated"
 	// eventChangesetApplied: a changeset was applied.
 	eventChangesetApplied = "changeset.applied"
+	// eventEntryDeleted: an entry was deleted.
+	eventEntryDeleted = "entry.deleted"
 )
 
 // Hub fans server events out to every connected /api/events stream (SPEC
@@ -115,6 +117,11 @@ func (h *Hub) Applied(_ context.Context, res changeset.Result) {
 		ids = []int64{}
 	}
 	h.Publish(eventChangesetApplied, apitypes.ChangesetAppliedEvent{ChangesetID: res.Changeset.ID, ProjectIDs: ids})
+}
+
+// EntryDeleted publishes an "entry.deleted" event.
+func (h *Hub) EntryDeleted(entryID int64) {
+	h.Publish(eventEntryDeleted, apitypes.EntryDeletedEvent{EntryID: entryID})
 }
 
 // Close ends every open stream and refuses new ones. The server calls it

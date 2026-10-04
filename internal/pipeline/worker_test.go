@@ -812,3 +812,32 @@ func TestProcessKeepsQuestionsPerEntrySetting(t *testing.T) {
 		})
 	}
 }
+
+func TestDeleteEntry(t *testing.T) {
+	f := newFixture(t)
+	w := f.worker(mock.New(0), nil)
+	ctx := context.Background()
+	busy, _ := f.save(w, "note: first", nil)
+	waiting, _ := f.save(w, "note: second", nil)
+
+	// The worker claims busy's run, so it is running and can't be deleted.
+	if _, err := w.claim(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.DeleteEntry(ctx, busy.ID); !errors.Is(err, ErrRunInProgress) {
+		t.Errorf("DeleteEntry with a running run = %v, want ErrRunInProgress", err)
+	}
+
+	// waiting's run is pending: it goes with the entry, so there is nothing
+	// left to claim.
+	got, err := w.DeleteEntry(ctx, waiting.ID)
+	if err != nil || got.ID != waiting.ID {
+		t.Fatalf("DeleteEntry(pending) = %+v, %v", got, err)
+	}
+	if _, err := w.claim(ctx); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("claim after delete = %v, want nothing pending", err)
+	}
+	if _, err := w.DeleteEntry(ctx, waiting.ID); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("deleting again = %v, want ErrNotFound", err)
+	}
+}

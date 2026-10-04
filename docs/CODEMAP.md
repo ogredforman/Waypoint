@@ -13,7 +13,7 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
   §10.5 API, §11 UI surfaces, §12 testing.
 - PLAN: `grep -n '\[ \]' docs/PLAN.md | head` for the next tasks; read only the current stage's section.
 - ADRs: 0001 API types (Go DTOs → generated TS), 0002 deleting tasks/blockers/ideas,
-  0003 splitting changesets, 0004 diary panel layout, 0005 profiles, 0006 archived projects.
+  0003 splitting changesets, 0004 diary panel layout, 0005 profiles, 0006 archived projects, 0007 deleting entries.
 
 ## Wiring (`cmd/waypoint/main.go`)
 
@@ -43,7 +43,7 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   `reader`, so both tx types have them; writes (`CreateX`, `UpdateX`, `DeleteX`, `CreateChangeset`,
   `ResolveChangeset`, `SetChangeOpResult`, `MoveChangeOp`, `ClaimNextExtractionRun`,
   `FinishExtractionRun`, `UpsertBriefing` (replaces the recap points too), question answer/dismiss) are on `*Tx`. One file per entity.
-  `ErrNotFound` for missing rows. Entries are insert-only. Settings (`settings.go`): `GetSettings`
+  `ErrNotFound` for missing rows. Entries are never updated; `Tx.DeleteEntry` removes one whole with what came from it (ADR 0007). Settings (`settings.go`): `GetSettings`
   (defaults if no row), `Store.SeedSettings` (insert if missing), `Tx.UpdateSettings`. Pending observation links (to `$new:N`,
   keyed by change op): `CreatePendingLink`, `ListPendingLinksByOp`, `ResolvePendingLinks`, `DropPendingLinks`.
   Profile row (`profile.go`): `GetProfile` (name, created), `Tx.SetProfileName`.
@@ -63,11 +63,11 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   so a link can name `$new:N`; the worker stores those pending.
   **extract/mock**: deterministic line-prefix extractor (SPEC §10.4), `mock.New(latency)`.
 - **pipeline**: `SnapshotBuilder.Build(ctx, entry)`; `Worker`: `SaveEntry` (entry + pending run in
-  one tx), `Reprocess`, `Wake`, `Run(ctx)` (claims runs, extracts, validates, stores result +
+  one tx), `Reprocess`, `DeleteEntry` (refused while running), `Wake`, `Run(ctx)` (claims runs, extracts, validates, stores result +
   changeset (keeping only `questions_per_entry` questions), emits `Event`s via `Notifier`, calls `AfterRun.EntryProcessed`). Failures recorded on
   the run, never partial state.
 - **briefing**: `Briefer` interface, `Heuristic` implementation (`heuristic.go`), `Service`
-  (`Refresh`, `Get` → `View`; drops recap entries the Briefer wasn't shown; implements `changeset.AfterApply` and `pipeline.AfterRun`; notifies
+  (`Refresh`, `Get` → `View`, `EntryDeleted`; drops recap entries the Briefer wasn't shown; implements `changeset.AfterApply` and `pipeline.AfterRun`; notifies
   `BriefingUpdated`). Briefings are cached per project in the DB; the recap (`[]domain.RecapEntry`, newest first, points with observation kinds) in `briefing_recap_points`.
 - **profile**: `Manager` runs every profile (ADR 0005): `Open` (removes half-built `*.db.new`, moves the legacy
   `waypoint.db` in as "Personal", starts each `profiles/<id>.db`), `List`, `Create` (optionally copying another profile's appearance), `Rename`, `Delete`, `Serve`, `Ping`,
@@ -79,7 +79,7 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   `projects.go` also has `GET /projects/{id}/observations` (paged by entry; `pageQuery` in `entries.go` reads `before`/`limit`),
   `convert.go` (domain → apitypes), `respond.go` (JSON encode/decode, `h.fail` maps errors to the
   single error shape, `badRequest`), `events.go` (`Hub`: SSE `/api/events`, `Publish`, `Notify`,
-  `BriefingUpdated`, `Applied` → `changeset.applied`), `serve.go`. Handlers are thin: decode, call a service, encode.
+  `BriefingUpdated`, `Applied` → `changeset.applied`, `EntryDeleted` → `entry.deleted`), `serve.go`. Handlers are thin: decode, call a service, encode.
   **api/apitypes**: request/response/event DTOs; `gen/` generates `web/src/lib/api/*.gen.ts`
   (`make gen`, checked by `make lint`).
 - **config**: `Load(args, env, goos, stderr)` (flags > env > `config.toml`), `EnsureDataDir`, `ProfilesDir`, `LegacyDBPath`,
@@ -118,7 +118,7 @@ pieces. Tests sit next to the code as `*.test.ts`.
   outlives the panel/overlay; one per profile: `switchDraft`, `restoreDraft`, `draftSession`).
 - Diary timeline: `components/EntryTimeline.svelte` → `EntryCard.svelte` (highlights, run state) →
   `FollowUpQuestion.svelte` (answer/dismiss). `lib/timeline.svelte.ts`: shared timeline state (`loadTimeline`,
-  `loadOlder`, `loadThrough` (pages back to one entry), `loadEntry`, `addEntry`, `reprocessEntry`, `followEvents`). `lib/entries.ts`: `segments`, `observationHref`, detail helpers,
+  `loadOlder`, `loadThrough` (pages back to one entry), `loadEntry`, `addEntry`, `reprocessEntry`, `deleteEntry`, `followEvents`). `lib/entries.ts`: `segments`, `observationHref`, detail helpers,
   reading again (`canReprocess`, `reprocessImpact`, `reprocessWarning`). `components/EntryCard.test.ts`.
   Entry links: `screens/Diary` passes `?entry=N` as `focusEntry` through `DiaryContent` to `EntryTimeline` (`loadThrough`, scroll, brief
   `highlighted` ring on `EntryCard`); `components/EntryTimeline.test.ts`.

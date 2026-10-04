@@ -540,6 +540,7 @@ func TestEntryRoutes(t *testing.T) {
 	// The run is still pending: nothing is processing entries in this test.
 	s.fails(http.StatusConflict, "run_in_progress", "POST", fmt.Sprintf("/api/profiles/t/entries/%d/reprocess", created.Entry.ID), nil)
 	s.fails(http.StatusNotFound, "not_found", "POST", "/api/profiles/t/entries/999/reprocess", nil)
+	s.fails(http.StatusNotFound, "not_found", "DELETE", "/api/profiles/t/entries/999", nil)
 
 	// Pages, newest first.
 	var ids []int64

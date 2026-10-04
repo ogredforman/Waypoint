@@ -9,6 +9,54 @@ import (
 	"context"
 )
 
+const clearBlockerEntries = `-- name: ClearBlockerEntries :exec
+UPDATE blockers
+SET origin_entry_id   = CASE WHEN origin_entry_id = ?1 THEN NULL ELSE origin_entry_id END,
+    resolved_entry_id = CASE WHEN resolved_entry_id = ?1 THEN NULL ELSE resolved_entry_id END
+WHERE origin_entry_id = ?1 OR resolved_entry_id = ?1
+`
+
+func (q *Queries) ClearBlockerEntries(ctx context.Context, entryID *int64) error {
+	_, err := q.db.ExecContext(ctx, clearBlockerEntries, entryID)
+	return err
+}
+
+const clearIdeaOrigins = `-- name: ClearIdeaOrigins :exec
+UPDATE ideas
+SET origin_entry_id = NULL
+WHERE origin_entry_id = ?
+`
+
+func (q *Queries) ClearIdeaOrigins(ctx context.Context, originEntryID *int64) error {
+	_, err := q.db.ExecContext(ctx, clearIdeaOrigins, originEntryID)
+	return err
+}
+
+const clearRepliesToEntryQuestions = `-- name: ClearRepliesToEntryQuestions :exec
+UPDATE entries
+SET reply_to_question_id = NULL
+WHERE reply_to_question_id IN (SELECT id FROM follow_up_questions WHERE entry_id = ?)
+`
+
+// Entries replying to the deleted entry's questions keep their text and lose
+// the reply link.
+func (q *Queries) ClearRepliesToEntryQuestions(ctx context.Context, entryID int64) error {
+	_, err := q.db.ExecContext(ctx, clearRepliesToEntryQuestions, entryID)
+	return err
+}
+
+const clearTaskOrigins = `-- name: ClearTaskOrigins :exec
+UPDATE tasks
+SET origin_entry_id = NULL
+WHERE origin_entry_id = ?
+`
+
+// Rows created from the deleted entry stay, without their origin.
+func (q *Queries) ClearTaskOrigins(ctx context.Context, originEntryID *int64) error {
+	_, err := q.db.ExecContext(ctx, clearTaskOrigins, originEntryID)
+	return err
+}
+
 const createEntry = `-- name: CreateEntry :one
 
 INSERT INTO entries (body, project_id, reply_to_question_id, created_at)
@@ -23,7 +71,9 @@ type CreateEntryParams struct {
 	CreatedAt         int64
 }
 
-// Entries are immutable: insert and read only. Never add an UPDATE or DELETE here.
+// Entries are immutable: their text is never updated. An entry can only be
+// deleted whole, with everything derived from it (ADR 0007, the queries at the
+// end); the only other UPDATE clears a reply link to a deleted question.
 func (q *Queries) CreateEntry(ctx context.Context, arg CreateEntryParams) (Entry, error) {
 	row := q.db.QueryRowContext(ctx, createEntry,
 		arg.Body,
@@ -40,6 +90,119 @@ func (q *Queries) CreateEntry(ctx context.Context, arg CreateEntryParams) (Entry
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const deleteEntry = `-- name: DeleteEntry :exec
+DELETE FROM entries
+WHERE id = ?
+`
+
+// Its briefing recap points go with it (ON DELETE CASCADE).
+func (q *Queries) DeleteEntry(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteEntry, id)
+	return err
+}
+
+const deleteEntryChangeOps = `-- name: DeleteEntryChangeOps :exec
+DELETE FROM change_ops
+WHERE changeset_id IN (
+    SELECT changesets.id FROM changesets
+    JOIN extraction_runs ON extraction_runs.id = changesets.extraction_run_id
+    WHERE extraction_runs.entry_id = ?)
+`
+
+// The ops of every changeset from the entry's runs, whatever its status.
+func (q *Queries) DeleteEntryChangeOps(ctx context.Context, entryID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteEntryChangeOps, entryID)
+	return err
+}
+
+const deleteEntryChangesets = `-- name: DeleteEntryChangesets :exec
+DELETE FROM changesets
+WHERE extraction_run_id IN (SELECT id FROM extraction_runs WHERE entry_id = ?)
+`
+
+// Split-offs go in the same statement as their parents, so the
+// parent_changeset_id references are only checked once all are gone.
+func (q *Queries) DeleteEntryChangesets(ctx context.Context, entryID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteEntryChangesets, entryID)
+	return err
+}
+
+const deleteEntryObservationLinks = `-- name: DeleteEntryObservationLinks :exec
+DELETE FROM observation_links
+WHERE observation_id IN (SELECT id FROM observations WHERE entry_id = ?)
+`
+
+func (q *Queries) DeleteEntryObservationLinks(ctx context.Context, entryID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteEntryObservationLinks, entryID)
+	return err
+}
+
+const deleteEntryObservations = `-- name: DeleteEntryObservations :exec
+DELETE FROM observations
+WHERE entry_id = ?
+`
+
+func (q *Queries) DeleteEntryObservations(ctx context.Context, entryID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteEntryObservations, entryID)
+	return err
+}
+
+const deleteEntryPendingLinks = `-- name: DeleteEntryPendingLinks :exec
+
+DELETE FROM pending_observation_links
+WHERE observation_id IN (SELECT observations.id FROM observations WHERE observations.entry_id = ?1)
+   OR change_op_id IN (
+       SELECT change_ops.id FROM change_ops
+       JOIN changesets ON changesets.id = change_ops.changeset_id
+       JOIN extraction_runs ON extraction_runs.id = changesets.extraction_run_id
+       WHERE extraction_runs.entry_id = ?1)
+`
+
+// Deleting an entry (ADR 0007). Store.DeleteEntry runs these in order, in one
+// transaction, so every foreign key stays valid.
+// Pending links from the entry's observations or on its changesets' ops.
+func (q *Queries) DeleteEntryPendingLinks(ctx context.Context, entryID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteEntryPendingLinks, entryID)
+	return err
+}
+
+const deleteEntryQuestions = `-- name: DeleteEntryQuestions :exec
+DELETE FROM follow_up_questions
+WHERE entry_id = ?
+`
+
+func (q *Queries) DeleteEntryQuestions(ctx context.Context, entryID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteEntryQuestions, entryID)
+	return err
+}
+
+const deleteEntryRuns = `-- name: DeleteEntryRuns :exec
+DELETE FROM extraction_runs
+WHERE entry_id = ?
+`
+
+func (q *Queries) DeleteEntryRuns(ctx context.Context, entryID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteEntryRuns, entryID)
+	return err
+}
+
+const dismissQuestionsAnsweredByEntry = `-- name: DismissQuestionsAnsweredByEntry :exec
+UPDATE follow_up_questions
+SET status = 'dismissed', answer_entry_id = NULL, updated_at = ?
+WHERE answer_entry_id = ?
+`
+
+type DismissQuestionsAnsweredByEntryParams struct {
+	UpdatedAt     int64
+	AnswerEntryID *int64
+}
+
+// A question the deleted entry answered counts as dismissed.
+func (q *Queries) DismissQuestionsAnsweredByEntry(ctx context.Context, arg DismissQuestionsAnsweredByEntryParams) error {
+	_, err := q.db.ExecContext(ctx, dismissQuestionsAnsweredByEntry, arg.UpdatedAt, arg.AnswerEntryID)
+	return err
 }
 
 const getEntry = `-- name: GetEntry :one

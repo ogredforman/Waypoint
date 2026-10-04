@@ -183,6 +183,27 @@ func (h *handlers) reprocessEntry(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, runDTO(run))
 }
 
+// deleteEntry deletes the entry with everything derived from it (ADR 0007),
+// then refreshes the briefings, whose recaps may include it, and tells the
+// other clients. The UI confirms first.
+func (h *handlers) deleteEntry(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r, "id")
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	e, err := h.worker.DeleteEntry(r.Context(), id)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	h.briefings.EntryDeleted(r.Context(), e)
+	if h.hub != nil {
+		h.hub.EntryDeleted(e.ID)
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *handlers) dismissQuestion(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r, "id")
 	if err != nil {

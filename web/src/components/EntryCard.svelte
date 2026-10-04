@@ -14,7 +14,7 @@
     shownQuestions,
   } from '../lib/entries'
   import { paths } from '../lib/router'
-  import { loadEntry, reprocessEntry, type TimelineItem } from '../lib/timeline.svelte'
+  import { deleteEntry, loadEntry, reprocessEntry, type TimelineItem } from '../lib/timeline.svelte'
   import ChangesetReview from './ChangesetReview.svelte'
   import FollowUpQuestion from './FollowUpQuestion.svelte'
   import Button from './ui/Button.svelte'
@@ -24,7 +24,8 @@
   // Waypoint picked up highlighted (each opens what it's about), and its follow-up questions: open ones
   // to answer or set aside, answered ones as a quiet line (the answer is a newer entry, above this one).
   // Changes proposed from it wait underneath for review. It can be read again: right there when the
-  // last read failed, behind "More" otherwise, after a calm word about what that replaces.
+  // last read failed, behind "More" otherwise, after a calm word about what that replaces. "More" also
+  // offers deleting it, after saying what goes with it (ADR 0007).
 
   let {
     item,
@@ -73,6 +74,40 @@
   function keep() {
     confirming = false
     moreOpen = false
+  }
+
+  // Deleting. Not offered while Waypoint is reading the entry; the server refuses then too.
+  let confirmingDelete = $state(false)
+  let deleting = $state(false)
+  let deleteNotice = $state('')
+  const askingDelete = $derived(confirmingDelete && run !== 'reading')
+
+  function askDelete() {
+    deleteNotice = ''
+    rereadNotice = ''
+    confirmingDelete = true
+  }
+
+  function keepEntry() {
+    confirmingDelete = false
+    moreOpen = false
+  }
+
+  async function confirmDelete() {
+    deleting = true
+    try {
+      await deleteEntry(entry.id)
+    } catch (err) {
+      keepEntry()
+      if (err instanceof ApiError && err.status === 409) {
+        deleteNotice = "Waypoint is reading this entry. It can be deleted once that's done."
+        void loadEntry(entry.id)
+      } else {
+        deleteNotice = err instanceof ApiError ? err.message : "Couldn't delete this entry."
+      }
+    } finally {
+      deleting = false
+    }
   }
 
   async function confirmReadAgain() {
@@ -125,11 +160,15 @@
         <Button variant="secondary" size="xs" disabled={rereading} onclick={readAgain}>Read again</Button>
       {/if}
     </div>
-  {:else if canReprocess(detail) && !asking}
+  {/if}
+  {#if run !== 'reading' && !asking && !askingDelete}
     <div class="flex items-center gap-1 text-xs">
       <Button variant="quiet" size="xs" aria-expanded={moreOpen} onclick={() => (moreOpen = !moreOpen)}>More</Button>
       {#if moreOpen}
-        <Button variant="quiet" size="xs" disabled={rereading} onclick={readAgain}>Read again</Button>
+        {#if canReprocess(detail) && run !== 'failed'}
+          <Button variant="quiet" size="xs" disabled={rereading} onclick={readAgain}>Read again</Button>
+        {/if}
+        <Button variant="danger" size="xs" onclick={askDelete}>Delete entry</Button>
       {/if}
     </div>
   {/if}
@@ -142,6 +181,18 @@
     </div>
   {/if}
   {#if rereadNotice}<p class="text-xs text-ink-muted" role="status">{rereadNotice}</p>{/if}
+
+  {#if askingDelete}
+    <div class="flex flex-wrap items-center gap-2 text-sm" role="group" aria-label="Confirm deleting">
+      <span class="text-ink-muted">
+        Delete this entry? Its highlights, questions, and changes not yet reviewed go with it; changes you already
+        applied stay. This can't be undone.
+      </span>
+      <Button variant="danger" size="sm" disabled={deleting} onclick={confirmDelete}>Delete</Button>
+      <Button variant="quiet" size="sm" onclick={keepEntry}>Keep it</Button>
+    </div>
+  {/if}
+  {#if deleteNotice}<p class="text-xs text-ink-muted" role="status">{deleteNotice}</p>{/if}
 
   {#each pending as cs (cs.id)}
     <ChangesetReview changeset={cs} {entry} {projects} onnotice={(m) => (reviewNotice = m)} />

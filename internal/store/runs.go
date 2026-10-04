@@ -65,6 +65,16 @@ func (r reader) CountActiveExtractionRuns(ctx context.Context, entryID int64) (i
 	return int(n), nil
 }
 
+// CountRunningExtractionRuns returns how many of the entry's runs are
+// running (claimed by the worker).
+func (r reader) CountRunningExtractionRuns(ctx context.Context, entryID int64) (int, error) {
+	n, err := r.q.CountRunningExtractionRunsByEntry(ctx, entryID)
+	if err != nil {
+		return 0, fmt.Errorf("count running runs of entry %d: %w", entryID, err)
+	}
+	return int(n), nil
+}
+
 // CreateExtractionRun inserts r as a pending run, ignoring its ID, status,
 // results, and timestamps.
 func (tx *Tx) CreateExtractionRun(ctx context.Context, r domain.ExtractionRun) (domain.ExtractionRun, error) {

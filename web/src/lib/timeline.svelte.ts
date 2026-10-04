@@ -1,4 +1,4 @@
-import { ApiError, getJSON, postJSON } from './api/client'
+import { ApiError, deleteJSON, getJSON, postJSON } from './api/client'
 import type { Entry, EntryDetail, EntryPage, ExtractionRun, Project } from './api/types.gen'
 import { on, onReconnect } from './events'
 
@@ -160,6 +160,40 @@ export async function reprocessEntry(id: number): Promise<void> {
   await loadEntry(id)
 }
 
+// deleteEntry deletes an entry with everything derived from it (ADR 0007) and
+// takes it out of the timeline. An entry that is already gone counts as
+// deleted. Other errors (e.g. a 409 while it is being read) are the caller's
+// to show.
+export async function deleteEntry(id: number): Promise<void> {
+  try {
+    await deleteJSON(`/api/entries/${id}`)
+  } catch (err) {
+    if (!(err instanceof ApiError && err.status === 404)) throw err
+  }
+  entryRemoved(id)
+}
+
+// entryRemoved takes a deleted entry out of the timeline. The entries tied to
+// it by a question lose that tie: replies to its questions are no longer
+// replies, and the question it answered is now dismissed, so they reload.
+function entryRemoved(id: number) {
+  const item = timeline.items.find((i) => i.entry.id === id)
+  if (!item) return
+  entryLoads.delete(id)
+  const asked = new Set(item.detail?.questions.map((q) => q.id) ?? [])
+  const answered = item.entry.reply_to_question_id
+  timeline.items = timeline.items.filter((i) => i.entry.id !== id)
+  for (const i of timeline.items) {
+    const reply = i.entry.reply_to_question_id
+    if (reply !== null && asked.has(reply)) {
+      i.entry = { ...i.entry, reply_to_question_id: null }
+      void loadEntry(i.entry.id)
+    } else if (answered !== null && i.detail?.questions.some((q) => q.id === answered)) {
+      void loadEntry(i.entry.id)
+    }
+  }
+}
+
 // entryChanged reloads an entry the server says changed. An entry newer than
 // any shown (e.g. one written in another tab) reloads the newest page instead.
 function entryChanged(id: number) {
@@ -181,6 +215,8 @@ export function followEvents(): () => void {
         if (i.detail?.changesets.some((c) => c.id === e.changeset_id)) void loadEntry(i.entry.id)
       }
     }),
+    // Deleted in another tab (or by this one, already gone).
+    on('entry.deleted', (e) => entryRemoved(e.entry_id)),
     onReconnect(() => {
       if (timeline.status !== 'idle') void loadTimeline()
     }),

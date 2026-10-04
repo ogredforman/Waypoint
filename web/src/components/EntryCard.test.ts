@@ -48,7 +48,15 @@ let component: ReturnType<typeof mount>
 // entry reads as running, with its proposals and questions gone.
 let reprocessStatus = 202
 let afterReprocess: EntryDetail
+// deleteStatus is how the server answers DELETE /entries/{id}.
+let deleteStatus = 204
 const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+  if (init?.method === 'DELETE') {
+    if (deleteStatus === 409) {
+      return new Response(JSON.stringify({ error: { code: 'run_in_progress', message: 'run in progress' } }), { status: 409 })
+    }
+    return new Response(null, { status: 204 })
+  }
   if (init?.method === 'POST') {
     if (reprocessStatus === 409) {
       return new Response(JSON.stringify({ error: { code: 'conflict', message: 'run in progress' } }), { status: 409 })
@@ -60,6 +68,7 @@ const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
 
 function show(d: EntryDetail) {
   reprocessStatus = 202
+  deleteStatus = 204
   afterReprocess = { ...d, run: run('running'), questions: [], changesets: [] }
   fetchMock.mockClear()
   vi.stubGlobal('fetch', fetchMock)
@@ -152,5 +161,50 @@ describe('EntryCard reading again', () => {
     show(detail({ run: run('pending') }))
     expect(buttons('Read again')).toHaveLength(0)
     expect(buttons('More')).toHaveLength(0)
+  })
+})
+
+describe('EntryCard deleting', () => {
+  const deletes = () => fetchMock.mock.calls.filter(([, init]) => init?.method === 'DELETE').map(([u]) => u)
+  const confirmGroup = () => target.querySelector('[aria-label="Confirm deleting"]')
+
+  it('says what goes first, and Keep it sends nothing', () => {
+    show(detail({ changesets: [changeset] }))
+    click(button('More'))
+    click(button('Delete entry'))
+    expect(confirmGroup()!.textContent).toContain('changes you already')
+    expect(buttons('More')).toHaveLength(0)
+    click(button('Keep it'))
+    expect(confirmGroup()).toBeNull()
+    expect(deletes()).toEqual([])
+  })
+
+  it('deletes the entry and takes it out of the timeline', async () => {
+    show(detail())
+    click(button('More'))
+    click(button('Delete entry'))
+    click(button('Delete'))
+    await vi.waitFor(() => expect(timeline.items).toHaveLength(0))
+    expect(deletes()).toEqual(['/api/entries/1'])
+  })
+
+  it('is offered on a failed entry too, but not while Waypoint is reading', () => {
+    show(detail({ run: run('failed') }))
+    click(button('More'))
+    expect(buttons('Delete entry')).toHaveLength(1)
+    expect(buttons('Read again')).toHaveLength(1)
+    timeline.items[0].detail!.run = run('running')
+    flushSync()
+    expect(buttons('Delete entry')).toHaveLength(0)
+  })
+
+  it('says so calmly when a run started meanwhile', async () => {
+    show(detail())
+    deleteStatus = 409
+    click(button('More'))
+    click(button('Delete entry'))
+    click(button('Delete'))
+    await vi.waitFor(() => expect(target.querySelector('[role="status"]')?.textContent).toContain("once that's done"))
+    expect(timeline.items).toHaveLength(1)
   })
 })

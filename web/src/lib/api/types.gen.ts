@@ -296,6 +296,13 @@ export interface ChangesetAppliedEvent {
   changeset_id: number /* int64 */;
   project_ids: number /* int64 */[];
 }
+/**
+ * EntryDeletedEvent is the data of an "entry.deleted" event: the entry and
+ * everything derived from it were deleted.
+ */
+export interface EntryDeletedEvent {
+  entry_id: number /* int64 */;
+}
 
 //////////
 // source: ideas.go

@@ -1,7 +1,8 @@
 import { on, onReconnect } from './events'
 
 // liveReload keeps a screen current (SPEC §10.5): it calls reload after each
-// applied changeset and after the event stream reconnects, until the returned
+// applied changeset, after an entry is deleted (what the diary said goes with
+// it), and after the event stream reconnects, until the returned
 // function is called. With projectId, only changesets that touched that
 // project count; a projectId that returns undefined (e.g. not loaded yet), or
 // none at all, means every changeset counts. Ideas aren't in project_ids, so
@@ -12,6 +13,7 @@ export function liveReload(reload: () => void, projectId?: () => number | undefi
       const id = projectId?.()
       if (id === undefined || e.project_ids.includes(id)) reload()
     }),
+    on('entry.deleted', () => reload()),
     onReconnect(reload),
   ]
   return () => offs.forEach((off) => off())

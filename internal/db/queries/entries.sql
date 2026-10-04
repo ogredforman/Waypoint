@@ -1,4 +1,6 @@
--- Entries are immutable: insert and read only. Never add an UPDATE or DELETE here.
+-- Entries are immutable: their text is never updated. An entry can only be
+-- deleted whole, with everything derived from it (ADR 0007, the queries at the
+-- end); the only other UPDATE clears a reply link to a deleted question.
 
 -- name: CreateEntry :one
 INSERT INTO entries (body, project_id, reply_to_question_id, created_at)
@@ -69,3 +71,81 @@ WHERE e.id < sqlc.arg(before_id) AND (
 )
 ORDER BY e.created_at DESC, e.id DESC
 LIMIT sqlc.arg(limit);
+
+-- Deleting an entry (ADR 0007). Store.DeleteEntry runs these in order, in one
+-- transaction, so every foreign key stays valid.
+
+-- name: DeleteEntryPendingLinks :exec
+-- Pending links from the entry's observations or on its changesets' ops.
+DELETE FROM pending_observation_links
+WHERE observation_id IN (SELECT observations.id FROM observations WHERE observations.entry_id = sqlc.arg(entry_id))
+   OR change_op_id IN (
+       SELECT change_ops.id FROM change_ops
+       JOIN changesets ON changesets.id = change_ops.changeset_id
+       JOIN extraction_runs ON extraction_runs.id = changesets.extraction_run_id
+       WHERE extraction_runs.entry_id = sqlc.arg(entry_id));
+
+-- name: DeleteEntryObservationLinks :exec
+DELETE FROM observation_links
+WHERE observation_id IN (SELECT id FROM observations WHERE entry_id = ?);
+
+-- name: DeleteEntryObservations :exec
+DELETE FROM observations
+WHERE entry_id = ?;
+
+-- name: DeleteEntryChangeOps :exec
+-- The ops of every changeset from the entry's runs, whatever its status.
+DELETE FROM change_ops
+WHERE changeset_id IN (
+    SELECT changesets.id FROM changesets
+    JOIN extraction_runs ON extraction_runs.id = changesets.extraction_run_id
+    WHERE extraction_runs.entry_id = ?);
+
+-- name: DeleteEntryChangesets :exec
+-- Split-offs go in the same statement as their parents, so the
+-- parent_changeset_id references are only checked once all are gone.
+DELETE FROM changesets
+WHERE extraction_run_id IN (SELECT id FROM extraction_runs WHERE entry_id = ?);
+
+-- name: ClearRepliesToEntryQuestions :exec
+-- Entries replying to the deleted entry's questions keep their text and lose
+-- the reply link.
+UPDATE entries
+SET reply_to_question_id = NULL
+WHERE reply_to_question_id IN (SELECT id FROM follow_up_questions WHERE entry_id = ?);
+
+-- name: DismissQuestionsAnsweredByEntry :exec
+-- A question the deleted entry answered counts as dismissed.
+UPDATE follow_up_questions
+SET status = 'dismissed', answer_entry_id = NULL, updated_at = ?
+WHERE answer_entry_id = ?;
+
+-- name: DeleteEntryQuestions :exec
+DELETE FROM follow_up_questions
+WHERE entry_id = ?;
+
+-- name: ClearTaskOrigins :exec
+-- Rows created from the deleted entry stay, without their origin.
+UPDATE tasks
+SET origin_entry_id = NULL
+WHERE origin_entry_id = ?;
+
+-- name: ClearBlockerEntries :exec
+UPDATE blockers
+SET origin_entry_id   = CASE WHEN origin_entry_id = sqlc.arg(entry_id) THEN NULL ELSE origin_entry_id END,
+    resolved_entry_id = CASE WHEN resolved_entry_id = sqlc.arg(entry_id) THEN NULL ELSE resolved_entry_id END
+WHERE origin_entry_id = sqlc.arg(entry_id) OR resolved_entry_id = sqlc.arg(entry_id);
+
+-- name: ClearIdeaOrigins :exec
+UPDATE ideas
+SET origin_entry_id = NULL
+WHERE origin_entry_id = ?;
+
+-- name: DeleteEntryRuns :exec
+DELETE FROM extraction_runs
+WHERE entry_id = ?;
+
+-- name: DeleteEntry :exec
+-- Its briefing recap points go with it (ON DELETE CASCADE).
+DELETE FROM entries
+WHERE id = ?;

@@ -331,6 +331,45 @@ func TestE2EManualEditPublishesApplied(t *testing.T) {
 	}
 }
 
+func TestE2EDeleteEntry(t *testing.T) {
+	a := startApp(t, filepath.Join(t.TempDir(), "waypoint.db"), mock.New(0))
+	p := newProject(a, "Waypoint")
+	event[apitypes.BriefingUpdatedEvent](a, eventBriefingUpdated)
+	created := send[apitypes.CreateEntryResponse](a, http.StatusAccepted, "POST", "/api/profiles/t/entries",
+		apitypes.CreateEntryRequest{Body: "todo: Write the API tests", ProjectID: &p.ID})
+	csID := a.processed(created.Entry.ID, created.Run.ID, true, p.ID)
+	d := send[apitypes.EntryDetail](a, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/entries/%d", created.Entry.ID), nil)
+	for _, cs := range d.Changesets {
+		if cs.ID == csID {
+			a.acceptAll(cs, p.ID)
+		}
+	}
+
+	target := fmt.Sprintf("/api/profiles/t/entries/%d", created.Entry.ID)
+	req, err := http.NewRequest("DELETE", a.srv.URL+target, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := a.srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("DELETE entry: status = %d, want 204", resp.StatusCode)
+	}
+	if e := event[apitypes.EntryDeletedEvent](a, eventEntryDeleted); e.EntryID != created.Entry.ID {
+		t.Errorf("entry.deleted = %+v, want entry %d", e, created.Entry.ID)
+	}
+	send[map[string]any](a, http.StatusNotFound, "GET", target, nil)
+
+	tasks := send[[]apitypes.Task](a, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/projects/%d/tasks", p.ID), nil)
+	if len(tasks) != 1 || tasks[0].OriginEntryID != nil {
+		t.Errorf("tasks = %+v, want the applied task kept with no origin", tasks)
+	}
+	a.noLeaks("todo: Write the API tests")
+}
+
 func TestE2EFollowUpEntryWithGuessedProject(t *testing.T) {
 	a := startApp(t, filepath.Join(t.TempDir(), "waypoint.db"), mock.New(0))
 	p := newProject(a, "Waypoint")

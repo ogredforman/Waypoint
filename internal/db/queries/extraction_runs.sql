@@ -23,6 +23,10 @@ ORDER BY id;
 SELECT count(*) FROM extraction_runs
 WHERE entry_id = ? AND status IN ('pending', 'running');
 
+-- name: CountRunningExtractionRunsByEntry :one
+SELECT COUNT(*) FROM extraction_runs
+WHERE entry_id = ? AND status = 'running';
+
 -- name: ClaimNextExtractionRun :one
 -- Marks the oldest pending run running and returns it.
 UPDATE extraction_runs

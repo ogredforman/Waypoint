@@ -2,6 +2,7 @@ import type {
   BriefingUpdatedEvent,
   ChangesetAppliedEvent,
   ChangesetReadyEvent,
+  EntryDeletedEvent,
   EntryProcessedEvent,
   RunFailedEvent,
 } from './api/types.gen'
@@ -18,11 +19,12 @@ export interface EventMap {
   'run.failed': RunFailedEvent
   'briefing.updated': BriefingUpdatedEvent
   'changeset.applied': ChangesetAppliedEvent
+  'entry.deleted': EntryDeletedEvent
 }
 
 export type EventName = keyof EventMap
 
-const eventNames: EventName[] = ['entry.processed', 'changeset.ready', 'run.failed', 'briefing.updated', 'changeset.applied']
+const eventNames: EventName[] = ['entry.processed', 'changeset.ready', 'run.failed', 'briefing.updated', 'changeset.applied', 'entry.deleted']
 
 // retryDelay is how long to wait before reconnecting after the server refused
 // the stream (e.g. while it restarts). EventSource retries dropped connections

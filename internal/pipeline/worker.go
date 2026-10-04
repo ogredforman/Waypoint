@@ -56,7 +56,7 @@ type AfterRun interface {
 }
 
 // ErrRunInProgress is returned when reprocessing an entry that already has a
-// pending or running run.
+// pending or running run, or deleting one whose run is running.
 var ErrRunInProgress = errors.New("entry already has a run in progress")
 
 // retryDelay is how long the worker waits after failing to claim a run
@@ -201,6 +201,30 @@ func (w *Worker) Reprocess(ctx context.Context, entryID int64) (domain.Extractio
 	}
 	w.Wake()
 	return run, nil
+}
+
+// DeleteEntry deletes entry entryID with everything derived from it
+// (store.Tx.DeleteEntry, ADR 0007). A pending run goes with it, and the
+// worker can't claim it afterwards; while a run is running the entry can't
+// be deleted (ErrRunInProgress), since the worker would store its results.
+// It returns the deleted entry, or store.ErrNotFound.
+func (w *Worker) DeleteEntry(ctx context.Context, entryID int64) (domain.Entry, error) {
+	var e domain.Entry
+	err := w.store.InTx(ctx, func(tx *store.Tx) error {
+		running, err := tx.CountRunningExtractionRuns(ctx, entryID)
+		if err != nil {
+			return err
+		}
+		if running > 0 {
+			return ErrRunInProgress
+		}
+		e, err = tx.DeleteEntry(ctx, entryID)
+		return err
+	})
+	if err != nil {
+		return domain.Entry{}, fmt.Errorf("delete entry %d: %w", entryID, err)
+	}
+	return e, nil
 }
 
 func (w *Worker) newRun(entryID int64) domain.ExtractionRun {

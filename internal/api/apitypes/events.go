@@ -39,3 +39,9 @@ type ChangesetAppliedEvent struct {
 	ChangesetID int64   `json:"changeset_id"`
 	ProjectIDs  []int64 `json:"project_ids"`
 }
+
+// EntryDeletedEvent is the data of an "entry.deleted" event: the entry and
+// everything derived from it were deleted.
+type EntryDeletedEvent struct {
+	EntryID int64 `json:"entry_id"`
+}

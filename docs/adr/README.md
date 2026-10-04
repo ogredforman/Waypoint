@@ -16,3 +16,4 @@ old one's status is changed to `Superseded by NNNN`.
 | [0004](./0004-diary-panel-layout.md) | The diary as a panel beside every screen | Accepted |
 | [0005](./0005-profiles.md) | Profiles: one database per profile | Accepted |
 | [0006](./0006-archived-projects.md) | Archived projects: a fifth project status | Accepted |
+| [0007](./0007-deleting-entries.md) | Deleting diary entries | Accepted |

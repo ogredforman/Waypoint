@@ -51,7 +51,9 @@ type handlers struct {
 	applier   *changeset.Applier
 	worker    *pipeline.Worker
 	briefings *briefing.Service
-	logger    *slog.Logger
+	// hub, if set, tells clients about deleted entries.
+	hub    *Hub
+	logger *slog.Logger
 }
 
 // NewRouter returns the HTTP handler for the API and, if set, the frontend.
@@ -107,6 +109,7 @@ func NewProfileHandler(d ProfileDeps) http.Handler {
 			applier:   d.Applier,
 			worker:    d.Worker,
 			briefings: d.Briefings,
+			hub:       d.Hub,
 			logger:    d.Logger,
 		}
 		h.routes(r)
@@ -162,6 +165,7 @@ func (h *handlers) routes(r chi.Router) {
 	r.Get("/entries", h.listEntries)
 	r.Post("/entries", h.createEntry)
 	r.Get("/entries/{id}", h.getEntry)
+	r.Delete("/entries/{id}", h.deleteEntry)
 	r.Post("/entries/{id}/reprocess", h.reprocessEntry)
 	r.Post("/questions/{id}/dismiss", h.dismissQuestion)
 

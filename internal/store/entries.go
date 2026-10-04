@@ -148,3 +148,49 @@ func (tx *Tx) CreateEntry(ctx context.Context, e domain.Entry) (domain.Entry, er
 	}
 	return entryFromRow(row), nil
 }
+
+// DeleteEntry removes entry id with everything derived from it (ADR 0007):
+// its runs, observations with their links and pending links, follow-up
+// questions, and changesets (pending, split-off, and resolved, with their
+// ops), plus its briefing recap points. The text is never edited; the entry
+// goes whole. Changes already applied from it stay: tasks, blockers, and
+// ideas lose their reference to it (origin, resolved-by), which is reference
+// cleanup, not an edit of those rows. A question it answered becomes
+// dismissed, and entries replying to its questions lose the reply link. It
+// returns the deleted entry, or ErrNotFound. The caller makes sure no run of
+// the entry is running.
+func (tx *Tx) DeleteEntry(ctx context.Context, id int64) (domain.Entry, error) {
+	e, err := tx.GetEntry(ctx, id)
+	if err != nil {
+		return domain.Entry{}, err
+	}
+	ref := &id
+	steps := []struct {
+		what string
+		run  func() error
+	}{
+		{"pending links", func() error { return tx.q.DeleteEntryPendingLinks(ctx, id) }},
+		{"observation links", func() error { return tx.q.DeleteEntryObservationLinks(ctx, id) }},
+		{"observations", func() error { return tx.q.DeleteEntryObservations(ctx, id) }},
+		{"change ops", func() error { return tx.q.DeleteEntryChangeOps(ctx, id) }},
+		{"changesets", func() error { return tx.q.DeleteEntryChangesets(ctx, id) }},
+		{"reply links", func() error { return tx.q.ClearRepliesToEntryQuestions(ctx, id) }},
+		{"answered questions", func() error {
+			return tx.q.DismissQuestionsAnsweredByEntry(ctx, dbgen.DismissQuestionsAnsweredByEntryParams{
+				UpdatedAt: tx.nowMS(), AnswerEntryID: ref,
+			})
+		}},
+		{"questions", func() error { return tx.q.DeleteEntryQuestions(ctx, id) }},
+		{"task origins", func() error { return tx.q.ClearTaskOrigins(ctx, ref) }},
+		{"blocker entries", func() error { return tx.q.ClearBlockerEntries(ctx, ref) }},
+		{"idea origins", func() error { return tx.q.ClearIdeaOrigins(ctx, ref) }},
+		{"runs", func() error { return tx.q.DeleteEntryRuns(ctx, id) }},
+		{"entry", func() error { return tx.q.DeleteEntry(ctx, id) }},
+	}
+	for _, s := range steps {
+		if err := s.run(); err != nil {
+			return domain.Entry{}, fmt.Errorf("delete entry %d: %s: %w", id, s.what, err)
+		}
+	}
+	return e, nil
+}

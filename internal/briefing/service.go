@@ -137,9 +137,19 @@ func (s *Service) EntryProcessed(ctx context.Context, e domain.Entry) {
 		s.refreshActive(ctx, []int64{*e.ProjectID})
 		return
 	}
+	s.refreshAllActive(ctx, e.ID)
+}
+
+// EntryDeleted refreshes every active project's briefing after entry e was
+// deleted: its points may be in any project's recap.
+func (s *Service) EntryDeleted(ctx context.Context, e domain.Entry) {
+	s.refreshAllActive(ctx, e.ID)
+}
+
+func (s *Service) refreshAllActive(ctx context.Context, entryID int64) {
 	projects, err := s.store.ListProjects(ctx)
 	if err != nil {
-		s.logger.Error("refreshing briefings failed", "entry_id", e.ID, "err", err)
+		s.logger.Error("refreshing briefings failed", "entry_id", entryID, "err", err)
 		return
 	}
 	var ids []int64

@@ -54,6 +54,18 @@ func (q *Queries) CountActiveExtractionRunsByEntry(ctx context.Context, entryID 
 	return count, err
 }
 
+const countRunningExtractionRunsByEntry = `-- name: CountRunningExtractionRunsByEntry :one
+SELECT COUNT(*) FROM extraction_runs
+WHERE entry_id = ? AND status = 'running'
+`
+
+func (q *Queries) CountRunningExtractionRunsByEntry(ctx context.Context, entryID int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRunningExtractionRunsByEntry, entryID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createExtractionRun = `-- name: CreateExtractionRun :one
 
 INSERT INTO extraction_runs (entry_id, provider, model, prompt_version, status, created_at, updated_at)

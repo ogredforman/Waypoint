@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Changeset, Entry, EntryDetail, EntryPage, ExtractionRun } from './api/types.gen'
+import type { Changeset, Entry, EntryDetail, EntryPage, ExtractionRun, Question } from './api/types.gen'
 import { startEvents } from './events'
 import { FakeEventSource, fakeOpen } from './events.fake'
 
@@ -15,6 +15,9 @@ vi.mock('./api/client', async (importOriginal) => {
       if (!routes.has(path)) throw new real.ApiError(404, 'not_found', `no route ${path}`)
       return routes.get(path)
     },
+    deleteJSON: async (path: string) => {
+      if (!routes.has(`DELETE ${path}`)) throw new real.ApiError(409, 'run_in_progress', 'busy')
+    },
     postJSON: async (path: string) => {
       if (!routes.has(`POST ${path}`)) throw new real.ApiError(404, 'not_found', `no route ${path}`)
       return routes.get(`POST ${path}`)
@@ -22,7 +25,7 @@ vi.mock('./api/client', async (importOriginal) => {
   }
 })
 
-const { addEntry, followEvents, loadEntry, loadOlder, loadThrough, loadTimeline, pageSize, reprocessEntry, timeline } = await import('./timeline.svelte')
+const { addEntry, deleteEntry, followEvents, loadEntry, loadOlder, loadThrough, loadTimeline, pageSize, reprocessEntry, timeline } = await import('./timeline.svelte')
 
 const stopFollowing = followEvents()
 const stopEvents = startEvents(fakeOpen)
@@ -225,6 +228,40 @@ describe('timeline', () => {
     await settle()
     expect(timeline.items[1].detail?.changesets[0].status).toBe('applied')
     expect(timeline.items[0].error).toBe('')
+  })
+
+  it('takes a deleted entry out, and reloads the entries tied to it by a question', async () => {
+    const question = (id: number, entryId: number, status: Question['status']) =>
+      ({ id, entry_id: entryId, status }) as Question
+    routes.set(first, page([3, 2, 1], null))
+    routes.set('/api/entries/3', { ...detail(3), entry: { ...entry(3), reply_to_question_id: 9 } })
+    routes.set('/api/entries/2', { ...detail(2), entry: { ...entry(2), reply_to_question_id: 5 }, questions: [question(9, 2, 'answered')] })
+    routes.set('/api/entries/1', { ...detail(1), questions: [question(5, 1, 'answered')] })
+    await loadTimeline()
+    timeline.items[0].entry = { ...entry(3), reply_to_question_id: 9 }
+    timeline.items[1].entry = { ...entry(2), reply_to_question_id: 5 }
+
+    routes.set('DELETE /api/entries/2', null)
+    routes.set('/api/entries/1', { ...detail(1), questions: [question(5, 1, 'dismissed')] })
+    await deleteEntry(2)
+    await settle()
+    expect(ids()).toEqual([3, 1])
+    expect(timeline.items[0].entry.reply_to_question_id).toBeNull()
+    expect(timeline.items[1].detail?.questions[0].status).toBe('dismissed')
+  })
+
+  it('keeps an entry the server would not delete, and leaves the error to the caller', async () => {
+    routes.set(first, page([1], null))
+    await loadTimeline()
+    await expect(deleteEntry(1)).rejects.toThrow()
+    expect(ids()).toEqual([1])
+  })
+
+  it('takes out an entry deleted in another tab', async () => {
+    routes.set(first, page([2, 1], null))
+    await loadTimeline()
+    FakeEventSource.latest().emit('entry.deleted', { entry_id: 2 })
+    expect(ids()).toEqual([1])
   })
 
   it('reloads after reconnecting', async () => {
