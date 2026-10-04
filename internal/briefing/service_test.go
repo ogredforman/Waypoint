@@ -217,6 +217,27 @@ func TestRefreshSkipsInactiveProjects(t *testing.T) {
 	}
 }
 
+// TestDeletedProject checks that a deleted project isn't briefed, and that
+// deleting its entries too refreshes the other active projects, whose recaps
+// may have shown them.
+func TestDeletedProject(t *testing.T) {
+	for _, deleteEntries := range []bool{false, true} {
+		f := newFixture(t)
+		p := f.project("Waypoint", domain.ProjectActive)
+		q := f.project("Garden", domain.ProjectActive)
+		f.entry("todo: ship", "ship", &p, domain.TargetProject, p)
+		f.updates.got = nil
+		f.manual(changeset.DeleteProject{ProjectID: changeset.ID(p), DeleteEntries: deleteEntries})
+		var want []int64
+		if deleteEntries {
+			want = []int64{q}
+		}
+		if !slices.Equal(f.updates.got, want) {
+			t.Errorf("delete_entries %v: notified %v, want %v", deleteEntries, f.updates.got, want)
+		}
+	}
+}
+
 func TestRefreshNotifies(t *testing.T) {
 	f := newFixture(t)
 	p := f.project("Waypoint", domain.ProjectActive)

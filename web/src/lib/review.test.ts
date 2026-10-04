@@ -126,6 +126,13 @@ group('describe', () => {
     const u = op(1, 'update_task', { task_id: 4, title: 'x', notes: 'y' }, { 'task:4': 'Old' })
     expect(describe(u, [u], {})).toBe('Change task “Old” (title, notes)')
   })
+
+  it('says when deleting a project takes its entries too', () => {
+    const keep = op(1, 'delete_project', { project_id: 7 }, { 'project:7': 'Garden' })
+    const drop = op(1, 'delete_project', { project_id: 7, delete_entries: true }, { 'project:7': 'Garden' })
+    expect(describe(keep, [keep], {})).toBe('Delete project “Garden”')
+    expect(describe(drop, [drop], {})).toBe('Delete project “Garden” and its diary entries')
+  })
 })
 
 group('editing', () => {

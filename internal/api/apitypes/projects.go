@@ -35,6 +35,17 @@ type UpdateProjectRequest struct {
 	Status           *domain.ProjectStatus `json:"status,omitempty"`
 }
 
+// ProjectDeletion is the body of GET /api/projects/{id}/deletion: what
+// deleting the project takes with it, and how many diary entries are scoped
+// to it (kept unscoped or deleted, as the user chooses).
+type ProjectDeletion struct {
+	Tasks      int `json:"tasks"`
+	Blockers   int `json:"blockers"`
+	Ideas      int `json:"ideas"`
+	Milestones int `json:"milestones"`
+	Entries    int `json:"entries"`
+}
+
 // ProjectObservations is the body of GET /api/projects/{id}/observations:
 // what the diary says about the project, the observations linked to it or to
 // its tasks or blockers. Newest entry first, an entry's observations in text

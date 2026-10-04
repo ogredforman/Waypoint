@@ -418,6 +418,18 @@ export interface UpdateProjectRequest {
   status?: domain.ProjectStatus;
 }
 /**
+ * ProjectDeletion is the body of GET /api/projects/{id}/deletion: what
+ * deleting the project takes with it, and how many diary entries are scoped
+ * to it (kept unscoped or deleted, as the user chooses).
+ */
+export interface ProjectDeletion {
+  tasks: number /* int */;
+  blockers: number /* int */;
+  ideas: number /* int */;
+  milestones: number /* int */;
+  entries: number /* int */;
+}
+/**
  * ProjectObservations is the body of GET /api/projects/{id}/observations:
  * what the diary says about the project, the observations linked to it or to
  * its tasks or blockers. Newest entry first, an entry's observations in text

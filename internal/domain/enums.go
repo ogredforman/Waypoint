@@ -240,6 +240,7 @@ const (
 	OpDeleteIdea     OpType = "delete_idea"
 	OpCreateProject  OpType = "create_project"
 	OpUpdateProject  OpType = "update_project"
+	OpDeleteProject  OpType = "delete_project"
 )
 
 func OpTypes() []OpType {
@@ -247,7 +248,7 @@ func OpTypes() []OpType {
 		OpCreateTask, OpUpdateTask, OpSetTaskStatus, OpSplitTask, OpAddDependency, OpDeleteTask,
 		OpCreateBlocker, OpUpdateBlocker, OpResolveBlocker, OpDeleteBlocker,
 		OpParkIdea, OpUpdateIdea, OpDeleteIdea,
-		OpCreateProject, OpUpdateProject,
+		OpCreateProject, OpUpdateProject, OpDeleteProject,
 	}
 }
 

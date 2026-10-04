@@ -175,6 +175,11 @@ func (c *checker) ops(snap StateSnapshot, drafts []ChangeOpDraft) ([]changeset.P
 		if d.Confidence != nil {
 			c.confidence(fmt.Sprintf("ops[%d].confidence", i+1), *d.Confidence)
 		}
+		// Deleting a project is the user's call, made from the Project
+		// screen (ADR 0008); extraction never proposes it.
+		if d.OpType == domain.OpDeleteProject {
+			c.add(fmt.Sprintf("ops[%d].op_type", i+1), "extraction can't delete a project")
+		}
 	}
 
 	payloads, err := changeset.ValidateOps(ops)

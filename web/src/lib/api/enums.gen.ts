@@ -36,7 +36,7 @@ export type ChangesetSource = (typeof changesetSourceValues)[number];
 export const changesetStatusValues = ["pending", "applied", "partially_applied", "rejected"] as const;
 export type ChangesetStatus = (typeof changesetStatusValues)[number];
 
-export const opTypeValues = ["create_task", "update_task", "set_task_status", "split_task", "add_dependency", "delete_task", "create_blocker", "update_blocker", "resolve_blocker", "delete_blocker", "park_idea", "update_idea", "delete_idea", "create_project", "update_project"] as const;
+export const opTypeValues = ["create_task", "update_task", "set_task_status", "split_task", "add_dependency", "delete_task", "create_blocker", "update_blocker", "resolve_blocker", "delete_blocker", "park_idea", "update_idea", "delete_idea", "create_project", "update_project", "delete_project"] as const;
 export type OpType = (typeof opTypeValues)[number];
 
 export const changeOpStatusValues = ["pending", "applied", "rejected", "edited"] as const;

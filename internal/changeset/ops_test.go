@@ -126,7 +126,7 @@ func TestDecodePayload(t *testing.T) {
 		{"invalid JSON", domain.OpDeleteTask, `{"task_id":`, []string{"payload"}},
 		{"trailing data", domain.OpDeleteTask, `{"task_id":1} {}`, []string{"payload"}},
 		{"odd unknown field", domain.OpDeleteTask, `{"task_id":1,"I felt awful today":1}`, []string{"payload"}},
-		{"unknown op type", domain.OpType("delete_project"), `{"project_id":1}`, []string{"op_type"}},
+		{"unknown op type", domain.OpType("move_project"), `{"project_id":1}`, []string{"op_type"}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			p, err := DecodePayload(tt.op, json.RawMessage(tt.payload))

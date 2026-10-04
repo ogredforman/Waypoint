@@ -67,7 +67,7 @@ func TestEnumValid(t *testing.T) {
 		{"IdeaStatus", IdeaPromoted.Valid(), IdeaStatus("active").Valid(), len(IdeaStatuses())},
 		{"ChangesetSource", SourceManual.Valid(), ChangesetSource("import").Valid(), len(ChangesetSources())},
 		{"ChangesetStatus", ChangesetPartiallyApplied.Valid(), ChangesetStatus("done").Valid(), len(ChangesetStatuses())},
-		{"OpType", OpDeleteTask.Valid(), OpType("delete_project").Valid(), len(OpTypes())},
+		{"OpType", OpDeleteTask.Valid(), OpType("move_project").Valid(), len(OpTypes())},
 		{"ChangeOpStatus", OpEdited.Valid(), ChangeOpStatus("maybe").Valid(), len(ChangeOpStatuses())},
 		{"BriefingSource", BriefingLLM.Valid(), BriefingSource("guess").Valid(), len(BriefingSources())},
 	} {
@@ -289,7 +289,7 @@ func TestChangeOpValidate(t *testing.T) {
 	badConfidence := ok
 	badConfidence.Confidence = ptr(-0.1)
 	badType := ok
-	badType.OpType = "delete_project"
+	badType.OpType = "move_project"
 	zeroPosition := ok
 	zeroPosition.Position = 0
 	runValidate(t, []validateCase{

@@ -905,3 +905,31 @@ func TestChangeOpRefsNameExistingRows(t *testing.T) {
 		t.Errorf("refs = %v, want %v", got, want)
 	}
 }
+
+func TestDeleteProjectRoutes(t *testing.T) {
+	s := newServer(t)
+	p := ok[apitypes.Project](s, http.StatusCreated, "POST", "/api/profiles/t/projects", `{"title": "Learn Go"}`)
+	projectURL := fmt.Sprintf("/api/profiles/t/projects/%d", p.ID)
+	ok[apitypes.Task](s, http.StatusCreated, "POST", projectURL+"/tasks", `{"title": "Read the tour"}`)
+	created := ok[apitypes.CreateEntryResponse](s, http.StatusAccepted, "POST", "/api/profiles/t/entries",
+		fmt.Sprintf(`{"body": "Started Go", "project_id": %d}`, p.ID))
+
+	got := ok[apitypes.ProjectDeletion](s, http.StatusOK, "GET", projectURL+"/deletion", nil)
+	if want := (apitypes.ProjectDeletion{Tasks: 1, Entries: 1}); got != want {
+		t.Errorf("deletion = %+v, want %+v", got, want)
+	}
+
+	s.fails(http.StatusBadRequest, "bad_request", "DELETE", projectURL, nil)
+	s.fails(http.StatusBadRequest, "bad_request", "DELETE", projectURL+"?entries=maybe", nil)
+	if rec := s.call("DELETE", projectURL+"?entries=keep", nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("DELETE project: status = %d, want 204", rec.Code)
+	}
+	s.fails(http.StatusNotFound, "not_found", "GET", projectURL, nil)
+	s.fails(http.StatusNotFound, "not_found", "GET", projectURL+"/deletion", nil)
+	s.fails(http.StatusNotFound, "not_found", "DELETE", projectURL+"?entries=keep", nil)
+
+	e := ok[apitypes.EntryDetail](s, http.StatusOK, "GET", fmt.Sprintf("/api/profiles/t/entries/%d", created.Entry.ID), nil)
+	if e.Entry.ProjectID != nil || e.Entry.Body != "Started Go" {
+		t.Errorf("kept entry = %+v, want its text and no project", e.Entry)
+	}
+}

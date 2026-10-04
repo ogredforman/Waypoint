@@ -111,6 +111,9 @@ func knownEntries(recap []domain.RecapEntry, recent []RecentEntry) []domain.Reca
 func (s *Service) refreshActive(ctx context.Context, projectIDs []int64) {
 	for _, id := range projectIDs {
 		p, err := s.store.GetProject(ctx, id)
+		if errors.Is(err, store.ErrNotFound) {
+			continue // deleted (ADR 0008); its briefing went with it
+		}
 		if err == nil && p.Status != domain.ProjectActive {
 			continue
 		}
@@ -126,6 +129,11 @@ func (s *Service) refreshActive(ctx context.Context, projectIDs []int64) {
 // Applied refreshes the briefings of the active projects a changeset
 // changed. It makes the Service a changeset.AfterApply.
 func (s *Service) Applied(ctx context.Context, res changeset.Result) {
+	if len(res.DeletedEntries) > 0 {
+		// Entries deleted with a project may be in any project's recap.
+		s.refreshAllActive(ctx, res.DeletedEntries[0])
+		return
+	}
 	s.refreshActive(ctx, res.Projects)
 }
 

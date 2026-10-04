@@ -165,6 +165,15 @@ type UpdateProject struct {
 	Status           *domain.ProjectStatus `json:"status,omitempty"`
 }
 
+// DeleteProject removes a project for good with its tasks, blockers, ideas,
+// milestones, and briefing (ADR 0008). The entries scoped to it are kept
+// unscoped, or deleted whole (ADR 0007) if DeleteEntries is set. Only manual
+// changesets carry it: the extraction validator rejects it.
+type DeleteProject struct {
+	ProjectID     Ref  `json:"project_id"`
+	DeleteEntries bool `json:"delete_entries,omitempty"`
+}
+
 // OpType
 
 func (CreateTask) OpType() domain.OpType     { return domain.OpCreateTask }
@@ -182,6 +191,7 @@ func (UpdateIdea) OpType() domain.OpType     { return domain.OpUpdateIdea }
 func (DeleteIdea) OpType() domain.OpType     { return domain.OpDeleteIdea }
 func (CreateProject) OpType() domain.OpType  { return domain.OpCreateProject }
 func (UpdateProject) OpType() domain.OpType  { return domain.OpUpdateProject }
+func (DeleteProject) OpType() domain.OpType  { return domain.OpDeleteProject }
 
 // Creates
 
@@ -200,6 +210,7 @@ func (UpdateIdea) Creates() (domain.TargetType, bool)     { return "", false }
 func (DeleteIdea) Creates() (domain.TargetType, bool)     { return "", false }
 func (CreateProject) Creates() (domain.TargetType, bool)  { return domain.TargetProject, true }
 func (UpdateProject) Creates() (domain.TargetType, bool)  { return "", false }
+func (DeleteProject) Creates() (domain.TargetType, bool)  { return "", false }
 
 // FieldRef is one ref set in a payload: the JSON field it came from and the
 // kind of row it must point at.
@@ -299,6 +310,10 @@ func (p DeleteIdea) refs() []fieldRef {
 func (CreateProject) refs() []fieldRef { return nil }
 
 func (p UpdateProject) refs() []fieldRef {
+	return []fieldRef{one("project_id", domain.TargetProject, p.ProjectID)}
+}
+
+func (p DeleteProject) refs() []fieldRef {
 	return []fieldRef{one("project_id", domain.TargetProject, p.ProjectID)}
 }
 
@@ -442,6 +457,12 @@ func (p UpdateProject) Validate() error {
 	return c.err(p.OpType())
 }
 
+func (p DeleteProject) Validate() error {
+	var c checker
+	c.refs(p.refs())
+	return c.err(p.OpType())
+}
+
 // Decoding
 
 // DecodePayload decodes and validates the payload of an op of type t. Unknown
@@ -480,6 +501,8 @@ func DecodePayload(t domain.OpType, raw json.RawMessage) (Payload, error) {
 		return decode[CreateProject](raw)
 	case domain.OpUpdateProject:
 		return decode[UpdateProject](raw)
+	case domain.OpDeleteProject:
+		return decode[DeleteProject](raw)
 	}
 	var c checker
 	c.enum("op_type", false)

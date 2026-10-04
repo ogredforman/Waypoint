@@ -44,6 +44,9 @@ type Result struct {
 	// or blockers an applied op changed: those whose briefing may be stale.
 	// Ideas don't count, since a briefing doesn't show them.
 	Projects []int64
+	// DeletedEntries lists the entries a delete_project op deleted with its
+	// project, oldest first.
+	DeletedEntries []int64
 }
 
 // ErrNotPending is returned when applying a changeset that was already
@@ -166,7 +169,7 @@ func (a *Applier) apply(ctx context.Context, tx *store.Tx, id int64, decisions m
 		return Result{}, fmt.Errorf("apply changeset %d: %w", id, err)
 	}
 
-	w := writer{tx: tx, entryID: entryID, activeCap: settings.ActiveProjectCap, ids: TempIDs{}, projects: map[int64]bool{}}
+	w := writer{tx: tx, entryID: entryID, activeCap: settings.ActiveProjectCap, ids: TempIDs{}, projects: map[int64]bool{}, deletedEntries: &[]int64{}}
 	res := Result{Created: w.ids}
 	var carried []int // indexes into ops, in position order
 	var applied, rejected int
@@ -272,6 +275,7 @@ func (a *Applier) apply(ctx context.Context, tx *store.Tx, id int64, decisions m
 		res.Projects = append(res.Projects, id)
 	}
 	slices.Sort(res.Projects)
+	res.DeletedEntries = *w.deletedEntries
 	return res, nil
 }
 
@@ -421,6 +425,9 @@ type writer struct {
 	ids       TempIDs
 	// projects collects the projects applied ops changed (Result.Projects).
 	projects map[int64]bool
+	// deletedEntries collects the entries deleted with a project
+	// (Result.DeletedEntries).
+	deletedEntries *[]int64
 }
 
 // id resolves r. CheckRefs has already checked that it resolves.
@@ -680,6 +687,35 @@ func (w writer) apply(ctx context.Context, pos int64, p Payload) (deleted any, e
 		}
 		w.projects[pr.ID] = true
 		return nil, nil
+
+	case DeleteProject:
+		id := w.id(p.ProjectID)
+		entries, err := tx.ListProjectEntryIDs(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if p.DeleteEntries {
+			// The worker would store results for a run that's gone.
+			running, err := tx.CountRunningProjectRuns(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			if running > 0 {
+				return nil, store.ErrRunInProgress
+			}
+			for _, e := range entries {
+				if _, err := tx.DeleteEntry(ctx, e); err != nil {
+					return nil, err
+				}
+			}
+			*w.deletedEntries = append(*w.deletedEntries, entries...)
+		}
+		pr, n, err := tx.DeleteProject(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		w.projects[pr.ID] = true
+		return deletedProjectOf(pr, n, entries), nil
 	}
 	return nil, fmt.Errorf("apply: unexpected payload %T", p)
 }
@@ -745,5 +781,34 @@ func deletedIdeaOf(i domain.Idea) deletedIdea {
 	return deletedIdea{
 		ID: i.ID, ProjectID: i.ProjectID, Title: i.Title, Body: i.Body, Status: i.Status,
 		OriginEntryID: i.OriginEntryID, CreatedAt: i.CreatedAt, UpdatedAt: i.UpdatedAt,
+	}
+}
+
+// deletedProject records a deleted project with how much went with it and the
+// entries that were scoped to it: kept unscoped, or deleted if the op's
+// delete_entries is set.
+type deletedProject struct {
+	ID               int64                `json:"id"`
+	Title            string               `json:"title"`
+	Why              string               `json:"why"`
+	DefinitionOfDone string               `json:"definition_of_done"`
+	Status           domain.ProjectStatus `json:"status"`
+	CreatedAt        time.Time            `json:"created_at"`
+	UpdatedAt        time.Time            `json:"updated_at"`
+	Tasks            int                  `json:"tasks"`
+	Blockers         int                  `json:"blockers"`
+	Ideas            int                  `json:"ideas"`
+	Milestones       int                  `json:"milestones"`
+	EntryIDs         []int64              `json:"entry_ids"`
+}
+
+func deletedProjectOf(p domain.Project, n store.ProjectContents, entries []int64) deletedProject {
+	if entries == nil {
+		entries = []int64{}
+	}
+	return deletedProject{
+		ID: p.ID, Title: p.Title, Why: p.Why, DefinitionOfDone: p.DefinitionOfDone, Status: p.Status,
+		CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
+		Tasks: n.Tasks, Blockers: n.Blockers, Ideas: n.Ideas, Milestones: n.Milestones, EntryIDs: entries,
 	}
 }

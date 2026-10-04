@@ -13,7 +13,7 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
   §10.5 API, §11 UI surfaces, §12 testing.
 - PLAN: `grep -n '\[ \]' docs/PLAN.md | head` for the next tasks; read only the current stage's section.
 - ADRs: 0001 API types (Go DTOs → generated TS), 0002 deleting tasks/blockers/ideas,
-  0003 splitting changesets, 0004 diary panel layout, 0005 profiles, 0006 archived projects, 0007 deleting entries.
+  0003 splitting changesets, 0004 diary panel layout, 0005 profiles, 0006 archived projects, 0007 deleting entries, 0008 deleting projects.
 
 ## Wiring (`cmd/waypoint/main.go`)
 
@@ -43,7 +43,9 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   `reader`, so both tx types have them; writes (`CreateX`, `UpdateX`, `DeleteX`, `CreateChangeset`,
   `ResolveChangeset`, `SetChangeOpResult`, `MoveChangeOp`, `ClaimNextExtractionRun`,
   `FinishExtractionRun`, `UpsertBriefing` (replaces the recap points too), question answer/dismiss) are on `*Tx`. One file per entity.
-  `ErrNotFound` for missing rows. Entries are never updated; `Tx.DeleteEntry` removes one whole with what came from it (ADR 0007). Settings (`settings.go`): `GetSettings`
+  `ErrNotFound` for missing rows. Entries are never updated; `Tx.DeleteEntry` removes one whole with what came from it (ADR 0007).
+  `Tx.DeleteProject` removes a project with everything in it and unscopes its entries (ADR 0008); `CountProjectContents` (→ `ProjectContents`),
+  `ListProjectEntryIDs`, `CountRunningProjectRuns`. `ErrRunInProgress` lives here (`pipeline.ErrRunInProgress` is the same value). Settings (`settings.go`): `GetSettings`
   (defaults if no row), `Store.SeedSettings` (insert if missing), `Tx.UpdateSettings`. Pending observation links (to `$new:N`,
   keyed by change op): `CreatePendingLink`, `ListPendingLinksByOp`, `ResolvePendingLinks`, `DropPendingLinks`.
   Profile row (`profile.go`): `GetProfile` (name, created), `Tx.SetProfileName`.
@@ -52,7 +54,7 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   `Payload`; `DecodePayload`, `ValidateOps`; `Nullable[T]` (`To`, `Clear`) for PATCH-style fields.
   `ref.go`: `Ref` (`ID(n)` or `Temp(pos)` for `$new:N`), `CheckRefs`. `validate.go`: cross-row
   rules (same project, no parent cycles). `apply.go`: `Applier.Apply(ctx, changesetID,
-  map[opID]Decision)` → `Result{Changeset, Created, SplitOff, HeldByCap, Projects}`; one
+  map[opID]Decision)` → `Result{Changeset, Created, SplitOff, HeldByCap, Projects, DeletedEntries}`; one
   transaction, full rollback, active-project cap read from the settings in the apply tx, undecided/capped ops split into a new pending changeset (ADR 0003);
   resolves pending observation links on applied creating ops, drops them on rejected ones;
   calls `AfterApply.Applied`. `manual.go`: `Applier.ApplyManual(ctx, ops ...Payload)` for
@@ -76,7 +78,7 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   (`projects.go`, `tasks.go`, `blockers.go`, `ideas.go`, `entries.go`, `changesets.go`, `settings.go`),
   `profiles.go` (`Profiles` interface, `/api/profiles` routes, hands `/api/profiles/{profile}/*` to `Profiles.Serve`);
   `NewRouter(Deps{Logger, Web, Profiles})` is the root, `NewProfileHandler(ProfileDeps{…})` one profile's data routes and `/events`,
-  `projects.go` also has `GET /projects/{id}/observations` (paged by entry; `pageQuery` in `entries.go` reads `before`/`limit`),
+  `projects.go` also has `GET /projects/{id}/observations`, `DELETE /projects/{id}?entries=keep|delete` and `GET /projects/{id}/deletion` (paged by entry; `pageQuery` in `entries.go` reads `before`/`limit`),
   `convert.go` (domain → apitypes), `respond.go` (JSON encode/decode, `h.fail` maps errors to the
   single error shape, `badRequest`), `events.go` (`Hub`: SSE `/api/events`, `Publish`, `Notify`,
   `BriefingUpdated`, `Applied` → `changeset.applied`, `EntryDeleted` → `entry.deleted`), `serve.go`. Handlers are thin: decode, call a service, encode.
@@ -177,10 +179,10 @@ pieces. Tests sit next to the code as `*.test.ts`.
 All use a real temp SQLite DB migrated with `db.Migrations()`.
 
 - `store/store_test.go`: `newTestStore(t) (*Store, *sql.DB, *clock)`, `inTx`, `exec`, `count`,
-  `seedProject`, `seedTask`, `seedEntry`, `seedRun`.
+  `seedProject`, `seedTask`, `seedEntry`, `seedRun`. `delete_test.go`: `linkTo`.
 - `changeset/apply_test.go`: `newFixture(t) fixture` (in `validate_test.go`, with `withCap(t, s, limit, after)`), `propose(t, f, runID, ops...)`, `newRun`,
   `opStatuses`, `taskCount`, `dbSnapshot` (rollback checks). `links_test.go`: `observeOps` (pending
-  links to every op's entity), `linkedFrom`, `pendingLinks`. `validate_test.go`: `fields(t, err)`.
+  links to every op's entity), `linkedFrom`, `pendingLinks`. `validate_test.go`: `fields(t, err)`. `project_delete_test.go`: `scopedEntries`.
 - `pipeline/snapshot_test.go`: `newFixture(t)` with `f.project/task/blocker/idea/entry/observe`.
   `worker_test.go`: `f.worker(extractor, notifier)`, `f.save`, `f.run`, `f.stored`, `processNext`,
   `fakeExtractor`, `events` notifier.

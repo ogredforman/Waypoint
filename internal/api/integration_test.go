@@ -538,3 +538,37 @@ func TestE2EFailedRunThenReprocess(t *testing.T) {
 
 	a.noLeaks(body)
 }
+
+// TestE2EDeleteProjectWithEntries deletes a project with its diary entries and
+// checks that the clients hear about each deleted entry.
+func TestE2EDeleteProjectWithEntries(t *testing.T) {
+	a := startApp(t, filepath.Join(t.TempDir(), "waypoint.db"), mock.New(0))
+	p := newProject(a, "Waypoint")
+	event[apitypes.BriefingUpdatedEvent](a, eventBriefingUpdated)
+	created := send[apitypes.CreateEntryResponse](a, http.StatusAccepted, "POST", "/api/profiles/t/entries",
+		apitypes.CreateEntryRequest{Body: "todo: Write the API tests", ProjectID: &p.ID})
+	a.processed(created.Entry.ID, created.Run.ID, true, p.ID)
+
+	target := fmt.Sprintf("/api/profiles/t/projects/%d?entries=delete", p.ID)
+	req, err := http.NewRequest("DELETE", a.srv.URL+target, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := a.srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("DELETE project: status = %d, want 204", resp.StatusCode)
+	}
+	if e := event[apitypes.ChangesetAppliedEvent](a, eventChangesetApplied); len(e.ProjectIDs) != 1 || e.ProjectIDs[0] != p.ID {
+		t.Errorf("changeset.applied = %+v, want project %d", e, p.ID)
+	}
+	if e := event[apitypes.EntryDeletedEvent](a, eventEntryDeleted); e.EntryID != created.Entry.ID {
+		t.Errorf("entry.deleted = %+v, want entry %d", e, created.Entry.ID)
+	}
+	send[map[string]any](a, http.StatusNotFound, "GET", fmt.Sprintf("/api/profiles/t/entries/%d", created.Entry.ID), nil)
+	send[map[string]any](a, http.StatusNotFound, "GET", fmt.Sprintf("/api/profiles/t/projects/%d", p.ID), nil)
+	a.noLeaks("todo: Write the API tests")
+}

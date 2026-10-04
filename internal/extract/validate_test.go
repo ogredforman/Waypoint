@@ -157,6 +157,9 @@ func TestValidate(t *testing.T) {
 			opDraft("rename_task", `{}`),
 			opDraft(domain.OpResolveBlocker, `{"blocker_id":"$new:1"}`),
 		}}, []string{"ops[1].title", "ops[2].task_id", "ops[3].op_type", "ops[4].blocker_id"}},
+		{"delete a project", ExtractionResult{Ops: []ChangeOpDraft{
+			opDraft(domain.OpDeleteProject, `{"project_id":1}`),
+		}}, []string{"ops[1].op_type"}},
 		{"op refs not in snapshot", ExtractionResult{Ops: []ChangeOpDraft{
 			opDraft(domain.OpCreateTask, `{"project_id":2,"title":"t","parent_task_id":11}`),
 			opDraft(domain.OpResolveBlocker, `{"blocker_id":10}`),

@@ -9,6 +9,53 @@ import (
 	"context"
 )
 
+const countProjectBlockers = `-- name: CountProjectBlockers :one
+SELECT COUNT(*) FROM blockers WHERE project_id = ?
+`
+
+func (q *Queries) CountProjectBlockers(ctx context.Context, projectID int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countProjectBlockers, projectID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countProjectIdeas = `-- name: CountProjectIdeas :one
+SELECT COUNT(*) FROM ideas WHERE project_id = ?
+`
+
+func (q *Queries) CountProjectIdeas(ctx context.Context, projectID *int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countProjectIdeas, projectID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countProjectMilestones = `-- name: CountProjectMilestones :one
+SELECT COUNT(*) FROM milestones WHERE project_id = ?
+`
+
+func (q *Queries) CountProjectMilestones(ctx context.Context, projectID int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countProjectMilestones, projectID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countProjectTasks = `-- name: CountProjectTasks :one
+
+SELECT COUNT(*) FROM tasks WHERE project_id = ?
+`
+
+// Deleting a project (ADR 0008). Store.DeleteProject runs these in order, in
+// one transaction, so every foreign key stays valid.
+func (q *Queries) CountProjectTasks(ctx context.Context, projectID int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countProjectTasks, projectID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countProjectsByStatus = `-- name: CountProjectsByStatus :one
 SELECT COUNT(*) FROM projects
 WHERE status = ?
@@ -16,6 +63,19 @@ WHERE status = ?
 
 func (q *Queries) CountProjectsByStatus(ctx context.Context, status string) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countProjectsByStatus, status)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countRunningProjectRuns = `-- name: CountRunningProjectRuns :one
+SELECT COUNT(*) FROM extraction_runs
+JOIN entries ON entries.id = extraction_runs.entry_id
+WHERE entries.project_id = ?1 AND extraction_runs.status = 'running'
+`
+
+func (q *Queries) CountRunningProjectRuns(ctx context.Context, projectID *int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRunningProjectRuns, projectID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -58,6 +118,102 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 	return i, err
 }
 
+const deleteProject = `-- name: DeleteProject :one
+DELETE FROM projects WHERE id = ?
+RETURNING id, title, why, definition_of_done, status, created_at, updated_at
+`
+
+func (q *Queries) DeleteProject(ctx context.Context, id int64) (Project, error) {
+	row := q.db.QueryRowContext(ctx, deleteProject, id)
+	var i Project
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Why,
+		&i.DefinitionOfDone,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const deleteProjectBlockers = `-- name: DeleteProjectBlockers :exec
+DELETE FROM blockers WHERE project_id = ?
+`
+
+func (q *Queries) DeleteProjectBlockers(ctx context.Context, projectID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteProjectBlockers, projectID)
+	return err
+}
+
+const deleteProjectBriefing = `-- name: DeleteProjectBriefing :exec
+DELETE FROM briefings WHERE project_id = ?
+`
+
+// Its recap points go with it (ON DELETE CASCADE).
+func (q *Queries) DeleteProjectBriefing(ctx context.Context, projectID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteProjectBriefing, projectID)
+	return err
+}
+
+const deleteProjectDependencies = `-- name: DeleteProjectDependencies :exec
+DELETE FROM task_dependencies
+WHERE task_id IN (SELECT tasks.id FROM tasks WHERE tasks.project_id = ?1)
+   OR blocked_by_task_id IN (SELECT tasks.id FROM tasks WHERE tasks.project_id = ?1)
+`
+
+// A dependency's tasks are always in the same project.
+func (q *Queries) DeleteProjectDependencies(ctx context.Context, projectID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteProjectDependencies, projectID)
+	return err
+}
+
+const deleteProjectIdeas = `-- name: DeleteProjectIdeas :exec
+DELETE FROM ideas WHERE project_id = ?
+`
+
+func (q *Queries) DeleteProjectIdeas(ctx context.Context, projectID *int64) error {
+	_, err := q.db.ExecContext(ctx, deleteProjectIdeas, projectID)
+	return err
+}
+
+const deleteProjectLinks = `-- name: DeleteProjectLinks :exec
+DELETE FROM observation_links
+WHERE (target_type = 'project' AND target_id = ?1)
+   OR (target_type = 'task' AND target_id IN (SELECT tasks.id FROM tasks WHERE tasks.project_id = ?1))
+   OR (target_type = 'blocker' AND target_id IN (SELECT blockers.id FROM blockers WHERE blockers.project_id = ?1))
+   OR (target_type = 'idea' AND target_id IN (SELECT ideas.id FROM ideas WHERE ideas.project_id = ?1))
+   OR (target_type = 'milestone' AND target_id IN (SELECT milestones.id FROM milestones WHERE milestones.project_id = ?1))
+`
+
+// Observation links to the project or to anything in it. The observations
+// themselves stay.
+func (q *Queries) DeleteProjectLinks(ctx context.Context, projectID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteProjectLinks, projectID)
+	return err
+}
+
+const deleteProjectMilestones = `-- name: DeleteProjectMilestones :exec
+DELETE FROM milestones WHERE project_id = ?
+`
+
+func (q *Queries) DeleteProjectMilestones(ctx context.Context, projectID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteProjectMilestones, projectID)
+	return err
+}
+
+const deleteProjectTasks = `-- name: DeleteProjectTasks :exec
+DELETE FROM tasks WHERE project_id = ?
+`
+
+// Subtasks go in the same statement as their parents, so the parent_task_id
+// references are only checked once all are gone.
+func (q *Queries) DeleteProjectTasks(ctx context.Context, projectID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteProjectTasks, projectID)
+	return err
+}
+
 const getProject = `-- name: GetProject :one
 SELECT id, title, why, definition_of_done, status, created_at, updated_at FROM projects
 WHERE id = ?
@@ -76,6 +232,36 @@ func (q *Queries) GetProject(ctx context.Context, id int64) (Project, error) {
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listProjectEntryIDs = `-- name: ListProjectEntryIDs :many
+SELECT id FROM entries
+WHERE project_id = ?
+ORDER BY created_at, id
+`
+
+// The entries scoped to the project, oldest first.
+func (q *Queries) ListProjectEntryIDs(ctx context.Context, projectID *int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listProjectEntryIDs, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listProjects = `-- name: ListProjects :many
@@ -112,6 +298,16 @@ func (q *Queries) ListProjects(ctx context.Context) ([]Project, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const unscopeProjectEntries = `-- name: UnscopeProjectEntries :exec
+UPDATE entries SET project_id = NULL WHERE project_id = ?
+`
+
+// Entries kept when their project goes lose the scope; the text is untouched.
+func (q *Queries) UnscopeProjectEntries(ctx context.Context, projectID *int64) error {
+	_, err := q.db.ExecContext(ctx, unscopeProjectEntries, projectID)
+	return err
 }
 
 const updateProject = `-- name: UpdateProject :one

@@ -109,8 +109,8 @@ func TestCoreSchema(t *testing.T) {
 	if err := sqlDB.QueryRowContext(ctx, "SELECT max(version_id) FROM goose_db_version").Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != 11 {
-		t.Errorf("schema version %d, want 11", version)
+	if version != 12 {
+		t.Errorf("schema version %d, want 12", version)
 	}
 	if got := appTables(t, sqlDB); !slices.Equal(got, coreTables) {
 		t.Errorf("tables %v, want %v", got, coreTables)
@@ -186,7 +186,7 @@ func TestCoreSchemaRejects(t *testing.T) {
 		{"manual changeset with run", check, `INSERT INTO changesets (source, extraction_run_id, status, created_at, updated_at) VALUES ('manual', 1, 'pending', 1, 1)`},
 		{"changeset missing parent", fk, `INSERT INTO changesets (source, parent_changeset_id, status, created_at, updated_at) VALUES ('manual', 99, 'pending', 1, 1)`},
 		{"changeset status", check, `INSERT INTO changesets (source, status, created_at, updated_at) VALUES ('manual', 'done', 1, 1)`},
-		{"op type", check, `INSERT INTO change_ops (changeset_id, position, op_type, payload, status, created_at, updated_at) VALUES (1, 2, 'delete_project', '{}', 'pending', 1, 1)`},
+		{"op type", check, `INSERT INTO change_ops (changeset_id, position, op_type, payload, status, created_at, updated_at) VALUES (1, 2, 'move_project', '{}', 'pending', 1, 1)`},
 		{"op invalid JSON", check, `INSERT INTO change_ops (changeset_id, position, op_type, payload, status, created_at, updated_at) VALUES (1, 2, 'park_idea', 'nope', 'pending', 1, 1)`},
 		{"op duplicate position", unique, `INSERT INTO change_ops (changeset_id, position, op_type, payload, status, created_at, updated_at) VALUES (1, 1, 'park_idea', '{}', 'pending', 1, 1)`},
 		{"op status", check, `INSERT INTO change_ops (changeset_id, position, op_type, payload, status, created_at, updated_at) VALUES (1, 2, 'park_idea', '{}', 'maybe', 1, 1)`},
@@ -590,5 +590,57 @@ func TestProjectArchivedRebuild(t *testing.T) {
 	}
 	if got := ids(t, sqlDB, `SELECT project_id FROM entries WHERE project_id IS NOT NULL ORDER BY id`); !slices.Equal(got, []int64{1, 2}) {
 		t.Errorf("entries after down point at %v, want [1 2]", got)
+	}
+}
+
+// TestChangeOpsDeleteProjectRebuild checks that 00012 keeps existing ops and
+// the pending links on them, accepts delete_project, and that going back down
+// drops delete_project ops with their pending links.
+func TestChangeOpsDeleteProjectRebuild(t *testing.T) {
+	ctx := context.Background()
+	fsys, err := Migrations()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB := openTemp(t)
+	provider, err := goose.NewProvider(goose.DialectSQLite3, sqlDB, fsys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.UpTo(ctx, 11); err != nil {
+		t.Fatal(err)
+	}
+	seed(t, sqlDB)
+	exec(t, sqlDB, `INSERT INTO pending_observation_links (id, observation_id, change_op_id, target_type, confidence, created_at)
+		VALUES (1, 1, 1, 'task', 1, 1)`)
+
+	if _, err := provider.UpTo(ctx, 12); err != nil {
+		t.Fatal(err)
+	}
+	noFKViolations(t, sqlDB)
+	if got := ids(t, sqlDB, `SELECT id FROM change_ops ORDER BY id`); !slices.Equal(got, []int64{1, 2}) {
+		t.Errorf("ops after rebuild %v, want [1 2]", got)
+	}
+	var payload string
+	if err := sqlDB.QueryRowContext(ctx, `SELECT payload FROM change_ops WHERE id = 1`).Scan(&payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload != `{"project_id":1,"title":"Write the schema"}` {
+		t.Errorf("op 1 after rebuild: payload %s", payload)
+	}
+	exec(t, sqlDB, `INSERT INTO change_ops (id, changeset_id, position, op_type, payload, status, created_at, updated_at)
+		VALUES (3, 2, 2, 'delete_project', '{"project_id":1}', 'applied', 1, 1)`)
+	exec(t, sqlDB, `INSERT INTO pending_observation_links (id, observation_id, change_op_id, target_type, confidence, created_at)
+		VALUES (2, 1, 3, 'task', 1, 1)`)
+
+	if _, err := provider.DownTo(ctx, 11); err != nil {
+		t.Fatal(err)
+	}
+	noFKViolations(t, sqlDB)
+	if got := ids(t, sqlDB, `SELECT id FROM change_ops ORDER BY id`); !slices.Equal(got, []int64{1, 2}) {
+		t.Errorf("ops after down %v, want [1 2]", got)
+	}
+	if got := ids(t, sqlDB, `SELECT id FROM pending_observation_links ORDER BY id`); !slices.Equal(got, []int64{1}) {
+		t.Errorf("pending links after down %v, want [1]", got)
 	}
 }

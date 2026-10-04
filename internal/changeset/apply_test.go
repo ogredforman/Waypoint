@@ -757,6 +757,7 @@ func everyOpType(f fixture) []domain.ChangeOp {
 		op(15, domain.OpDeleteTask, jsonf(`{"task_id":%d}`, f.a4)),
 		op(16, domain.OpDeleteBlocker, jsonf(`{"blocker_id":%d}`, f.bB)),
 		op(17, domain.OpDeleteIdea, `{"idea_id":"$new:13"}`),
+		op(18, domain.OpDeleteProject, jsonf(`{"project_id":%d,"delete_entries":true}`, f.projB)),
 	}
 }
 
@@ -826,6 +827,12 @@ func TestApplyEveryOpType(t *testing.T) {
 	if _, err := f.s.GetIdea(ctx, res.Created[13]); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("parked idea: %v, want deleted", err)
 	}
+	if _, err := f.s.GetProject(ctx, f.projB); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("project B: %v, want deleted", err)
+	}
+	if _, err := f.s.GetTask(ctx, f.b1); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("task b1: %v, want deleted with its project", err)
+	}
 }
 
 // TestApplyRollsBackEveryOpType fails the last op of a changeset holding
@@ -841,7 +848,7 @@ func TestApplyRollsBackEveryOpType(t *testing.T) {
 		{"extraction with an op held by the cap", true, 2},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			// prepare proposes every op type, plus failing op 18 if fail is
+			// prepare proposes every op type, plus a failing last op if fail is
 			// set, and returns it with decisions accepting all but op 3, which
 			// is edited.
 			prepare := func(f fixture, fail bool) (int64, map[int64]Decision) {
@@ -852,7 +859,7 @@ func TestApplyRollsBackEveryOpType(t *testing.T) {
 				}
 				ops := everyOpType(f)
 				if fail {
-					ops = append(ops, op(18, domain.OpSetTaskStatus, `{"task_id":999,"status":"done"}`))
+					ops = append(ops, op(int64(len(ops)+1), domain.OpSetTaskStatus, `{"task_id":999,"status":"done"}`))
 				}
 				cs := propose(t, f, runID, ops...)
 				decisions := map[int64]Decision{}
@@ -885,8 +892,9 @@ func TestApplyRollsBackEveryOpType(t *testing.T) {
 			before := dbSnapshot(t, f)
 			_, err = a.Apply(ctx, cs, decisions)
 			var oe *OpError
-			if !errors.As(err, &oe) || oe.Position != 18 {
-				t.Fatalf("got %v, want an OpError at 18", err)
+			last := int64(len(everyOpType(f)) + 1)
+			if !errors.As(err, &oe) || oe.Position != last {
+				t.Fatalf("got %v, want an OpError at %d", err, last)
 			}
 			if after := dbSnapshot(t, f); after != before {
 				t.Errorf("database changed despite the rollback:\nbefore:\n%s\nafter:\n%s", before, after)

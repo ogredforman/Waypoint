@@ -1,6 +1,6 @@
 # 0002. Deleting tasks, blockers, and ideas
 
-- **Status:** Accepted
+- **Status:** Accepted; "projects can't be deleted" superseded by [0008](./0008-deleting-projects.md)
 - **Date:** 2026-09-29
 - **PLAN task:** 1.2 (store), 1.4 (op types and migration)
 

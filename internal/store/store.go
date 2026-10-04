@@ -13,6 +13,10 @@ import (
 // ErrNotFound is returned when the requested row doesn't exist.
 var ErrNotFound = errors.New("not found")
 
+// ErrRunInProgress is returned when reprocessing an entry that already has a
+// pending or running run, or deleting an entry whose run is running.
+var ErrRunInProgress = errors.New("entry already has a run in progress")
+
 // Store reads from the database and starts write transactions.
 type Store struct {
 	reader

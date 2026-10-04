@@ -33,6 +33,55 @@ func (h *handlers) getProject(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, projectDTO(p))
 }
 
+// projectDeletion says what deleting the project would take with it, for the
+// confirmation.
+func (h *handlers) projectDeletion(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r, "id")
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	n, err := h.store.CountProjectContents(r.Context(), id)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, apitypes.ProjectDeletion{
+		Tasks: n.Tasks, Blockers: n.Blockers, Ideas: n.Ideas, Milestones: n.Milestones, Entries: n.Entries,
+	})
+}
+
+// deleteProject deletes the project with everything in it (ADR 0008).
+// entries=keep keeps its diary entries, unscoped; entries=delete deletes them
+// too. There is no default: the UI asks. The changeset hooks refresh the
+// briefings and tell the clients, including about each deleted entry.
+func (h *handlers) deleteProject(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r, "id")
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	var deleteEntries bool
+	switch r.URL.Query().Get("entries") {
+	case "keep":
+	case "delete":
+		deleteEntries = true
+	default:
+		h.fail(w, r, badRequestf("entries must be keep or delete"))
+		return
+	}
+	if _, err := h.store.GetProject(r.Context(), id); err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	op := changeset.DeleteProject{ProjectID: changeset.ID(id), DeleteEntries: deleteEntries}
+	if _, err := h.applier.ApplyManual(r.Context(), op); err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 const (
 	defaultObservationPage = 10 // entries, not observations
 	maxObservationPage     = 50

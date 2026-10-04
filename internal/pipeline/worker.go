@@ -56,8 +56,9 @@ type AfterRun interface {
 }
 
 // ErrRunInProgress is returned when reprocessing an entry that already has a
-// pending or running run, or deleting one whose run is running.
-var ErrRunInProgress = errors.New("entry already has a run in progress")
+// pending or running run, or deleting one whose run is running. It is
+// store.ErrRunInProgress, so the changeset applier can return it too.
+var ErrRunInProgress = store.ErrRunInProgress
 
 // retryDelay is how long the worker waits after failing to claim a run
 // before it tries again.

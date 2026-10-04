@@ -81,7 +81,7 @@ func (h *handlers) fail(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, changeset.ErrNotPending):
 		writeError(w, http.StatusConflict, "not_pending", "the changeset was already resolved")
 	case errors.Is(err, pipeline.ErrRunInProgress):
-		writeError(w, http.StatusConflict, "run_in_progress", "the entry is already being processed")
+		writeError(w, http.StatusConflict, "run_in_progress", "an entry is already being processed; try again when it's done")
 	default:
 		h.logger.LogAttrs(r.Context(), slog.LevelError, "request failed",
 			slog.String("method", r.Method),

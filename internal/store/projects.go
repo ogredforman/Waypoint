@@ -8,9 +8,6 @@ import (
 	"github.com/ogredforman/waypoint/internal/domain"
 )
 
-// Projects have no delete: entries reference them and entries are immutable.
-// Parking or finishing a project takes it out of view instead.
-
 func projectFromRow(r dbgen.Project) domain.Project {
 	return domain.Project{
 		ID:               r.ID,
@@ -92,4 +89,105 @@ func (tx *Tx) UpdateProject(ctx context.Context, p domain.Project) (domain.Proje
 		return domain.Project{}, fmt.Errorf("update project %d: %w", p.ID, notFound(err))
 	}
 	return projectFromRow(row), nil
+}
+
+// ProjectContents is what deleting a project takes with it, or, for Entries,
+// what it keeps unscoped or deletes as asked.
+type ProjectContents struct {
+	Tasks      int
+	Blockers   int
+	Ideas      int
+	Milestones int
+	Entries    int
+}
+
+// CountProjectContents counts what belongs to project id, for the delete
+// confirmation. It returns ErrNotFound if there is no such project.
+func (r reader) CountProjectContents(ctx context.Context, id int64) (ProjectContents, error) {
+	if _, err := r.GetProject(ctx, id); err != nil {
+		return ProjectContents{}, err
+	}
+	var n ProjectContents
+	ref := &id
+	counts := []struct {
+		what string
+		dst  *int
+		run  func() (int64, error)
+	}{
+		{"tasks", &n.Tasks, func() (int64, error) { return r.q.CountProjectTasks(ctx, id) }},
+		{"blockers", &n.Blockers, func() (int64, error) { return r.q.CountProjectBlockers(ctx, id) }},
+		{"ideas", &n.Ideas, func() (int64, error) { return r.q.CountProjectIdeas(ctx, ref) }},
+		{"milestones", &n.Milestones, func() (int64, error) { return r.q.CountProjectMilestones(ctx, id) }},
+	}
+	for _, c := range counts {
+		v, err := c.run()
+		if err != nil {
+			return ProjectContents{}, fmt.Errorf("count project %d %s: %w", id, c.what, err)
+		}
+		*c.dst = int(v)
+	}
+	entries, err := r.ListProjectEntryIDs(ctx, id)
+	if err != nil {
+		return ProjectContents{}, err
+	}
+	n.Entries = len(entries)
+	return n, nil
+}
+
+// ListProjectEntryIDs returns the IDs of the entries scoped to project id,
+// oldest first.
+func (r reader) ListProjectEntryIDs(ctx context.Context, id int64) ([]int64, error) {
+	ids, err := r.q.ListProjectEntryIDs(ctx, &id)
+	if err != nil {
+		return nil, fmt.Errorf("list project %d entries: %w", id, err)
+	}
+	return ids, nil
+}
+
+// CountRunningProjectRuns returns how many extraction runs of entries scoped
+// to project id are running.
+func (r reader) CountRunningProjectRuns(ctx context.Context, id int64) (int, error) {
+	n, err := r.q.CountRunningProjectRuns(ctx, &id)
+	if err != nil {
+		return 0, fmt.Errorf("count running runs of project %d: %w", id, err)
+	}
+	return int(n), nil
+}
+
+// DeleteProject removes project id with its tasks, blockers, ideas,
+// milestones, and briefing, and the observation links to any of them (ADR
+// 0008), and returns the project as it was with what went with it. Entries
+// still scoped to it stay, unscoped: that is reference cleanup, not an edit
+// of the entry. Callers wanting the entries gone delete them first
+// (DeleteEntry). The observations stay; only their links go. It returns
+// ErrNotFound if there is no such project.
+func (tx *Tx) DeleteProject(ctx context.Context, id int64) (domain.Project, ProjectContents, error) {
+	n, err := tx.CountProjectContents(ctx, id)
+	if err != nil {
+		return domain.Project{}, ProjectContents{}, fmt.Errorf("delete project %d: %w", id, err)
+	}
+	ref := &id
+	steps := []struct {
+		what string
+		run  func() error
+	}{
+		{"observation links", func() error { return tx.q.DeleteProjectLinks(ctx, id) }},
+		{"briefing", func() error { return tx.q.DeleteProjectBriefing(ctx, id) }},
+		{"dependencies", func() error { return tx.q.DeleteProjectDependencies(ctx, id) }},
+		{"blockers", func() error { return tx.q.DeleteProjectBlockers(ctx, id) }},
+		{"tasks", func() error { return tx.q.DeleteProjectTasks(ctx, id) }},
+		{"ideas", func() error { return tx.q.DeleteProjectIdeas(ctx, ref) }},
+		{"milestones", func() error { return tx.q.DeleteProjectMilestones(ctx, id) }},
+		{"entry scopes", func() error { return tx.q.UnscopeProjectEntries(ctx, ref) }},
+	}
+	for _, s := range steps {
+		if err := s.run(); err != nil {
+			return domain.Project{}, ProjectContents{}, fmt.Errorf("delete project %d: %s: %w", id, s.what, err)
+		}
+	}
+	row, err := tx.q.DeleteProject(ctx, id)
+	if err != nil {
+		return domain.Project{}, ProjectContents{}, fmt.Errorf("delete project %d: %w", id, notFound(err))
+	}
+	return projectFromRow(row), n, nil
 }

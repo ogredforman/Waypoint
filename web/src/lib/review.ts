@@ -264,6 +264,8 @@ export function describe(op: ChangeOp, ops: ChangeOp[], choices: Choices): strin
       return `New project: ${text(p.title)}`
     case 'update_project':
       return `Change project ${name('project', p.project_id)}${changed(p, 'project_id')}`
+    case 'delete_project':
+      return `Delete project ${name('project', p.project_id)}${p.delete_entries === true ? ' and its diary entries' : ''}`
   }
 }
 

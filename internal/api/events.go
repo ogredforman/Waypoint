@@ -117,6 +117,10 @@ func (h *Hub) Applied(_ context.Context, res changeset.Result) {
 		ids = []int64{}
 	}
 	h.Publish(eventChangesetApplied, apitypes.ChangesetAppliedEvent{ChangesetID: res.Changeset.ID, ProjectIDs: ids})
+	// Entries deleted with a project (ADR 0008).
+	for _, id := range res.DeletedEntries {
+		h.EntryDeleted(id)
+	}
 }
 
 // EntryDeleted publishes an "entry.deleted" event.
