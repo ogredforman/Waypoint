@@ -5,6 +5,9 @@ paths:
 
 # Go rules
 
+- To orient, prefer `go doc ./internal/<pkg>` and `go doc ./internal/<pkg> <Symbol>` or
+  `grep -n '^func\|^type' <file>` over reading whole files. Read bodies by line range.
+- While iterating, test only the package you changed: `go test ./internal/<pkg>/ 2>&1 | tail -30`.
 - Wrap errors with context: `fmt.Errorf("apply op %d: %w", opID, err)`. Never `panic` in request or worker paths.
 - `context.Context` is the first parameter of every function that does I/O, and is passed through, not stored.
 - Logging is `log/slog` only, with structured fields. No `fmt.Println` or `log.Printf` outside `main`.

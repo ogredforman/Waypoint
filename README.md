@@ -13,10 +13,10 @@ actually follow: tasks, blockers, parked ideas, and one clear next action.
 
 | Command | What it does |
 |---|---|
-| `/next-task` | Picks the next unchecked task in `docs/PLAN.md`, plans it, waits for approval, builds, tests, reviews |
-| `/next-task 1.5` | Same, for a specific task |
-| `/park <idea>` | Saves an idea to PLAN.md's Parked section without acting on it |
-| `/progress` | Where things stand and what's next |
+| `/devflow:next-task` | Picks the next unchecked task in `docs/PLAN.md`, plans it, waits for approval, builds, tests, reviews |
+| `/devflow:next-task 1.5` | Same, for a specific task |
+| `/devflow:park <idea>` | Saves an idea to PLAN.md's Parked section without acting on it |
+| `/devflow:progress` | Where things stand and what's next |
 
 Requirements for the hooks in `.claude/settings.json`: Go on your PATH, and `git`.
 

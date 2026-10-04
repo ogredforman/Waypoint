@@ -32,6 +32,8 @@ These are created in Stage 0 task 0.1. Until then, they don't exist.
 - `make sqlc`: regenerate query code after editing `internal/db/queries/`
 - `make gen`: regenerate the frontend's API types after editing `internal/api/apitypes` or the domain enums
 - `make build`: production binary with the frontend embedded
+- Trimmed for agents: `make test 2>&1 | grep -v '^ok\|no test files' | tail -30` and
+  `make lint 2>&1 | tail -15`. Use these forms when checking a task.
 
 ## Hard rules
 
@@ -57,7 +59,7 @@ These are created in Stage 0 task 0.1. Until then, they don't exist.
 ## Finishing a task
 
 1. Tests added or updated; `make test` and `make lint` pass.
-2. Run the `reviewer` agent on the diff and fix any Blocking findings.
+2. Run the `devflow:reviewer` agent on the diff and fix any Blocking findings.
 3. Tick the task `[x]` in `docs/PLAN.md`.
 4. If a design decision changed, update `docs/SPEC.md` or add `docs/adr/NNNN-title.md` in the same commit.
    If a package, public entry point, or test fixture was added or moved, update `docs/CODEMAP.md`.

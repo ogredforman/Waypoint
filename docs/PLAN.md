@@ -4,7 +4,7 @@
 
 **Current stage: Stage 1.5 — Foundation refinement**
 
-Task IDs are `<stage>.<task>` (e.g. `1.5`, or `1.5.3` in Stage 1.5). Tick tasks `[x]` as they're finished. `/next-task` picks the first unchecked task in the current stage; `/park` adds ideas to the Parked section at the bottom.
+Task IDs are `<stage>.<task>` (e.g. `1.5`, or `1.5.3` in Stage 1.5). Tick tasks `[x]` as they're finished. `/devflow:next-task` picks the first unchecked task in the current stage; `/devflow:park` adds ideas to the Parked section at the bottom.
 
 ## Background (conversation summary)
 
@@ -238,7 +238,7 @@ Tasks:
 
 ## Parked
 
-Ideas and tangents captured mid-work (via `/park`). Not scheduled. Review them at the start of each stage.
+Ideas and tangents captured mid-work (via `/devflow:park`). Not scheduled. Review them at the start of each stage.
 - [ ] SPEC §10.1 lists a `release` Makefile target that no task covers yet; CI (0.9) cross-compiles inline, so a `release` target belongs with the release pipeline (parked 2026-09-29; suggested stage: 4, with 4.2)
 - [ ] Configurable bind host (e.g. `0.0.0.0` for Docker); only safe once auth exists, so the server stays on `127.0.0.1` for now (parked 2026-09-29; suggested stage: later)
 - [x] *(Scheduled as 1.5.13.)* Deleting a project. Blocked by entry immutability (entries reference projects); needs a decision on what happens to its entries, tasks, and ideas. Parking or finishing covers it for now (parked 2026-09-29; suggested stage: later)

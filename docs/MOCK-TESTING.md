@@ -403,7 +403,7 @@ projects with known tasks and a blocker.
 
 ## 7. Known rough edges (worth noticing while you play)
 
-These are current behaviour, not bugs to fix in Stage 1. Ones that bother you are good `/park`
+These are current behaviour, not bugs to fix in Stage 1. Ones that bother you are good `/devflow:park`
 material or Stage 2 prompt requirements.
 
 - No duplicate check on `todo:`.
