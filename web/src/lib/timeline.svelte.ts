@@ -202,6 +202,26 @@ function entryChanged(id: number) {
   else if (id > (timeline.items[0]?.entry.id ?? 0)) void loadTimeline()
 }
 
+// projectsChanged re-reads the project list after a changeset touched these
+// projects (titles change, and a project may be gone). Entries scoped to one
+// that's gone were left unscoped by the server (ADR 0008), so here too.
+async function projectsChanged(touched: number[]) {
+  const gen = generation
+  let ps: Project[]
+  try {
+    ps = await getJSON<Project[]>('/api/projects')
+  } catch {
+    return // keep the list we have
+  }
+  if (gen !== generation) return
+  timeline.projects = ps
+  const listed = new Set(ps.map((p) => p.id))
+  for (const i of timeline.items) {
+    const id = i.entry.project_id
+    if (id !== null && touched.includes(id) && !listed.has(id)) i.entry = { ...i.entry, project_id: null }
+  }
+}
+
 // followEvents keeps the timeline current from server events until the
 // returned function is called. Nothing loads until a diary first opens.
 export function followEvents(): () => void {
@@ -214,6 +234,7 @@ export function followEvents(): () => void {
       for (const i of timeline.items) {
         if (i.detail?.changesets.some((c) => c.id === e.changeset_id)) void loadEntry(i.entry.id)
       }
+      if (timeline.status !== 'idle' && e.project_ids.length > 0) void projectsChanged(e.project_ids)
     }),
     // Deleted in another tab (or by this one, already gone).
     on('entry.deleted', (e) => entryRemoved(e.entry_id)),

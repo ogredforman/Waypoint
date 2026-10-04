@@ -2,6 +2,7 @@
   import Button from '../components/ui/Button.svelte'
   import { onMount } from 'svelte'
   import ProjectBlockers from '../components/ProjectBlockers.svelte'
+  import ProjectDelete from '../components/ProjectDelete.svelte'
   import ProjectDiary from '../components/ProjectDiary.svelte'
   import ProjectHeader from '../components/ProjectHeader.svelte'
   import ProjectIdeas from '../components/ProjectIdeas.svelte'
@@ -103,5 +104,6 @@
       }}
     />
     <ProjectDiary projectId={project.id} />
+    <ProjectDelete {project} />
   {/if}
 </section>

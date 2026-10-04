@@ -8,6 +8,8 @@ import {
   atCap,
   capMessage,
   countActive,
+  deletionSummary,
+  entriesLabel,
   groupByStatus,
   newProjectRequest,
   projectFields,
@@ -124,5 +126,24 @@ describe('statusOptions', () => {
 
   it('explains the cap calmly', () => {
     expect(activateCapMessage(1, 1)).toBe("You have 1 active project, and the limit is 1. Pause or finish one when you'd like to make this one active.")
+  })
+})
+
+describe('deletionSummary', () => {
+  const none = { tasks: 0, blockers: 0, ideas: 0, milestones: 0, entries: 4 }
+  it('lists what goes with the project', () => {
+    expect(deletionSummary({ ...none, tasks: 3, blockers: 1, ideas: 2 })).toBe('3 tasks, 1 blocker, and 2 ideas go with it.')
+    expect(deletionSummary({ ...none, tasks: 2, milestones: 1 })).toBe('2 tasks and 1 milestone go with it.')
+    expect(deletionSummary({ ...none, ideas: 1 })).toBe('1 idea goes with it.')
+  })
+  it('says when the project is empty, whatever its entries', () => {
+    expect(deletionSummary(none)).toBe("There's nothing in it yet.")
+  })
+})
+
+describe('entriesLabel', () => {
+  it('names one entry or several', () => {
+    expect(entriesLabel(1)).toBe('its diary entry')
+    expect(entriesLabel(3)).toBe('its 3 diary entries')
   })
 })

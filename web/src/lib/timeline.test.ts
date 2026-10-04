@@ -11,7 +11,7 @@ vi.mock('./api/client', async (importOriginal) => {
   return {
     ...real,
     getJSON: async (path: string) => {
-      if (path === '/api/projects') return []
+      if (path === '/api/projects') return routes.get(path) ?? []
       if (!routes.has(path)) throw new real.ApiError(404, 'not_found', `no route ${path}`)
       return routes.get(path)
     },
@@ -228,6 +228,19 @@ describe('timeline', () => {
     await settle()
     expect(timeline.items[1].detail?.changesets[0].status).toBe('applied')
     expect(timeline.items[0].error).toBe('')
+  })
+
+  it('unscopes entries whose project was deleted', async () => {
+    routes.set(first, page([2, 1], null))
+    await loadTimeline()
+    timeline.items[0].entry = { ...entry(2), project_id: 4 }
+    timeline.items[1].entry = { ...entry(1), project_id: 5 }
+    routes.set('/api/projects', [{ id: 5, title: 'Kept' }])
+    FakeEventSource.latest().emit('changeset.applied', { changeset_id: 8, project_ids: [4] })
+    await settle()
+    expect(timeline.items[0].entry.project_id).toBeNull()
+    expect(timeline.items[1].entry.project_id).toBe(5)
+    expect(timeline.projects.map((p) => p.id)).toEqual([5])
   })
 
   it('takes a deleted entry out, and reloads the entries tied to it by a question', async () => {

@@ -1,5 +1,5 @@
 import type { ProjectStatus } from './api/enums.gen'
-import type { CreateProjectRequest, Project, UpdateProjectRequest } from './api/types.gen'
+import type { CreateProjectRequest, Project, ProjectDeletion, UpdateProjectRequest } from './api/types.gen'
 
 export interface ProjectGroup {
   status: ProjectStatus
@@ -117,4 +117,28 @@ export function activateCapMessage(activeCount: number, cap: number): string {
 // parkedProjects are the projects the Parking lot shows, in their list order.
 export function parkedProjects(projects: Project[]): Project[] {
   return projects.filter((p) => p.status === 'parked')
+}
+
+function count(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`
+}
+
+// deletionSummary says what deleting a project takes with it, for the
+// confirmation. Its diary entries are asked about separately.
+export function deletionSummary(d: ProjectDeletion): string {
+  const parts = [
+    d.tasks > 0 ? count(d.tasks, 'task', 'tasks') : '',
+    d.blockers > 0 ? count(d.blockers, 'blocker', 'blockers') : '',
+    d.ideas > 0 ? count(d.ideas, 'idea', 'ideas') : '',
+    d.milestones > 0 ? count(d.milestones, 'milestone', 'milestones') : '',
+  ].filter((p) => p !== '')
+  if (parts.length === 0) return "There's nothing in it yet."
+  const total = d.tasks + d.blockers + d.ideas + d.milestones
+  const list = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')}${parts.length > 2 ? ',' : ''} and ${parts.at(-1)}`
+  return `${list} ${total === 1 ? 'goes' : 'go'} with it.`
+}
+
+// entriesLabel names a project's diary entries: "its diary entry", "its 3 diary entries".
+export function entriesLabel(n: number): string {
+  return n === 1 ? 'its diary entry' : `its ${n} diary entries`
 }

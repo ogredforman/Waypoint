@@ -94,7 +94,7 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
 Svelte 5 runes + TS + Tailwind, Vitest. `main.ts` → `App.svelte`. `lib/api/client.ts` is the
 typed API client (the only place that calls `fetch`); `apiPath` puts `/api/…` under the profile set by `useProfile`,
 with generated `types.gen.ts`/`enums.gen.ts`; named calls (`listProjects`, `getSettings`, `updateSettings`,
-`listProfiles`/`createProfile`/`renameProfile`/`deleteProfile`, `listProjectObservations`, `getBriefing`) are thin wrappers over `getJSON`/`patchJSON`, and new code uses them.
+`listProfiles`/`createProfile`/`renameProfile`/`deleteProfile`, `listProjectObservations`, `getBriefing`, `getProjectDeletion`, `deleteProject`) are thin wrappers over `getJSON`/`patchJSON`, and new code uses them.
 `lib/router.ts` + `lib/navigation.svelte.ts`: client-side routing (`paths`, incl. `paths.diaryEntry(id)` → `/diary?entry=N`, read back by `entryParam(current.search)`); every screen's `<h1>` takes `{@attach pageHeading}` (focus after navigation). `screens/`: page components
 (`Now`, `Diary`, `Projects`, `Project`, `Task`, `ParkingLot`, `Settings`, `NotFound`). `components/`: reusable
 pieces. Tests sit next to the code as `*.test.ts`.
@@ -140,6 +140,9 @@ pieces. Tests sit next to the code as `*.test.ts`.
   `moveTask`, `movePositions`). `lib/tasks.ts`: `groupTasks`, `taskPatch`, `newTaskRequest`.
   Blockers: `components/ProjectBlockers.svelte` (open, then resolved) → `BlockerRow.svelte` (resolve, delete with confirmation);
   `ProjectBlockers` also has the add form with an optional open-task picker; `lib/blockers.ts`: `splitBlockers`, `openTasks`, `newBlockerRequest`. Ideas: `components/ProjectIdeas.svelte` (this project's parked ideas) → `IdeaRow.svelte`.
+  Delete (ADR 0008): `components/ProjectDelete.svelte` (at the foot of the screen; `getProjectDeletion` preview, `lib/projects.ts` `deletionSummary`,
+  keep or delete its entries, then `deleteProject` and go to Projects). Elsewhere a deleted project drops out: `lib/diary.ts` `knownScope` (diary scope),
+  and the timeline re-reads projects on `changeset.applied` and unscopes entries whose project is gone. `components/ProjectDelete.test.ts`.
   Next action: `components/ProjectNext.svelte` (`getBriefing`, reloads on this project's `briefing.updated` and on reconnect); `components/ProjectNext.test.ts`.
   From the diary: `components/ProjectDiary.svelte` (`listProjectObservations`, grouped by `observationTimeline`, "Show more", reloads on `entry.processed` too); `components/ProjectDiary.test.ts`.
 - Task detail: `screens/Task.svelte` (`GET /api/tasks/{id}`: fields, origin entry, linked observations grouped by entry

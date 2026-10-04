@@ -5,6 +5,7 @@ import type {
   FieldProblem,
   Profile,
   Project,
+  ProjectDeletion,
   ProjectObservations,
   Settings,
   UpdateSettingsRequest,
@@ -116,6 +117,17 @@ export function listProjectObservations(
   if (opts.limit !== undefined) q.set('limit', String(opts.limit))
   const query = q.size > 0 ? `?${q}` : ''
   return getJSON<ProjectObservations>(`/api/projects/${projectId}/observations${query}`, fetchFn)
+}
+
+// getProjectDeletion says what deleting a project would take with it (ADR 0008).
+export function getProjectDeletion(projectId: number, fetchFn?: typeof fetch): Promise<ProjectDeletion> {
+  return getJSON<ProjectDeletion>(`/api/projects/${projectId}/deletion`, fetchFn)
+}
+
+// deleteProject removes a project with everything in it; its diary entries are
+// kept (unscoped) or deleted too.
+export function deleteProject(projectId: number, entries: 'keep' | 'delete', fetchFn?: typeof fetch): Promise<void> {
+  return deleteJSON(`/api/projects/${projectId}?entries=${entries}`, fetchFn)
 }
 
 // getBriefing is a project's cached briefing: its one next action and the context around it.

@@ -2,7 +2,7 @@
   import { onMount } from 'svelte'
   import { ApiError, getJSON, postJSON } from '../lib/api/client'
   import type { CreateEntryResponse, Project } from '../lib/api/types.gen'
-  import { entryRequest, isSubmitShortcut, resolveScope, scopeOptions, screenProjectID } from '../lib/diary'
+  import { entryRequest, isSubmitShortcut, knownScope, resolveScope, scopeOptions, screenProjectID } from '../lib/diary'
   import { clearDraft, draft, draftProfile, draftSession, restoreDraft } from '../lib/diaryDraft.svelte'
   import { latest, liveReload } from '../lib/live'
   import { current } from '../lib/navigation.svelte'
@@ -15,11 +15,15 @@
   // default), and Ctrl/Cmd+Enter to save. The draft lives in diaryDraft so it outlasts this copy.
 
   let projects = $state<Project[]>([])
+  // loaded is set once the project list has loaded, so a scope it lacks is known to be gone.
+  let loaded = $state(false)
   let saving = $state(false)
   let notice = $state('')
   let saved = $state(false)
 
-  const scope = $derived(resolveScope(draft.choice, current.path, screenProjectID(current.route)))
+  const scope = $derived(
+    knownScope(resolveScope(draft.choice, current.path, screenProjectID(current.route)), loaded ? projects : null),
+  )
   const options = $derived(scopeOptions(projects, scope))
 
   function pick(e: Event) {
@@ -65,7 +69,9 @@
     const fresh = loads()
     try {
       const list = await getJSON<Project[]>('/api/projects')
-      if (fresh()) projects = list
+      if (!fresh()) return
+      projects = list
+      loaded = true
     } catch {
       // keep the list we have
     }

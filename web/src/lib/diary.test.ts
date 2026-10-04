@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ProjectStatus } from './api/enums.gen'
 import type { Project } from './api/types.gen'
-import { entryRequest, isSubmitShortcut, resolveScope, scopeOptions, screenProjectID } from './diary'
+import { entryRequest, isSubmitShortcut, knownScope, resolveScope, scopeOptions, screenProjectID } from './diary'
 
 function project(id: number, status: ProjectStatus): Project {
   return { id, title: `P${id}`, why: '', definition_of_done: '', status, created_at: '', updated_at: '' }
@@ -74,5 +74,16 @@ describe('entryRequest', () => {
 
   it('has nothing to send for a blank body', () => {
     expect(entryRequest(' \n ', 3)).toBeNull()
+  })
+})
+
+describe('knownScope', () => {
+  it('keeps a scope until the project list has loaded', () => {
+    expect(knownScope(3, null)).toBe(3)
+  })
+  it('drops a scope whose project is gone', () => {
+    expect(knownScope(3, [project(1, 'active')])).toBeNull()
+    expect(knownScope(1, [project(1, 'active')])).toBe(1)
+    expect(knownScope(null, [project(1, 'active')])).toBeNull()
   })
 })

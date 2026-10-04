@@ -35,6 +35,13 @@ export function resolveScope(choice: ScopeChoice | null, path: string, screenID:
   return choice && choice.path === path ? choice.projectID : screenID
 }
 
+// knownScope drops a scope whose project is gone (deleted, perhaps in another
+// tab). Until the project list has loaded, the scope stands.
+export function knownScope(scope: number | null, projects: Project[] | null): number | null {
+  if (scope === null || projects === null) return scope
+  return projects.some((p) => p.id === scope) ? scope : null
+}
+
 // scopeOptions are the projects an entry can be scoped to, active first. Done
 // and archived projects are left out unless one of them is the current scope.
 export function scopeOptions(projects: Project[], current: number | null): Project[] {
