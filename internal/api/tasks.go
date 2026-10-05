@@ -296,13 +296,13 @@ func (h *handlers) moveTask(w http.ResponseWriter, r *http.Request) {
 // movePositions returns the position changes that move t past its
 // neighbour among its siblings (ordered by position, then id): the two
 // positions swap. Siblings share t's parent; top-level tasks must also share
-// its status (the Project screen groups them by status), while a task's
+// its status and milestone (the Project screen groups them by both), while a task's
 // steps are one checklist whatever their status. Equal positions can't swap, so t alone steps one past
 // the neighbour. It returns nil when t is already at that end.
 func movePositions(tasks []domain.Task, t domain.Task, dir apitypes.MoveDirection) []changeset.UpdateTask {
 	var group []domain.Task
 	for _, x := range tasks {
-		if sameParent(x, t) && (t.ParentTaskID != nil || x.Status == t.Status) {
+		if sameParent(x, t) && (t.ParentTaskID != nil || x.Status == t.Status && sameMilestone(x, t)) {
 			group = append(group, x)
 		}
 	}
@@ -330,6 +330,13 @@ func movePositions(tasks []domain.Task, t domain.Task, dir apitypes.MoveDirectio
 		{TaskID: changeset.ID(t.ID), Position: &tPos},
 		{TaskID: changeset.ID(n.ID), Position: &nPos},
 	}
+}
+
+func sameMilestone(a, b domain.Task) bool {
+	if a.MilestoneID == nil || b.MilestoneID == nil {
+		return a.MilestoneID == nil && b.MilestoneID == nil
+	}
+	return *a.MilestoneID == *b.MilestoneID
 }
 
 func sameParent(a, b domain.Task) bool {

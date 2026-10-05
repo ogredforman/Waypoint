@@ -34,3 +34,11 @@ type UpdateMilestoneRequest struct {
 	Status      *domain.MilestoneStatus `json:"status,omitempty"`
 	Position    *int64                  `json:"position,omitempty"`
 }
+
+// MoveMilestoneRequest is the body of POST /api/milestones/{id}/move. The
+// milestone swaps position with its neighbour in the project; the response
+// is the milestones whose position changed, none when it is already at that
+// end.
+type MoveMilestoneRequest struct {
+	Direction MoveDirection `json:"direction"`
+}

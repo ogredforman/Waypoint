@@ -2,7 +2,8 @@
   import type { Snippet } from 'svelte'
   import { ApiError, deleteJSON, patchJSON } from '../lib/api/client'
   import { energyValues, taskSizeValues, type TaskStatus } from '../lib/api/enums.gen'
-  import type { Task } from '../lib/api/types.gen'
+  import type { Milestone, Task } from '../lib/api/types.gen'
+  import { milestoneLabel, sortMilestones } from '../lib/milestones'
   import { paths } from '../lib/router'
   import { statusLabels, taskFields, taskPatch, type Direction, type TaskForm } from '../lib/tasks'
   import Button from './ui/Button.svelte'
@@ -13,6 +14,7 @@
 
   let {
     task,
+    milestones = [],
     canMoveUp,
     canMoveDown,
     moving = false,
@@ -22,6 +24,8 @@
     children,
   }: {
     task: Task
+    // milestones are the project's, for the edit form's picker.
+    milestones?: Milestone[]
     canMoveUp: boolean
     canMoveDown: boolean
     moving?: boolean
@@ -34,14 +38,16 @@
 
   let editing = $state(false)
   let confirmingDelete = $state(false)
-  let form = $state<TaskForm>({ title: '', notes: '', size: '', energy: '' })
+  let form = $state<TaskForm>({ title: '', notes: '', size: '', energy: '', milestone: '' })
   let saving = $state(false)
   let problems = $state<Record<string, string>>({})
   let notice = $state('')
 
-  const shownFields = ['title', 'notes', 'size', 'energy']
+  const shownFields = ['title', 'notes', 'size', 'energy', 'milestone_id']
   const closed = $derived(task.status === 'done' || task.status === 'dropped')
   const idPrefix = $derived(`task-${task.id}`)
+  // Steps go with their parent, so only top-level tasks pick a milestone.
+  const picksMilestone = $derived(task.parent_task_id === null && milestones.length > 0)
 
   function edit() {
     form = taskFields(task)
@@ -159,6 +165,16 @@
           {#if problems.energy}<p class="mt-1 text-sm text-accent">{problems.energy}</p>{/if}
         </div>
       </div>
+      {#if picksMilestone}
+        <div>
+          <label for="{idPrefix}-milestone" class="text-sm font-medium text-ink">Milestone</label>
+          <select id="{idPrefix}-milestone" bind:value={form.milestone} class={fieldClass}>
+            <option value="">No milestone</option>
+            {#each sortMilestones(milestones) as m (m.id)}<option value={m.id}>{milestoneLabel(m)}</option>{/each}
+          </select>
+          {#if problems.milestone_id}<p class="mt-1 text-sm text-accent">{problems.milestone_id}</p>{/if}
+        </div>
+      {/if}
       {#if notice}<p class="text-sm text-accent" role="status">{notice}</p>{/if}
       <div class="flex gap-2">
         <Button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>

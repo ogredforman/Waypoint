@@ -163,6 +163,7 @@ func (h *handlers) routes(r chi.Router) {
 
 	r.Patch("/milestones/{id}", h.updateMilestone)
 	r.Delete("/milestones/{id}", h.deleteMilestone)
+	r.Post("/milestones/{id}/move", h.moveMilestone)
 
 	r.Get("/ideas", h.listIdeas)
 	r.Patch("/ideas/{id}", h.updateIdea)

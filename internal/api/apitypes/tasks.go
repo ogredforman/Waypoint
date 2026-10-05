@@ -74,7 +74,7 @@ type LinkedObservation struct {
 	Confidence     float64                `json:"confidence"`
 }
 
-// MoveDirection is which way a task moves within its status group.
+// MoveDirection is which way a task or milestone moves among its siblings.
 type MoveDirection string
 
 const (
@@ -84,7 +84,7 @@ const (
 
 // MoveTaskRequest is the body of POST /api/tasks/{id}/move. The task swaps
 // position with its neighbour among its siblings: tasks with the same parent
-// and, for top-level tasks, the same status; the response is the
+// and, for top-level tasks, the same status and milestone; the response is the
 // tasks whose position changed, none when it is already at that end.
 type MoveTaskRequest struct {
 	Direction MoveDirection `json:"direction"`

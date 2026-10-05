@@ -81,34 +81,39 @@ export interface TaskForm {
   notes: string
   size: TaskSize | ''
   energy: Energy | ''
+  // milestone is a milestone id, or '' for none.
+  milestone: number | ''
 }
 
 export function taskFields(t: Task): TaskForm {
-  return { title: t.title, notes: t.notes, size: t.size ?? '', energy: t.energy ?? '' }
+  return { title: t.title, notes: t.notes, size: t.size ?? '', energy: t.energy ?? '', milestone: t.milestone_id ?? '' }
 }
 
 // taskPatch builds the PATCH /api/tasks/{id} body from the edit form: only
-// the fields that changed, trimmed. An empty size or energy clears it
-// (null). It returns null when nothing changed.
+// the fields that changed, trimmed. An empty size, energy, or milestone
+// clears it (null). It returns null when nothing changed.
 export function taskPatch(t: Task, form: TaskForm): UpdateTaskRequest | null {
   const req: UpdateTaskRequest = {}
   const title = form.title.trim()
   const notes = form.notes.trim()
   const size = form.size === '' ? null : form.size
   const energy = form.energy === '' ? null : form.energy
+  const milestone = form.milestone === '' ? null : form.milestone
   if (title !== t.title) req.title = title
   if (notes !== t.notes) req.notes = notes
   if (size !== t.size) req.size = size
   if (energy !== t.energy) req.energy = energy
+  if (milestone !== t.milestone_id) req.milestone_id = milestone
   return Object.keys(req).length > 0 ? req : null
 }
 
-// newTaskRequest builds the POST /api/projects/{id}/tasks body. Unset size
-// and energy are left out; the task starts as todo.
-export function newTaskRequest(form: Pick<TaskForm, 'title' | 'size' | 'energy'>): CreateTaskRequest {
+// newTaskRequest builds the POST /api/projects/{id}/tasks body. Unset size,
+// energy, and milestone are left out; the task starts as todo.
+export function newTaskRequest(form: Pick<TaskForm, 'title' | 'size' | 'energy'> & { milestone?: number | '' }): CreateTaskRequest {
   const req: CreateTaskRequest = { title: form.title.trim() }
   if (form.size) req.size = form.size
   if (form.energy) req.energy = form.energy
+  if (form.milestone) req.milestone_id = form.milestone
   return req
 }
 

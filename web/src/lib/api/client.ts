@@ -1,13 +1,18 @@
 import type {
   Briefing,
+  CreateMilestoneRequest,
   CreateProfileRequest,
   ErrorBody,
   FieldProblem,
+  Milestone,
+  MoveDirection,
+  MoveMilestoneRequest,
   Profile,
   Project,
   ProjectDeletion,
   ProjectObservations,
   Settings,
+  UpdateMilestoneRequest,
   UpdateSettingsRequest,
 } from './types.gen'
 
@@ -128,6 +133,30 @@ export function getProjectDeletion(projectId: number, fetchFn?: typeof fetch): P
 // kept (unscoped) or deleted too.
 export function deleteProject(projectId: number, entries: 'keep' | 'delete', fetchFn?: typeof fetch): Promise<void> {
   return deleteJSON(`/api/projects/${projectId}?entries=${entries}`, fetchFn)
+}
+
+// listMilestones is a project's milestones, in order.
+export function listMilestones(projectId: number, fetchFn?: typeof fetch): Promise<Milestone[]> {
+  return getJSON<Milestone[]>(`/api/projects/${projectId}/milestones`, fetchFn)
+}
+
+export function createMilestone(projectId: number, req: CreateMilestoneRequest, fetchFn?: typeof fetch): Promise<Milestone> {
+  return postJSON<Milestone>(`/api/projects/${projectId}/milestones`, req, fetchFn)
+}
+
+export function updateMilestone(id: number, req: UpdateMilestoneRequest, fetchFn?: typeof fetch): Promise<Milestone> {
+  return patchJSON<Milestone>(`/api/milestones/${id}`, req, fetchFn)
+}
+
+// deleteMilestone removes a milestone; its tasks stay in the project with no milestone.
+export function deleteMilestone(id: number, fetchFn?: typeof fetch): Promise<void> {
+  return deleteJSON(`/api/milestones/${id}`, fetchFn)
+}
+
+// moveMilestone swaps a milestone with its neighbour and answers with the
+// milestones that moved (none at the end of the list).
+export function moveMilestone(id: number, direction: MoveDirection, fetchFn?: typeof fetch): Promise<Milestone[]> {
+  return postJSON<Milestone[]>(`/api/milestones/${id}/move`, { direction } satisfies MoveMilestoneRequest, fetchFn)
 }
 
 // getBriefing is a project's cached briefing: its one next action and the context around it.

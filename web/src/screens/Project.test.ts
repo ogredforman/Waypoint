@@ -80,6 +80,7 @@ beforeEach(() => {
   routes.set('/api/projects', [project(7, 'Waypoint')])
   routes.set('/api/settings', { active_project_cap: 3 })
   routes.set('/api/projects/7/tasks', [task(1, 'Write docs')])
+  routes.set('/api/projects/7/milestones', [])
   routes.set('/api/projects/7/blockers', [blocker(1, 'Waiting on review')])
   routes.set('/api/ideas?project_id=7', [idea(1, 'Dark mode')])
   routes.set('/api/projects/7/observations?limit=10', diary('Felt stuck'))

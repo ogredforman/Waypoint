@@ -90,12 +90,22 @@ describe('taskPatch', () => {
   it('clears size and energy with null', () => {
     expect(taskPatch(t, { ...taskFields(t), size: '', energy: 'deep' })).toEqual({ size: null, energy: 'deep' })
   })
+
+  it('moves a task into a milestone, to another, and out', () => {
+    expect(taskPatch(t, { ...taskFields(t), milestone: 4 })).toEqual({ milestone_id: 4 })
+    const inM = task(2, 'todo', 1, { milestone_id: 4 })
+    expect(taskPatch(inM, { ...taskFields(inM), milestone: 5 })).toEqual({ milestone_id: 5 })
+    expect(taskPatch(inM, { ...taskFields(inM), milestone: '' })).toEqual({ milestone_id: null })
+    expect(taskPatch(inM, taskFields(inM))).toBeNull()
+  })
 })
 
 describe('newTaskRequest', () => {
   it('leaves out unset size and energy', () => {
     expect(newTaskRequest({ title: ' Dig ', size: '', energy: '' })).toEqual({ title: 'Dig' })
     expect(newTaskRequest({ title: 'Dig', size: 'xs', energy: 'low' })).toEqual({ title: 'Dig', size: 'xs', energy: 'low' })
+    expect(newTaskRequest({ title: 'Dig', size: '', energy: '', milestone: '' })).toEqual({ title: 'Dig' })
+    expect(newTaskRequest({ title: 'Dig', size: '', energy: '', milestone: 3 })).toEqual({ title: 'Dig', milestone_id: 3 })
   })
 })
 

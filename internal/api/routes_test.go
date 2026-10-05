@@ -325,6 +325,75 @@ func TestMoveTask(t *testing.T) {
 	s.fails(http.StatusNotFound, "not_found", "POST", "/api/profiles/t/tasks/999/move", `{"direction": "up"}`)
 }
 
+func TestMoveTaskStaysInMilestone(t *testing.T) {
+	s := newServer(t)
+	p := s.project("Waypoint", domain.ProjectActive)
+	tasksURL := fmt.Sprintf("/api/profiles/t/projects/%d/tasks", p.ID)
+	m := ok[apitypes.Milestone](s, http.StatusCreated, "POST", fmt.Sprintf("/api/profiles/t/projects/%d/milestones", p.ID), `{"title": "MVP"}`)
+	a := ok[apitypes.Task](s, http.StatusCreated, "POST", tasksURL, map[string]any{"title": "A", "milestone_id": m.ID})
+	ok[apitypes.Task](s, http.StatusCreated, "POST", tasksURL, map[string]any{"title": "No milestone"})
+	b := ok[apitypes.Task](s, http.StatusCreated, "POST", tasksURL, map[string]any{"title": "B", "milestone_id": m.ID})
+
+	// Down skips the task in no milestone and swaps A with B.
+	moved := ok[[]apitypes.Task](s, http.StatusOK, "POST", fmt.Sprintf("/api/profiles/t/tasks/%d/move", a.ID), map[string]any{"direction": "down"})
+	got := map[int64]int64{}
+	for _, x := range moved {
+		got[x.ID] = x.Position
+	}
+	if want := map[int64]int64{a.ID: b.Position, b.ID: a.Position}; !maps.Equal(got, want) {
+		t.Errorf("move A down = %v, want %v", got, want)
+	}
+}
+
+func TestMoveMilestone(t *testing.T) {
+	s := newServer(t)
+	p := s.project("Waypoint", domain.ProjectActive)
+	milestonesURL := fmt.Sprintf("/api/profiles/t/projects/%d/milestones", p.ID)
+	a := ok[apitypes.Milestone](s, http.StatusCreated, "POST", milestonesURL, `{"title": "A"}`)
+	b := ok[apitypes.Milestone](s, http.StatusCreated, "POST", milestonesURL, `{"title": "B"}`)
+	other := s.project("Garden", domain.ProjectParked)
+	ok[apitypes.Milestone](s, http.StatusCreated, "POST", fmt.Sprintf("/api/profiles/t/projects/%d/milestones", other.ID), `{"title": "Elsewhere"}`)
+	before := s.manualChangesets()
+	move := func(m apitypes.Milestone, dir string) map[int64]int64 {
+		t.Helper()
+		moved := ok[[]apitypes.Milestone](s, http.StatusOK, "POST", fmt.Sprintf("/api/profiles/t/milestones/%d/move", m.ID), map[string]any{"direction": dir})
+		positions := map[int64]int64{}
+		for _, x := range moved {
+			positions[x.ID] = x.Position
+		}
+		return positions
+	}
+
+	if got, want := move(b, "up"), map[int64]int64{a.ID: b.Position, b.ID: a.Position}; !maps.Equal(got, want) {
+		t.Errorf("move B up = %v, want %v", got, want)
+	}
+	if n := s.manualChangesets() - before; n != 1 {
+		t.Errorf("manual changesets for a move = %d, want 1", n)
+	}
+	// B is first now: up again moves nothing and makes no changeset.
+	if got := move(b, "up"); len(got) != 0 {
+		t.Errorf("move first milestone up = %v, want nothing", got)
+	}
+	if n := s.manualChangesets() - before; n != 1 {
+		t.Errorf("manual changesets after a no-op move = %d, want still 1", n)
+	}
+	// The other project's milestone isn't a neighbour.
+	if got := move(a, "down"); len(got) != 0 {
+		t.Errorf("move last milestone down = %v, want nothing", got)
+	}
+	var order []string
+	for _, m := range ok[[]apitypes.Milestone](s, http.StatusOK, "GET", milestonesURL, nil) {
+		order = append(order, m.Title)
+	}
+	if !slices.Equal(order, []string{"B", "A"}) {
+		t.Errorf("milestone order = %v, want [B A]", order)
+	}
+
+	moveURL := fmt.Sprintf("/api/profiles/t/milestones/%d/move", a.ID)
+	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", moveURL, `{"direction": "sideways"}`)
+	s.fails(http.StatusNotFound, "not_found", "POST", "/api/profiles/t/milestones/999/move", `{"direction": "up"}`)
+}
+
 func TestTaskSteps(t *testing.T) {
 	s := newServer(t)
 	p := s.project("Waypoint", domain.ProjectActive)

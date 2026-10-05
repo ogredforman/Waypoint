@@ -388,6 +388,15 @@ export interface UpdateMilestoneRequest {
   status?: domain.MilestoneStatus;
   position?: number /* int64 */;
 }
+/**
+ * MoveMilestoneRequest is the body of POST /api/milestones/{id}/move. The
+ * milestone swaps position with its neighbour in the project; the response
+ * is the milestones whose position changed, none when it is already at that
+ * end.
+ */
+export interface MoveMilestoneRequest {
+  direction: MoveDirection;
+}
 
 //////////
 // source: profiles.go
@@ -671,7 +680,7 @@ export interface LinkedObservation {
   confidence: number /* float64 */;
 }
 /**
- * MoveDirection is which way a task moves within its status group.
+ * MoveDirection is which way a task or milestone moves among its siblings.
  */
 export const MoveDirectionUp = "up";
 export const MoveDirectionDown = "down";
@@ -679,7 +688,7 @@ export type MoveDirection = typeof MoveDirectionUp | typeof MoveDirectionDown;
 /**
  * MoveTaskRequest is the body of POST /api/tasks/{id}/move. The task swaps
  * position with its neighbour among its siblings: tasks with the same parent
- * and, for top-level tasks, the same status; the response is the
+ * and, for top-level tasks, the same status and milestone; the response is the
  * tasks whose position changed, none when it is already at that end.
  */
 export interface MoveTaskRequest {

@@ -76,7 +76,7 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   `waypoint.db` in as "Personal", starts each `profiles/<id>.db`), `List`, `Create` (optionally copying another profile's appearance), `Rename`, `Delete`, `Serve`, `Ping`,
   `EndStreams`, `Close`; implements `api.Profiles`. `files.go`: `prepare` (migrate, name, seed, checkpoint, close), `removeDB`.
 - **api**: chi router (`router.go`, route list in `handlers.routes`), one file per resource
-  (`projects.go`, `milestones.go`, `tasks.go`, `blockers.go`, `ideas.go`, `entries.go`, `changesets.go`, `settings.go`),
+  (`projects.go`, `milestones.go` (incl. `moveMilestone`, `milestoneMovePositions`), `tasks.go`, `blockers.go`, `ideas.go`, `entries.go`, `changesets.go`, `settings.go`),
   `profiles.go` (`Profiles` interface, `/api/profiles` routes, hands `/api/profiles/{profile}/*` to `Profiles.Serve`);
   `NewRouter(Deps{Logger, Web, Profiles})` is the root, `NewProfileHandler(ProfileDeps{…})` one profile's data routes and `/events`,
   `projects.go` also has `GET /projects/{id}/observations`, `DELETE /projects/{id}?entries=keep|delete` and `GET /projects/{id}/deletion` (paged by entry; `pageQuery` in `entries.go` reads `before`/`limit`),
@@ -95,7 +95,7 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
 Svelte 5 runes + TS + Tailwind, Vitest. `main.ts` → `App.svelte`. `lib/api/client.ts` is the
 typed API client (the only place that calls `fetch`); `apiPath` puts `/api/…` under the profile set by `useProfile`,
 with generated `types.gen.ts`/`enums.gen.ts`; named calls (`listProjects`, `getSettings`, `updateSettings`,
-`listProfiles`/`createProfile`/`renameProfile`/`deleteProfile`, `listProjectObservations`, `getBriefing`, `getProjectDeletion`, `deleteProject`) are thin wrappers over `getJSON`/`patchJSON`, and new code uses them.
+`listProfiles`/`createProfile`/`renameProfile`/`deleteProfile`, `listMilestones`/`createMilestone`/`updateMilestone`/`deleteMilestone`/`moveMilestone`, `listProjectObservations`, `getBriefing`, `getProjectDeletion`, `deleteProject`) are thin wrappers over `getJSON`/`patchJSON`, and new code uses them.
 `lib/router.ts` + `lib/navigation.svelte.ts`: client-side routing (`paths`, incl. `paths.diaryEntry(id)` → `/diary?entry=N`, read back by `entryParam(current.search)`); every screen's `<h1>` takes `{@attach pageHeading}` (focus after navigation). `screens/`: page components
 (`Now`, `Diary`, `Projects`, `Project`, `Task`, `ParkingLot`, `Settings`, `NotFound`). `components/`: reusable
 pieces. Tests sit next to the code as `*.test.ts`.
@@ -137,9 +137,11 @@ pieces. Tests sit next to the code as `*.test.ts`.
 - Project: `screens/Project.svelte` → `components/ProjectHeader.svelte` (view/edit title, why, definition of done)
   and `ProjectStatus.svelte` (status buttons, calm cap handling). `lib/projects.ts`: `projectPatch` (changed fields
   only), `statusOptions`, `activateCapMessage`. `lib/api/client.ts` also has `patchJSON`/`deleteJSON` (204 → undefined).
-  Tasks: `components/ProjectTasks.svelte` (list grouped by status, add form, move up/down) → `TaskRow.svelte` (view,
-  inline edit, status, delete with confirmation); move up/down is one `POST /api/tasks/{id}/move` (`api/tasks.go`
-  `moveTask`, `movePositions`: among siblings, i.e. same parent, and same status for top-level tasks). Steps nest under their parent through `TaskRow`'s `children` snippet.
+  Tasks: `components/ProjectTasks.svelte` (loads tasks and milestones; sections by milestone, then by status; add forms for tasks and milestones; move up/down) →
+  `MilestoneSection.svelte` (a milestone's header: edit title and description, status, move, delete with confirmation; done/dropped fold) and `TaskRow.svelte` (view,
+  inline edit incl. the milestone picker for top-level tasks, status, delete with confirmation); move up/down is one `POST /api/tasks/{id}/move` (`api/tasks.go`
+  `moveTask`, `movePositions`: among siblings, i.e. same parent, and same status and milestone for top-level tasks).
+  `lib/milestones.ts`: `milestoneSections` (splits `nestTasks`' groups by milestone), `sortMilestones`, `milestonePatch`, `milestoneLabel`, `milestoneStatusLabels`. Steps nest under their parent through `TaskRow`'s `children` snippet.
   `lib/tasks.ts`: `groupTasks`, `nestTasks` (top-level groups + steps by parent), `taskPatch`, `newTaskRequest`, `newStepRequest`, `stepStatus`, `stepLabel`.
   Blockers: `components/ProjectBlockers.svelte` (open, then resolved) → `BlockerRow.svelte` (resolve, delete with confirmation, and with `tasks` a "Blocks" picker that moves an open blocker between tasks and the whole project);
   `ProjectBlockers` also has the add form with an optional open-task picker; `lib/blockers.ts`: `splitBlockers`, `openTasks`, `newBlockerRequest`, `blockerTargets`, `moveBlockerRequest`. Ideas: `components/ProjectIdeas.svelte` (this project's parked ideas) → `IdeaRow.svelte`.
