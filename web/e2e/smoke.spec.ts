@@ -42,6 +42,22 @@ test('write → review → apply updates the project and the briefing', async ({
   await briefing.getByRole('link', { name: project }).click()
   await expect(page.getByRole('region', { name: 'Tasks' }).getByRole('link', { name: task })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Blockers' }).getByText(blocker, { exact: true })).toBeVisible()
+
+  // Task notes are rich text (ADR 0009): a bold word and a check list survive saving.
+  const tasks = page.getByRole('region', { name: 'Tasks' })
+  await tasks.getByRole('button', { name: 'Edit' }).click()
+  const notes = tasks.getByRole('textbox', { name: 'Notes' })
+  await notes.click()
+  await page.keyboard.press('Control+B')
+  await page.keyboard.type('Both')
+  await page.keyboard.press('Control+B')
+  await page.keyboard.type(' walls')
+  await page.keyboard.press('Enter')
+  await tasks.getByRole('button', { name: 'Check list' }).click()
+  await page.keyboard.type('Find the tape')
+  await tasks.getByRole('button', { name: 'Save' }).click()
+  await expect(tasks.locator('.rich-text strong').getByText('Both')).toBeVisible()
+  await expect(tasks.locator('.rich-text li').getByRole('checkbox', { name: 'Find the tape' })).toBeVisible()
 })
 
 // Profiles keep their data apart (ADR 0005): a project made in a new profile doesn't show in the

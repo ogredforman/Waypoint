@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { flushSync, mount, unmount } from 'svelte'
+import type { Editor } from '@tiptap/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Project } from '../lib/api/types.gen'
 import ProjectHeader from './ProjectHeader.svelte'
@@ -50,6 +51,12 @@ function type(id: string, value: string) {
   field.dispatchEvent(new Event('input', { bubbles: true }))
   flushSync()
 }
+// write replaces a rich text field's text, as typing would.
+function write(id: string, markdown: string) {
+  const field = target.querySelector<HTMLElement & { editor: Editor }>(`#${id}`)!
+  field.editor.commands.setContent(markdown, { contentType: 'markdown' })
+  flushSync()
+}
 function sent(): { url: string; method?: string; body: unknown } {
   const [url, init] = fetchMock.mock.calls[0]
   return { url, method: init?.method, body: JSON.parse(init!.body as string) }
@@ -61,15 +68,15 @@ describe('ProjectHeader', () => {
     const onsaved = vi.fn()
     component = mount(ProjectHeader, { target, props: { project: garden, onsaved } })
     flushSync()
-    expect(target.textContent).toContain('Fresh food')
+    expect(target.querySelector('dd .rich-text')?.textContent).toBe('Fresh food')
 
     click(button('Edit'))
     type('edit-project-title', ' Allotment ')
-    type('edit-project-dod', 'Beds planted')
+    write('edit-project-dod', 'Beds **planted**')
     click(button('Save'))
 
     await vi.waitFor(() => expect(onsaved).toHaveBeenCalled())
-    expect(sent()).toEqual({ url: '/api/projects/7', method: 'PATCH', body: { title: 'Allotment', definition_of_done: 'Beds planted' } })
+    expect(sent()).toEqual({ url: '/api/projects/7', method: 'PATCH', body: { title: 'Allotment', definition_of_done: 'Beds **planted**' } })
     expect(onsaved.mock.calls[0][0].title).toBe('Allotment')
   })
 

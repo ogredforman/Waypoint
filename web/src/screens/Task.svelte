@@ -4,6 +4,7 @@
   import TaskBlockers from '../components/TaskBlockers.svelte'
   import TaskSteps from '../components/TaskSteps.svelte'
   import Card from '../components/ui/Card.svelte'
+  import RichText from '../components/ui/RichText.svelte'
   import { ApiError, getJSON } from '../lib/api/client'
   import { latest, liveReload } from '../lib/live'
   import type { Project, TaskDetail } from '../lib/api/types.gen'
@@ -82,7 +83,7 @@
         {#if task.size}<span>Size {task.size}</span>{/if}
         {#if task.energy}<span>{task.energy} energy</span>{/if}
       </p>
-      {#if task.notes}<p class="text-sm leading-relaxed whitespace-pre-wrap text-ink">{task.notes}</p>{/if}
+      {#if task.notes}<RichText value={task.notes} class="text-sm leading-relaxed text-ink" />{/if}
     </header>
 
     <TaskSteps {task} bind:steps={detail.steps} />

@@ -4,6 +4,7 @@
   import { defaultTarget, projectName, promoteTargets } from '../lib/ideas'
   import { paths } from '../lib/router'
   import Button from './ui/Button.svelte'
+  import RichText from './ui/RichText.svelte'
 
   let {
     idea,
@@ -72,7 +73,7 @@
   <div class="flex items-start gap-3">
     <div class="min-w-0 flex-1">
       <p class="text-ink">{idea.title}</p>
-      {#if idea.body}<p class="mt-0.5 text-sm whitespace-pre-line text-ink-muted">{idea.body}</p>{/if}
+      {#if idea.body}<RichText value={idea.body} class="mt-0.5 text-sm text-ink-muted" />{/if}
       {#if showProject}
         {#if name !== null && idea.project_id !== null}
           <a href={paths.project(idea.project_id)} class="text-sm text-ink-muted hover:text-accent">{name}</a>

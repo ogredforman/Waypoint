@@ -11,6 +11,7 @@
   import { latest, liveReload } from '../lib/live'
   import { pageHeading } from '../lib/navigation.svelte'
   import { collapsedByDefault, countActive, filterProjects, groupByStatus } from '../lib/projects'
+  import { plainText } from '../lib/richtext'
   import { paths } from '../lib/router'
 
   let projects = $state<Project[] | null>(null)
@@ -150,7 +151,7 @@
                   <a href={paths.project(p.id)} class="block min-w-0 flex-1 px-4 py-3 transition hover:bg-raised">
                     <span class="font-medium text-ink">{p.title}</span>
                     {#if p.why}
-                      <span class="mt-0.5 line-clamp-1 block text-sm text-ink-muted">{p.why}</span>
+                      <span class="mt-0.5 line-clamp-1 block text-sm text-ink-muted">{plainText(p.why)}</span>
                     {/if}
                   </a>
                   {#if p.status === 'archived'}

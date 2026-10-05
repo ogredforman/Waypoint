@@ -7,7 +7,8 @@
   import { statusLabels, taskFields, taskPatch, type Direction, type TaskForm } from '../lib/tasks'
   import Button from './ui/Button.svelte'
   import Input from './ui/Input.svelte'
-  import Textarea from './ui/Textarea.svelte'
+  import RichText from './ui/RichText.svelte'
+  import RichTextEditor from './ui/RichTextEditor.svelte'
   import { fieldClass } from './ui/field'
 
   let {
@@ -130,9 +131,15 @@
         {/if}
       </div>
       <div>
-        <label for="{idPrefix}-notes" class="text-sm font-medium text-ink">Notes</label>
-        <Textarea id="{idPrefix}-notes" rows={2} bind:value={form.notes} />
-        {#if problems.notes}<p class="mt-1 text-sm text-accent">{problems.notes}</p>{/if}
+        <span id="{idPrefix}-notes-label" class="text-sm font-medium text-ink">Notes</span>
+        <RichTextEditor
+          id="{idPrefix}-notes"
+          labelledby="{idPrefix}-notes-label"
+          bind:value={form.notes}
+          invalid={!!problems.notes}
+          describedby={problems.notes ? `${idPrefix}-notes-problem` : undefined}
+        />
+        {#if problems.notes}<p id="{idPrefix}-notes-problem" class="mt-1 text-sm text-accent">{problems.notes}</p>{/if}
       </div>
       <div class="flex gap-3">
         <div class="flex-1">
@@ -168,7 +175,7 @@
             {#if task.energy}<span class="rounded-control border border-line px-1.5 text-xs text-ink-muted">{task.energy} energy</span>{/if}
           </span>
         {/if}
-        {#if task.notes}<p class="mt-0.5 text-sm whitespace-pre-line text-ink-muted">{task.notes}</p>{/if}
+        {#if task.notes}<RichText value={task.notes} class="mt-0.5 text-sm text-ink-muted" />{/if}
       </div>
       <div class="flex shrink-0 items-center gap-1">
         <Button

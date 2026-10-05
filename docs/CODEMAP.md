@@ -13,7 +13,7 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
   §10.5 API, §11 UI surfaces, §12 testing.
 - PLAN: `grep -n '\[ \]' docs/PLAN.md | head` for the next tasks; read only the current stage's section.
 - ADRs: 0001 API types (Go DTOs → generated TS), 0002 deleting tasks/blockers/ideas,
-  0003 splitting changesets, 0004 diary panel layout, 0005 profiles, 0006 archived projects, 0007 deleting entries, 0008 deleting projects.
+  0003 splitting changesets, 0004 diary panel layout, 0005 profiles, 0006 archived projects, 0007 deleting entries, 0008 deleting projects, 0009 rich text editor.
 
 ## Wiring (`cmd/waypoint/main.go`)
 
@@ -170,7 +170,11 @@ pieces. Tests sit next to the code as `*.test.ts`.
   `lib/theme.test.ts` checks every theme: all colours set, AA contrast for the text pairs, accents away from `danger`.
 - `components/ui/`: `Button` (`primary`/`secondary`/`quiet`/`danger`, `size` `md`/`sm`/`xs`), `Input`, `Textarea` (`bind:value`; grows to
   `max-h-64`, or `max-h-96` with `tall`, then scrolls, via `lib/autosize.ts`),
-  `Card` (`glow` for the one thing to notice), `Panel` (row container). `npm --prefix web test`, `npm --prefix web run check`.
+  `Card` (`glow` for the one thing to notice), `Panel` (row container).
+  Rich text (ADR 0009; task notes, project why and done, idea bodies; stored as markdown): `RichTextEditor` (`bind:value` markdown, `id`, `labelledby`
+  naming it, toolbar, link address box; only edits write the value) and `RichText` (read-only view); both use `lib/richtext.ts`
+  (`richTextExtensions`, `markdownOf`, `plainText` for one-line previews such as the Projects list) and the `.rich-text` styles in `app.css`. In tests the editor is `(el as HTMLElement & { editor }).editor`
+  on the `#id` element; `RichTextEditor.svelte.test.ts`, `lib/richtext.test.ts`. `npm --prefix web test`, `npm --prefix web run check`.
 - Icons: `@lucide/svelte`, imported one per path (`import BookOpen from '@lucide/svelte/icons/book-open'`) so only
   used icons are bundled; decorative icons get `aria-hidden="true"`, and icon-only buttons an `aria-label`.
 - Component tests: `// @vitest-environment jsdom` at the top, then Svelte's `mount`/`flushSync` with a stubbed

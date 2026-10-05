@@ -5,7 +5,7 @@
   import Button from './ui/Button.svelte'
   import Card from './ui/Card.svelte'
   import Input from './ui/Input.svelte'
-  import Textarea from './ui/Textarea.svelte'
+  import RichTextEditor from './ui/RichTextEditor.svelte'
 
   let {
     activeCount,
@@ -88,17 +88,31 @@
     </div>
 
     <div>
-      <label for="project-why" class="text-sm font-medium text-ink">Why it matters <span class="font-normal text-ink-muted">(optional)</span></label>
-      <Textarea id="project-why" rows={2} bind:value={why} />
-      {#if problems.why}<p class="mt-1 text-sm text-accent">{problems.why}</p>{/if}
+      <span id="project-why-label" class="text-sm font-medium text-ink">Why it matters <span class="font-normal text-ink-muted">(optional)</span></span>
+      <RichTextEditor
+        id="project-why"
+        labelledby="project-why-label"
+        bind:value={why}
+        invalid={!!problems.why}
+        describedby={problems.why ? 'project-why-problem' : undefined}
+      />
+      {#if problems.why}<p id="project-why-problem" class="mt-1 text-sm text-accent">{problems.why}</p>{/if}
     </div>
 
     <div>
-      <label for="project-dod" class="text-sm font-medium text-ink">
+      <span id="project-dod-label" class="text-sm font-medium text-ink">
         What "done" looks like <span class="font-normal text-ink-muted">(optional)</span>
-      </label>
-      <Textarea id="project-dod" rows={2} bind:value={definitionOfDone} />
-      {#if problems.definition_of_done}<p class="mt-1 text-sm text-accent">{problems.definition_of_done}</p>{/if}
+      </span>
+      <RichTextEditor
+        id="project-dod"
+        labelledby="project-dod-label"
+        bind:value={definitionOfDone}
+        invalid={!!problems.definition_of_done}
+        describedby={problems.definition_of_done ? 'project-dod-problem' : undefined}
+      />
+      {#if problems.definition_of_done}
+        <p id="project-dod-problem" class="mt-1 text-sm text-accent">{problems.definition_of_done}</p>
+      {/if}
     </div>
 
     <fieldset>

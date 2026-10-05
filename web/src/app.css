@@ -218,3 +218,69 @@
     user-select: none;
   }
 }
+
+/* Rich text (task notes, a project's why and done, idea bodies; ADR 0009), shown and edited. */
+@layer components {
+  .rich-text {
+    overflow-wrap: anywhere;
+  }
+  .rich-text > * + *,
+  .rich-text li > * + * {
+    margin-top: 0.5em;
+  }
+  .rich-text h2 {
+    font-size: 1.15em;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .rich-text h3 {
+    font-size: 1.05em;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .rich-text strong {
+    font-weight: 600;
+  }
+  .rich-text ul {
+    list-style: disc;
+    padding-left: 1.25em;
+  }
+  .rich-text ol {
+    list-style: decimal;
+    padding-left: 1.5em;
+  }
+  .rich-text ul[data-type='taskList'] {
+    list-style: none;
+    padding-left: 0;
+  }
+  .rich-text ul[data-type='taskList'] li {
+    display: flex;
+    gap: 0.5em;
+  }
+  .rich-text ul[data-type='taskList'] li > label {
+    flex: none;
+    margin-top: 0.1em;
+  }
+  .rich-text ul[data-type='taskList'] li > div {
+    flex: 1;
+    min-width: 0;
+  }
+  .rich-text li[data-checked='true'] > div {
+    color: var(--ink-faint);
+  }
+  .rich-text a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .rich-text blockquote {
+    border-left: 2px solid var(--line);
+    padding-left: 0.75em;
+  }
+  .rich-text code {
+    border-radius: 0.25em;
+    background-color: var(--raised);
+    padding: 0 0.25em;
+    font-size: 0.9em;
+  }
+}

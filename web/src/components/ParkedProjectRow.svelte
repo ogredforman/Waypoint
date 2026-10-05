@@ -4,6 +4,7 @@
   import { activateCapMessage, atCap } from '../lib/projects'
   import { paths } from '../lib/router'
   import Button from './ui/Button.svelte'
+  import RichText from './ui/RichText.svelte'
 
   let {
     project,
@@ -46,7 +47,7 @@
   <div class="flex items-start gap-3">
     <div class="min-w-0 flex-1">
       <a href={paths.project(project.id)} class="text-ink hover:text-accent">{project.title}</a>
-      {#if project.why}<p class="mt-0.5 text-sm whitespace-pre-line text-ink-muted">{project.why}</p>{/if}
+      {#if project.why}<RichText value={project.why} class="mt-0.5 text-sm text-ink-muted" />{/if}
     </div>
     <Button variant="secondary" size="sm" class="shrink-0" disabled={full || saving} onclick={activate}>Activate</Button>
   </div>

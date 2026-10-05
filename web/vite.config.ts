@@ -35,6 +35,15 @@ export default defineConfig({
   build: {
     outDir,
     emptyOutDir: true,
+    // The rich text editor (ADR 0009) is its own chunk: it changes rarely, and keeping it apart
+    // leaves the size warning meaningful for the app's own code.
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [{ name: 'richtext', test: /node_modules[\\/](@tiptap|prosemirror-|marked|linkifyjs|orderedmap|rope-sequence|w3c-keyname)/ }],
+        },
+      },
+    },
   },
   server: {
     proxy: {

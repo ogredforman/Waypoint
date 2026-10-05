@@ -6,7 +6,8 @@
   import Button from './ui/Button.svelte'
   import Card from './ui/Card.svelte'
   import Input from './ui/Input.svelte'
-  import Textarea from './ui/Textarea.svelte'
+  import RichText from './ui/RichText.svelte'
+  import RichTextEditor from './ui/RichTextEditor.svelte'
 
   let { project, onsaved }: { project: Project; onsaved: (p: Project) => void } = $props()
 
@@ -82,15 +83,29 @@
       </div>
 
       <div>
-        <label for="edit-project-why" class="text-sm font-medium text-ink">Why it matters</label>
-        <Textarea id="edit-project-why" rows={2} bind:value={why} />
-        {#if problems.why}<p class="mt-1 text-sm text-accent">{problems.why}</p>{/if}
+        <span id="edit-project-why-label" class="text-sm font-medium text-ink">Why it matters</span>
+        <RichTextEditor
+          id="edit-project-why"
+          labelledby="edit-project-why-label"
+          bind:value={why}
+          invalid={!!problems.why}
+          describedby={problems.why ? 'edit-project-why-problem' : undefined}
+        />
+        {#if problems.why}<p id="edit-project-why-problem" class="mt-1 text-sm text-accent">{problems.why}</p>{/if}
       </div>
 
       <div>
-        <label for="edit-project-dod" class="text-sm font-medium text-ink">What "done" looks like</label>
-        <Textarea id="edit-project-dod" rows={2} bind:value={definitionOfDone} />
-        {#if problems.definition_of_done}<p class="mt-1 text-sm text-accent">{problems.definition_of_done}</p>{/if}
+        <span id="edit-project-dod-label" class="text-sm font-medium text-ink">What "done" looks like</span>
+        <RichTextEditor
+          id="edit-project-dod"
+          labelledby="edit-project-dod-label"
+          bind:value={definitionOfDone}
+          invalid={!!problems.definition_of_done}
+          describedby={problems.definition_of_done ? 'edit-project-dod-problem' : undefined}
+        />
+        {#if problems.definition_of_done}
+          <p id="edit-project-dod-problem" class="mt-1 text-sm text-accent">{problems.definition_of_done}</p>
+        {/if}
       </div>
 
       {#if notice}
@@ -112,14 +127,14 @@
     <dl class="mt-3 space-y-3">
       <div>
         <dt class="text-label font-medium tracking-wide text-ink-muted uppercase">Why it matters</dt>
-        <dd class="mt-0.5 whitespace-pre-line text-ink">
-          {#if project.why}{project.why}{:else}<span class="text-ink-faint">Not written yet.</span>{/if}
+        <dd class="mt-0.5 text-ink">
+          {#if project.why}<RichText value={project.why} />{:else}<span class="text-ink-faint">Not written yet.</span>{/if}
         </dd>
       </div>
       <div>
         <dt class="text-label font-medium tracking-wide text-ink-muted uppercase">What "done" looks like</dt>
-        <dd class="mt-0.5 whitespace-pre-line text-ink">
-          {#if project.definition_of_done}{project.definition_of_done}{:else}<span class="text-ink-faint">Not written yet.</span>{/if}
+        <dd class="mt-0.5 text-ink">
+          {#if project.definition_of_done}<RichText value={project.definition_of_done} />{:else}<span class="text-ink-faint">Not written yet.</span>{/if}
         </dd>
       </div>
     </dl>
