@@ -48,6 +48,10 @@
     }
   }
 
+  function changed(idea: Idea) {
+    ideas = (ideas ?? []).map((i) => (i.id === idea.id ? idea : i))
+  }
+
   function removed(id: number) {
     ideas = (ideas ?? []).filter((i) => i.id !== id)
   }
@@ -87,6 +91,7 @@
               removed(r.idea.id)
               onpromoted?.(r)
             }}
+            onchanged={changed}
             ondeleted={removed}
           />
         {/each}

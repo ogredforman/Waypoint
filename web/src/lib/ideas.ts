@@ -1,4 +1,4 @@
-import type { Idea, Project } from './api/types.gen'
+import type { Idea, Project, UpdateIdeaRequest } from './api/types.gen'
 import { pickable } from './projects'
 
 const targetOrder = { active: 0, paused: 1, parked: 2, done: 3, archived: 4 } as const
@@ -26,4 +26,18 @@ export function defaultTarget(idea: Idea, targets: Project[]): number | null {
 export function projectName(idea: Idea, projects: Project[]): string | null {
   if (idea.project_id === null) return null
   return projects.find((p) => p.id === idea.project_id)?.title ?? null
+}
+
+// IdeaForm is the edit form's fields; the body is markdown from the rich text editor.
+export type IdeaForm = { title: string; body: string }
+
+// ideaPatch builds the PATCH /api/ideas/{id} body from the edit form: only
+// the fields that changed, trimmed. It returns null when nothing changed.
+export function ideaPatch(idea: Idea, form: IdeaForm): UpdateIdeaRequest | null {
+  const req: UpdateIdeaRequest = {}
+  const title = form.title.trim()
+  const body = form.body.trim()
+  if (title !== idea.title) req.title = title
+  if (body !== idea.body) req.body = body
+  return Object.keys(req).length > 0 ? req : null
 }

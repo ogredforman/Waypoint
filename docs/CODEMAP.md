@@ -149,9 +149,9 @@ pieces. Tests sit next to the code as `*.test.ts`.
   From the diary: `components/ProjectDiary.svelte` (`listProjectObservations`, grouped by `observationTimeline`, "Show more", reloads on `entry.processed` too); `components/ProjectDiary.test.ts`.
 - Task detail: `screens/Task.svelte` (`GET /api/tasks/{id}`: fields, origin entry, linked observations grouped by entry
   via `lib/tasks.ts` `observationTimeline`; otherwise read-only, edits live on the Project screen) → `components/TaskSteps.svelte` (`TaskDetail.steps` as a checklist: add, tick done/todo, move, delete; `TaskSteps.test.ts`) and `components/TaskBlockers.svelte` (the task's open blockers from `TaskDetail.blockers`: resolve, delete, add on this task). `lib/entries.ts` `kindLabel`.
-- Parking lot: `screens/ParkingLot.svelte` (all parked ideas and parked projects) → `components/IdeaRow.svelte` (promote to a
+- Parking lot: `screens/ParkingLot.svelte` (all parked ideas and parked projects) → `components/IdeaRow.svelte` (edit title and body inline, `onchanged`; promote to a
   task in a chosen project or to a parked project, delete with confirmation; also used by `ProjectIdeas`) and
-  `ParkedProjectRow.svelte` (activate, calm cap handling). `lib/ideas.ts`: `promoteTargets`, `defaultTarget`, `projectName`;
+  `ParkedProjectRow.svelte` (activate, calm cap handling). `lib/ideas.ts`: `promoteTargets`, `defaultTarget`, `projectName`, `ideaPatch`; `IdeaRow.test.ts`;
   `lib/projects.ts` `parkedProjects`.
 - Settings: `screens/Settings.svelte` (`/settings`, linked from the header; one `<section>` per group, "Focus" first:
   active-project cap and questions per entry, saved as one PATCH of the changed fields; then "Appearance"; then "Profiles"). `lib/settings.ts`: `settingsPatch`,

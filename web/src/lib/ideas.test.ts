@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Idea, Project } from './api/types.gen'
-import { defaultTarget, projectName, promoteTargets } from './ideas'
+import { defaultTarget, ideaPatch, projectName, promoteTargets } from './ideas'
 
 function project(id: number, status: Project['status']): Project {
   return {
@@ -61,5 +61,18 @@ describe('projectName', () => {
     expect(projectName(idea(4), projects)).toBe('P4')
     expect(projectName(idea(null), projects)).toBeNull()
     expect(projectName(idea(99), projects)).toBeNull()
+  })
+})
+
+describe('ideaPatch', () => {
+  const i = { ...idea(null), title: 'Herb spiral', body: 'Near the **kitchen**' }
+
+  it('returns null when nothing changed', () => {
+    expect(ideaPatch(i, { title: ' Herb spiral ', body: 'Near the **kitchen**\n' })).toBeNull()
+  })
+
+  it('sends only the changed fields, trimmed', () => {
+    expect(ideaPatch(i, { title: ' Herb tower ', body: 'Near the **kitchen**' })).toEqual({ title: 'Herb tower' })
+    expect(ideaPatch(i, { title: 'Herb spiral', body: '' })).toEqual({ body: '' })
   })
 })

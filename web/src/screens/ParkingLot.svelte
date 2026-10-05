@@ -46,6 +46,10 @@
     if (r.project) projects = [...(projects ?? []), r.project]
   }
 
+  function changed(idea: Idea) {
+    ideas = (ideas ?? []).map((i) => (i.id === idea.id ? idea : i))
+  }
+
   function deleted(id: number) {
     ideas = (ideas ?? []).filter((i) => i.id !== id)
   }
@@ -84,7 +88,7 @@
         <Panel>
           <ul class="divide-y divide-line" aria-label="Parked ideas">
             {#each ideas as idea (idea.id)}
-              <IdeaRow {idea} {projects} showProject onpromoted={promoted} ondeleted={deleted} />
+              <IdeaRow {idea} {projects} showProject onpromoted={promoted} onchanged={changed} ondeleted={deleted} />
             {/each}
           </ul>
         </Panel>
