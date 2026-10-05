@@ -37,12 +37,12 @@ type fieldRef struct {
 // Tasks
 
 // CreateTask adds a task to a project. New tasks start as todo; a done task is
-// a create_task followed by set_task_status. Milestones are post-MVP, so
-// milestone_id is rejected for now.
+// a create_task followed by set_task_status. A milestone must be in the same
+// project.
 type CreateTask struct {
 	ProjectID    Ref              `json:"project_id"`
 	ParentTaskID *Ref             `json:"parent_task_id,omitempty"`
-	MilestoneID  *int64           `json:"milestone_id,omitempty"`
+	MilestoneID  *Ref             `json:"milestone_id,omitempty"`
 	Title        string           `json:"title"`
 	Notes        string           `json:"notes,omitempty"`
 	Size         *domain.TaskSize `json:"size,omitempty"`
@@ -50,7 +50,8 @@ type CreateTask struct {
 }
 
 // UpdateTask changes the fields that are present. Status changes go through
-// SetTaskStatus, not here. A null parent_task_id makes the task top-level.
+// SetTaskStatus, not here. A null parent_task_id makes the task top-level; a
+// null milestone_id takes it out of its milestone.
 type UpdateTask struct {
 	TaskID       Ref                       `json:"task_id"`
 	Title        *string                   `json:"title,omitempty"`
@@ -58,6 +59,7 @@ type UpdateTask struct {
 	Size         Nullable[domain.TaskSize] `json:"size,omitzero"`
 	Energy       Nullable[domain.Energy]   `json:"energy,omitzero"`
 	ParentTaskID Nullable[Ref]             `json:"parent_task_id,omitzero"`
+	MilestoneID  Nullable[Ref]             `json:"milestone_id,omitzero"`
 	Position     *int64                    `json:"position,omitempty"`
 }
 
@@ -174,6 +176,31 @@ type DeleteProject struct {
 	DeleteEntries bool `json:"delete_entries,omitempty"`
 }
 
+// Milestones
+
+// CreateMilestone adds an open milestone at the end of a project.
+type CreateMilestone struct {
+	ProjectID   Ref    `json:"project_id"`
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
+}
+
+// UpdateMilestone changes the fields that are present. Position orders the
+// milestone within its project.
+type UpdateMilestone struct {
+	MilestoneID Ref                     `json:"milestone_id"`
+	Title       *string                 `json:"title,omitempty"`
+	Description *string                 `json:"description,omitempty"`
+	Status      *domain.MilestoneStatus `json:"status,omitempty"`
+	Position    *int64                  `json:"position,omitempty"`
+}
+
+// DeleteMilestone removes a milestone for good. Its tasks stay in the project
+// with no milestone.
+type DeleteMilestone struct {
+	MilestoneID Ref `json:"milestone_id"`
+}
+
 // OpType
 
 func (CreateTask) OpType() domain.OpType     { return domain.OpCreateTask }
@@ -192,6 +219,9 @@ func (DeleteIdea) OpType() domain.OpType     { return domain.OpDeleteIdea }
 func (CreateProject) OpType() domain.OpType  { return domain.OpCreateProject }
 func (UpdateProject) OpType() domain.OpType  { return domain.OpUpdateProject }
 func (DeleteProject) OpType() domain.OpType  { return domain.OpDeleteProject }
+func (CreateMilestone) OpType() domain.OpType { return domain.OpCreateMilestone }
+func (UpdateMilestone) OpType() domain.OpType { return domain.OpUpdateMilestone }
+func (DeleteMilestone) OpType() domain.OpType { return domain.OpDeleteMilestone }
 
 // Creates
 
@@ -211,6 +241,9 @@ func (DeleteIdea) Creates() (domain.TargetType, bool)     { return "", false }
 func (CreateProject) Creates() (domain.TargetType, bool)  { return domain.TargetProject, true }
 func (UpdateProject) Creates() (domain.TargetType, bool)  { return "", false }
 func (DeleteProject) Creates() (domain.TargetType, bool)  { return "", false }
+func (CreateMilestone) Creates() (domain.TargetType, bool) { return domain.TargetMilestone, true }
+func (UpdateMilestone) Creates() (domain.TargetType, bool) { return "", false }
+func (DeleteMilestone) Creates() (domain.TargetType, bool) { return "", false }
 
 // FieldRef is one ref set in a payload: the JSON field it came from and the
 // kind of row it must point at.
@@ -248,13 +281,15 @@ func appendNullable(out []fieldRef, field string, kind domain.TargetType, n Null
 }
 
 func (p CreateTask) refs() []fieldRef {
-	return appendOpt([]fieldRef{one("project_id", domain.TargetProject, p.ProjectID)},
+	out := appendOpt([]fieldRef{one("project_id", domain.TargetProject, p.ProjectID)},
 		"parent_task_id", domain.TargetTask, p.ParentTaskID)
+	return appendOpt(out, "milestone_id", domain.TargetMilestone, p.MilestoneID)
 }
 
 func (p UpdateTask) refs() []fieldRef {
-	return appendNullable([]fieldRef{one("task_id", domain.TargetTask, p.TaskID)},
+	out := appendNullable([]fieldRef{one("task_id", domain.TargetTask, p.TaskID)},
 		"parent_task_id", domain.TargetTask, p.ParentTaskID)
+	return appendNullable(out, "milestone_id", domain.TargetMilestone, p.MilestoneID)
 }
 
 func (p SetTaskStatus) refs() []fieldRef {
@@ -317,14 +352,23 @@ func (p DeleteProject) refs() []fieldRef {
 	return []fieldRef{one("project_id", domain.TargetProject, p.ProjectID)}
 }
 
+func (p CreateMilestone) refs() []fieldRef {
+	return []fieldRef{one("project_id", domain.TargetProject, p.ProjectID)}
+}
+
+func (p UpdateMilestone) refs() []fieldRef {
+	return []fieldRef{one("milestone_id", domain.TargetMilestone, p.MilestoneID)}
+}
+
+func (p DeleteMilestone) refs() []fieldRef {
+	return []fieldRef{one("milestone_id", domain.TargetMilestone, p.MilestoneID)}
+}
+
 // Validate
 
 func (p CreateTask) Validate() error {
 	var c checker
 	c.refs(p.refs())
-	if p.MilestoneID != nil {
-		c.add("milestone_id", "milestones aren't supported yet")
-	}
 	c.notBlank("title", p.Title)
 	optEnum(&c, "size", p.Size)
 	optEnum(&c, "energy", p.Energy)
@@ -344,7 +388,7 @@ func (p UpdateTask) Validate() error {
 		c.add("parent_task_id", "a task can't be its own parent")
 	}
 	if p.Title == nil && p.Notes == nil && !p.Size.Set && !p.Energy.Set &&
-		!p.ParentTaskID.Set && p.Position == nil {
+		!p.ParentTaskID.Set && !p.MilestoneID.Set && p.Position == nil {
 		c.add("payload", "changes nothing")
 	}
 	return c.err(p.OpType())
@@ -463,6 +507,33 @@ func (p DeleteProject) Validate() error {
 	return c.err(p.OpType())
 }
 
+func (p CreateMilestone) Validate() error {
+	var c checker
+	c.refs(p.refs())
+	c.notBlank("title", p.Title)
+	return c.err(p.OpType())
+}
+
+func (p UpdateMilestone) Validate() error {
+	var c checker
+	c.refs(p.refs())
+	c.optNotBlank("title", p.Title)
+	optEnum(&c, "status", p.Status)
+	if p.Position != nil && *p.Position < 0 {
+		c.add("position", "must not be negative, got %d", *p.Position)
+	}
+	if p.Title == nil && p.Description == nil && p.Status == nil && p.Position == nil {
+		c.add("payload", "changes nothing")
+	}
+	return c.err(p.OpType())
+}
+
+func (p DeleteMilestone) Validate() error {
+	var c checker
+	c.refs(p.refs())
+	return c.err(p.OpType())
+}
+
 // Decoding
 
 // DecodePayload decodes and validates the payload of an op of type t. Unknown
@@ -503,6 +574,12 @@ func DecodePayload(t domain.OpType, raw json.RawMessage) (Payload, error) {
 		return decode[UpdateProject](raw)
 	case domain.OpDeleteProject:
 		return decode[DeleteProject](raw)
+	case domain.OpCreateMilestone:
+		return decode[CreateMilestone](raw)
+	case domain.OpUpdateMilestone:
+		return decode[UpdateMilestone](raw)
+	case domain.OpDeleteMilestone:
+		return decode[DeleteMilestone](raw)
 	}
 	var c checker
 	c.enum("op_type", false)

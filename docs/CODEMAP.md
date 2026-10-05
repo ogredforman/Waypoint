@@ -49,8 +49,9 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   (defaults if no row), `Store.SeedSettings` (insert if missing), `Tx.UpdateSettings`. Pending observation links (to `$new:N`,
   keyed by change op): `CreatePendingLink`, `ListPendingLinksByOp`, `ResolvePendingLinks`, `DropPendingLinks`.
   Profile row (`profile.go`): `GetProfile` (name, created), `Tx.SetProfileName`.
+  Milestones (`milestones.go`): `GetMilestone`, `ListMilestonesByProject`, `Tx.CreateMilestone` (appends), `UpdateMilestone`, `DeleteMilestone` (tasks keep no milestone, links removed).
 - **changeset**: every mutation of projects/tasks/blockers/ideas. `ops.go`: one payload struct per
-  op type (`CreateTask`, `UpdateTask`, `SplitTask`, `DeleteTask`, `ParkIdea`, …) implementing
+  op type (`CreateTask`, `UpdateTask`, `SplitTask`, `DeleteTask`, `ParkIdea`, `CreateMilestone`, …) implementing
   `Payload`; `DecodePayload`, `ValidateOps`; `Nullable[T]` (`To`, `Clear`) for PATCH-style fields.
   `ref.go`: `Ref` (`ID(n)` or `Temp(pos)` for `$new:N`), `CheckRefs`. `validate.go`: cross-row
   rules (same project, no parent cycles). `apply.go`: `Applier.Apply(ctx, changesetID,
@@ -189,7 +190,7 @@ All use a real temp SQLite DB migrated with `db.Migrations()`.
 
 - `store/store_test.go`: `newTestStore(t) (*Store, *sql.DB, *clock)`, `inTx`, `exec`, `count`,
   `seedProject`, `seedTask`, `seedEntry`, `seedRun`. `delete_test.go`: `linkTo`.
-- `changeset/apply_test.go`: `newFixture(t) fixture` (in `validate_test.go`, with `withCap(t, s, limit, after)`), `propose(t, f, runID, ops...)`, `newRun`,
+- `changeset/apply_test.go`: `newFixture(t) fixture` (in `validate_test.go`, two projects with tasks, blockers, an idea, and a milestone each (`mA`, `mB`); with `withCap(t, s, limit, after)`), `propose(t, f, runID, ops...)`, `newRun`,
   `opStatuses`, `taskCount`, `dbSnapshot` (rollback checks). `links_test.go`: `observeOps` (pending
   links to every op's entity), `linkedFrom`, `pendingLinks`. `validate_test.go`: `fields(t, err)`. `project_delete_test.go`: `scopedEntries`.
 - `pipeline/snapshot_test.go`: `newFixture(t)` with `f.project/task/blocker/idea/entry/observe`.

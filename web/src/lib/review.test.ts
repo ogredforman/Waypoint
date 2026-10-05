@@ -144,6 +144,15 @@ group('describe', () => {
     expect(describe(keep, [keep], {})).toBe('Delete project “Garden”')
     expect(describe(drop, [drop], {})).toBe('Delete project “Garden” and its diary entries')
   })
+
+  it('describes milestone ops', () => {
+    const create = op(1, 'create_milestone', { project_id: 7, title: 'MVP' })
+    const update = op(2, 'update_milestone', { milestone_id: 3, status: 'done' }, { 'milestone:3': 'Beta' })
+    const del = op(3, 'delete_milestone', { milestone_id: 3 }, { 'milestone:3': 'Beta' })
+    expect(describe(create, [create], {})).toBe('New milestone: MVP')
+    expect(describe(update, [update], {})).toBe('Change milestone “Beta” (status)')
+    expect(describe(del, [del], {})).toBe('Delete milestone “Beta”')
+  })
 })
 
 group('editing', () => {

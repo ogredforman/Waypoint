@@ -59,7 +59,7 @@ These are requirements, not suggestions. Agents should treat violations as bugs.
 | Entity | Purpose | Key fields |
 |---|---|---|
 | **Project** | A goal the user is pursuing | `title`, `why` (motivation), `definition_of_done` (both markdown), `status` (active / paused / parked / done / archived), timestamps. An archived project is kept for the record but hidden from the Now screen, lists, project pickers, and the extraction snapshot ([ADR 0006](./adr/0006-archived-projects.md)) |
-| **Milestone** | *Post-MVP.* An outcome-shaped chunk of a project | `project_id`, `title`, `description`, `status` (open / done / dropped), `position` |
+| **Milestone** | An outcome-shaped chunk of a project | `project_id`, `title`, `description`, `status` (open / done / dropped), `position` |
 | **Task** | A concrete action the user does | `project_id`, `milestone_id?`, `parent_task_id?`, `title`, `notes` (markdown), `status` (todo / in_progress / done / dropped), `size?` (xs / s / m / l), `energy?` (low / medium / deep), `position`, `origin_entry_id?`, timestamps |
 | **Task dependency** | One task blocks another | `task_id`, `blocked_by_task_id` |
 | **Entry** | A diary entry. Immutable. | `body` (markdown text), `project_id?` (user-chosen scope, or null for auto), `reply_to_question_id?`, `created_at`. (Self-reported mood and energy are deferred to Stage 3; feelings are captured as `feeling` observations.) |
@@ -81,7 +81,7 @@ Validation in `internal/domain` enforces two rules the schema doesn't: a blocker
 Ops are the only way extraction output mutates state. Each op payload is typed and validated server-side.
 
 Tasks:
-- `create_task`: {project_id, title, notes?, size?, energy?, parent_task_id?, milestone_id?} (starts as `todo`; `milestone_id` is rejected until milestones exist)
+- `create_task`: {project_id, title, notes?, size?, energy?, parent_task_id?, milestone_id?} (starts as `todo`)
 - `update_task`: {task_id, title?, notes?, size?, energy?, parent_task_id?, position?} (`position` orders the task within its project's task list; status changes go through `set_task_status`)
 - `set_task_status`: {task_id, status}
 - `split_task`: {task_id, subtasks[]} (breaks a vague task into startable steps, created as its subtasks)
@@ -99,18 +99,25 @@ Ideas:
 - `update_idea`: {idea_id, title?, body?, project_id?, status?} (promoting an idea is a status change plus the op that creates the task or project)
 - `delete_idea`: {idea_id}
 
+Milestones:
+- `create_milestone`: {project_id, title, description?} (starts `open`, at the end of the project's milestones)
+- `update_milestone`: {milestone_id, title?, description?, status?, position?} (`position` orders the milestone within its project)
+- `delete_milestone`: {milestone_id}
+
+Extraction can't propose milestone ops yet; the shared validator rejects them until the Stage 2 prompt can.
+
 Projects:
 - `create_project`: {title, why?} (always created as `parked`)
 - `update_project`: {project_id, title?, why?, definition_of_done?, status?} (a status change to `active` is subject to the active-project cap)
 - `delete_project`: {project_id, delete_entries?} (manual only: extraction never proposes it, and the shared validator rejects it)
 
-The update ops change only the fields present in the payload. For the optional references and enums (`size`, `energy`, `parent_task_id`, a blocker's `task_id`, an idea's `project_id`), `null` clears the field. Unknown fields are rejected. A manual "create an active project" is `create_project` followed by `update_project` in the same changeset.
+The update ops change only the fields present in the payload. For the optional references and enums (`size`, `energy`, `parent_task_id`, a task's `milestone_id`, a blocker's `task_id`, an idea's `project_id`), `null` clears the field. Unknown fields are rejected. A manual "create an active project" is `create_project` followed by `update_project` in the same changeset.
 
 References to entities created earlier in the same changeset use temporary IDs: `"$new:N"` names the entity created by the op at position `N` (positions start at 1). The referenced op must come earlier and create the right kind of entity; `split_task` subtasks can't be referenced. Temporary IDs are resolved at apply time. An observation's link may also name a temporary ID: it is stored as a pending link on the creating op, becomes a real link when that op is applied (as is or edited), follows the op if it is split off, and is dropped if the op is rejected.
 
-Beyond the shape, ops are checked against the current state just before they are applied: referenced rows exist, a parent task or a blocker's task is in the same project, a dependency's tasks are in the same project, and a new parent doesn't create a parent-task cycle.
+Beyond the shape, ops are checked against the current state just before they are applied: referenced rows exist, a parent task, a blocker's task, or a task's milestone is in the same project, a dependency's tasks are in the same project, and a new parent doesn't create a parent-task cycle.
 
-Deleting removes the row for good ([ADR 0002](./adr/0002-deleting-tasks-blockers-ideas.md)); the softer option is a status (dropped, resolved, discarded). Deleting a task makes its subtasks top-level, removes its dependencies, keeps its blockers on the project without a task, clears it from briefings, and removes observation links to it. Deleting a blocker or idea removes the links to it. Observations and entries are never deleted by an op; deleting an entry is its own action (§7.1, [ADR 0007](./adr/0007-deleting-entries.md)). Deleting a project ([ADR 0008](./adr/0008-deleting-projects.md)) removes it with its tasks, blockers, ideas, milestones, and briefing, and the observation links to any of them. The entries scoped to it are kept, unscoped with their text untouched, unless `delete_entries` is set, in which case each is deleted as §7.1 describes, in the same transaction; that is refused (`run_in_progress`) while one of their runs is running. Parking, finishing, or archiving stays the softer option. The applier records the deleted row in the op's `applied_payload`.
+Deleting removes the row for good ([ADR 0002](./adr/0002-deleting-tasks-blockers-ideas.md)); the softer option is a status (dropped, resolved, discarded). Deleting a task makes its subtasks top-level, removes its dependencies, keeps its blockers on the project without a task, clears it from briefings, and removes observation links to it. Deleting a blocker or idea removes the links to it. Deleting a milestone keeps its tasks in the project with no milestone and removes the links to it. Observations and entries are never deleted by an op; deleting an entry is its own action (§7.1, [ADR 0007](./adr/0007-deleting-entries.md)). Deleting a project ([ADR 0008](./adr/0008-deleting-projects.md)) removes it with its tasks, blockers, ideas, milestones, and briefing, and the observation links to any of them. The entries scoped to it are kept, unscoped with their text untouched, unless `delete_entries` is set, in which case each is deleted as §7.1 describes, in the same transaction; that is refused (`run_in_progress`) while one of their runs is running. Parking, finishing, or archiving stays the softer option. The applier records the deleted row in the op's `applied_payload`.
 
 ### 6.3 Relationships (overview)
 

@@ -212,6 +212,7 @@ const fieldNames: Record<string, string> = {
   size: 'size',
   energy: 'energy',
   parent_task_id: 'parent task',
+  milestone_id: 'milestone',
   position: 'order',
   description: 'description',
   task_id: 'task',
@@ -269,6 +270,12 @@ export function describe(op: ChangeOp, ops: ChangeOp[], choices: Choices): strin
       return `Change project ${name('project', p.project_id)}${changed(p, 'project_id')}`
     case 'delete_project':
       return `Delete project ${name('project', p.project_id)}${p.delete_entries === true ? ' and its diary entries' : ''}`
+    case 'create_milestone':
+      return `New milestone: ${text(p.title)}`
+    case 'update_milestone':
+      return `Change milestone ${name('milestone', p.milestone_id)}${changed(p, 'milestone_id')}`
+    case 'delete_milestone':
+      return `Delete milestone ${name('milestone', p.milestone_id)}`
   }
 }
 

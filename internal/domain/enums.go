@@ -26,7 +26,7 @@ func ProjectStatuses() []ProjectStatus {
 
 func (s ProjectStatus) Valid() bool { return slices.Contains(ProjectStatuses(), s) }
 
-// MilestoneStatus is the lifecycle state of a milestone (post-MVP).
+// MilestoneStatus is the lifecycle state of a milestone.
 type MilestoneStatus string
 
 const (
@@ -241,6 +241,10 @@ const (
 	OpCreateProject  OpType = "create_project"
 	OpUpdateProject  OpType = "update_project"
 	OpDeleteProject  OpType = "delete_project"
+
+	OpCreateMilestone OpType = "create_milestone"
+	OpUpdateMilestone OpType = "update_milestone"
+	OpDeleteMilestone OpType = "delete_milestone"
 )
 
 func OpTypes() []OpType {
@@ -249,6 +253,7 @@ func OpTypes() []OpType {
 		OpCreateBlocker, OpUpdateBlocker, OpResolveBlocker, OpDeleteBlocker,
 		OpParkIdea, OpUpdateIdea, OpDeleteIdea,
 		OpCreateProject, OpUpdateProject, OpDeleteProject,
+		OpCreateMilestone, OpUpdateMilestone, OpDeleteMilestone,
 	}
 }
 

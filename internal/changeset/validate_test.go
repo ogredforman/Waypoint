@@ -85,14 +85,15 @@ func TestValidateOps(t *testing.T) {
 
 // fixture is a migrated temp database with two projects:
 //
-//	project A: tasks a1 > a2 > a3 (parent chain), a4; blocker bA on a1; idea iA
-//	project B: task b1; blocker bB
+//	project A: tasks a1 > a2 > a3 (parent chain), a4; blocker bA on a1; idea iA; milestone mA
+//	project B: task b1; blocker bB; milestone mB
 type fixture struct {
 	db                 *sql.DB
 	s                  *store.Store
 	projA, projB       int64
 	a1, a2, a3, a4, b1 int64
 	bA, bB, iA         int64
+	mA, mB             int64
 }
 
 func newFixture(t *testing.T) fixture {
@@ -142,6 +143,16 @@ func newFixture(t *testing.T) fixture {
 		f.b1 = task(f.projB, nil)
 		f.bA = blocker(f.projA, &f.a1)
 		f.bB = blocker(f.projB, nil)
+		for _, m := range []struct {
+			project int64
+			id      *int64
+		}{{f.projA, &f.mA}, {f.projB, &f.mB}} {
+			created, err := tx.CreateMilestone(ctx, domain.Milestone{ProjectID: m.project, Title: "m", Status: domain.MilestoneOpen})
+			if err != nil {
+				t.Fatal(err)
+			}
+			*m.id = created.ID
+		}
 		i, err := tx.CreateIdea(ctx, domain.Idea{ProjectID: &f.projA, Title: "i", Status: domain.IdeaParked})
 		f.iA = i.ID
 		return err
@@ -169,6 +180,7 @@ func TestCheckRefs(t *testing.T) {
 		{"missing task", SetTaskStatus{TaskID: ID(missing), Status: domain.TaskDone}, []string{"task_id"}},
 		{"missing blocker", ResolveBlocker{BlockerID: ID(missing)}, []string{"blocker_id"}},
 		{"missing idea", DeleteIdea{IdeaID: ID(missing)}, []string{"idea_id"}},
+		{"missing milestone", DeleteMilestone{MilestoneID: ID(missing)}, []string{"milestone_id"}},
 		{"missing optional", ParkIdea{ProjectID: ptr(ID(missing)), Title: "x"}, []string{"project_id"}},
 		{"cleared ref not checked", UpdateBlocker{BlockerID: ID(f.bA), TaskID: Clear[Ref]()}, nil},
 
@@ -188,6 +200,13 @@ func TestCheckRefs(t *testing.T) {
 		{"dependency other project", AddDependency{TaskID: ID(f.a1), BlockedByTaskID: ID(f.b1)}, []string{"blocked_by_task_id"}},
 		{"dependency self after resolve", AddDependency{TaskID: ID(f.a4), BlockedByTaskID: Temp(1)}, []string{"blocked_by_task_id"}},
 		{"update task parent other project", UpdateTask{TaskID: ID(f.a4), ParentTaskID: To(ID(f.b1))}, []string{"parent_task_id"}},
+		{"create task milestone same project", CreateTask{ProjectID: ID(f.projA), MilestoneID: ptr(ID(f.mA)), Title: "x"}, nil},
+		{"create task milestone other project", CreateTask{ProjectID: ID(f.projA), MilestoneID: ptr(ID(f.mB)), Title: "x"}, []string{"milestone_id"}},
+		{"update task milestone same project", UpdateTask{TaskID: ID(f.a4), MilestoneID: To(ID(f.mA))}, nil},
+		{"update task milestone other project", UpdateTask{TaskID: ID(f.a4), MilestoneID: To(ID(f.mB))}, []string{"milestone_id"}},
+		{"update temp task milestone", UpdateTask{TaskID: Temp(1), MilestoneID: To(ID(f.mA))}, nil},
+		{"clear task milestone", UpdateTask{TaskID: ID(f.a4), MilestoneID: Clear[Ref]()}, nil},
+		{"create milestone", CreateMilestone{ProjectID: Temp(2), Title: "x"}, nil},
 
 		// cycles
 		{"reparent to sibling", UpdateTask{TaskID: ID(f.a4), ParentTaskID: To(ID(f.a3))}, nil},

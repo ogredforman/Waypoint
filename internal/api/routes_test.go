@@ -955,10 +955,11 @@ func TestRequestTypesMatchOps(t *testing.T) {
 			with(jsonFields(changeset.CreateProject{}), "definition_of_done", "status")},
 		{"UpdateProjectRequest", apitypes.UpdateProjectRequest{},
 			without(jsonFields(changeset.UpdateProject{}), "project_id")},
+		// milestone_id joins the task requests with the milestone API (PLAN 1.5.18b).
 		{"CreateTaskRequest", apitypes.CreateTaskRequest{},
 			with(without(jsonFields(changeset.CreateTask{}), "project_id", "milestone_id"), "status")},
 		{"UpdateTaskRequest", apitypes.UpdateTaskRequest{},
-			with(without(jsonFields(changeset.UpdateTask{}), "task_id"), "status")},
+			with(without(jsonFields(changeset.UpdateTask{}), "task_id", "milestone_id"), "status")},
 		{"CreateBlockerRequest", apitypes.CreateBlockerRequest{},
 			without(jsonFields(changeset.CreateBlocker{}), "project_id")},
 		{"UpdateBlockerRequest", apitypes.UpdateBlockerRequest{},

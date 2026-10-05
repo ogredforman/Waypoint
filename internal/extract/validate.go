@@ -180,6 +180,12 @@ func (c *checker) ops(snap StateSnapshot, drafts []ChangeOpDraft) ([]changeset.P
 		if d.OpType == domain.OpDeleteProject {
 			c.add(fmt.Sprintf("ops[%d].op_type", i+1), "extraction can't delete a project")
 		}
+		// Milestones come from the user until the Stage 2 prompt can propose
+		// them; the snapshot doesn't carry them yet either.
+		switch d.OpType {
+		case domain.OpCreateMilestone, domain.OpUpdateMilestone, domain.OpDeleteMilestone:
+			c.add(fmt.Sprintf("ops[%d].op_type", i+1), "extraction can't propose milestones yet")
+		}
 	}
 
 	payloads, err := changeset.ValidateOps(ops)

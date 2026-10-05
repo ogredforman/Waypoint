@@ -202,3 +202,25 @@ func TestApplyReadsCapFromSettings(t *testing.T) {
 		t.Errorf("got %v, want ActiveCapError 3 of 1", err)
 	}
 }
+
+func TestApplyManualTaskMilestone(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	a := NewApplier(f.s, nil)
+	if _, err := a.ApplyManual(ctx, UpdateTask{TaskID: ID(f.a1), MilestoneID: To(ID(f.mA))}); err != nil {
+		t.Fatal(err)
+	}
+	if tk := must(f.s.GetTask(ctx, f.a1))(t); tk.MilestoneID == nil || *tk.MilestoneID != f.mA {
+		t.Fatalf("task %+v, want it in milestone %d", tk, f.mA)
+	}
+	if _, err := a.ApplyManual(ctx, UpdateTask{TaskID: ID(f.a1), MilestoneID: Clear[Ref]()}); err != nil {
+		t.Fatal(err)
+	}
+	if tk := must(f.s.GetTask(ctx, f.a1))(t); tk.MilestoneID != nil {
+		t.Errorf("task %+v, want no milestone after clearing it", tk)
+	}
+	_, err := a.ApplyManual(ctx, UpdateTask{TaskID: ID(f.a1), MilestoneID: To(ID(f.mB))})
+	if got := fields(t, err); !slices.Equal(got, []string{"milestone_id"}) {
+		t.Errorf("milestone of another project: %v, want a milestone_id problem", err)
+	}
+}

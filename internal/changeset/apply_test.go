@@ -255,6 +255,36 @@ func TestApplyOps(t *testing.T) {
 				t.Errorf("idea still there: %v", err)
 			}
 		}, `"status":"parked"`},
+		{"create task in milestone", func(f fixture) domain.ChangeOp {
+			return op(1, domain.OpCreateTask, jsonf(`{"project_id":%d,"title":"x","milestone_id":%d}`, f.projA, f.mA))
+		}, func(t *testing.T, f fixture) {
+			tasks := must(f.s.ListTasksByProject(ctx, f.projA))(t)
+			if tk := tasks[len(tasks)-1]; tk.MilestoneID == nil || *tk.MilestoneID != f.mA {
+				t.Errorf("task %+v, want it in milestone %d", tk, f.mA)
+			}
+		}, ""},
+		{"move task into milestone", func(f fixture) domain.ChangeOp {
+			return op(1, domain.OpUpdateTask, jsonf(`{"task_id":%d,"milestone_id":%d}`, f.a1, f.mA))
+		}, func(t *testing.T, f fixture) {
+			if tk := must(f.s.GetTask(ctx, f.a1))(t); tk.MilestoneID == nil || *tk.MilestoneID != f.mA {
+				t.Errorf("task %+v, want it in milestone %d", tk, f.mA)
+			}
+		}, ""},
+		{"update milestone", func(f fixture) domain.ChangeOp {
+			return op(1, domain.OpUpdateMilestone, jsonf(`{"milestone_id":%d,"title":"MVP","description":"d","status":"dropped","position":4}`, f.mA))
+		}, func(t *testing.T, f fixture) {
+			m := must(f.s.GetMilestone(ctx, f.mA))(t)
+			if m.Title != "MVP" || m.Description != "d" || m.Status != domain.MilestoneDropped || m.Position != 4 {
+				t.Errorf("milestone %+v", m)
+			}
+		}, ""},
+		{"delete milestone", func(f fixture) domain.ChangeOp {
+			return op(1, domain.OpDeleteMilestone, jsonf(`{"milestone_id":%d}`, f.mA))
+		}, func(t *testing.T, f fixture) {
+			if _, err := f.s.GetMilestone(ctx, f.mA); !errors.Is(err, store.ErrNotFound) {
+				t.Errorf("milestone still there: %v", err)
+			}
+		}, `"status":"open"`},
 		{"update project", func(f fixture) domain.ChangeOp {
 			return op(1, domain.OpUpdateProject, jsonf(`{"project_id":%d,"title":"A2","why":"w","definition_of_done":"d","status":"done"}`, f.projA))
 		}, func(t *testing.T, f fixture) {
@@ -758,6 +788,12 @@ func everyOpType(f fixture) []domain.ChangeOp {
 		op(16, domain.OpDeleteBlocker, jsonf(`{"blocker_id":%d}`, f.bB)),
 		op(17, domain.OpDeleteIdea, `{"idea_id":"$new:13"}`),
 		op(18, domain.OpDeleteProject, jsonf(`{"project_id":%d,"delete_entries":true}`, f.projB)),
+		op(19, domain.OpCreateMilestone, `{"project_id":"$new:1","title":"First bed"}`),
+		op(20, domain.OpCreateMilestone, `{"project_id":"$new:1","title":"Orchard","description":"later"}`),
+		op(21, domain.OpCreateTask, `{"project_id":"$new:1","title":"Harvest","milestone_id":"$new:19"}`),
+		op(22, domain.OpUpdateTask, `{"task_id":"$new:4","milestone_id":"$new:20"}`),
+		op(23, domain.OpUpdateMilestone, `{"milestone_id":"$new:19","status":"done","position":5}`),
+		op(24, domain.OpDeleteMilestone, `{"milestone_id":"$new:20"}`),
 	}
 }
 
@@ -832,6 +868,19 @@ func TestApplyEveryOpType(t *testing.T) {
 	}
 	if _, err := f.s.GetTask(ctx, f.b1); !errors.Is(err, store.ErrNotFound) {
 		t.Errorf("task b1: %v, want deleted with its project", err)
+	}
+	bed := res.Created[19]
+	if m := must(f.s.GetMilestone(ctx, bed))(t); m.ProjectID != garden.ID || m.Status != domain.MilestoneDone || m.Position != 5 {
+		t.Errorf("milestone %+v", m)
+	}
+	if tk := must(f.s.GetTask(ctx, res.Created[21]))(t); tk.MilestoneID == nil || *tk.MilestoneID != bed {
+		t.Errorf("harvest %+v, want it in milestone %d", tk, bed)
+	}
+	if _, err := f.s.GetMilestone(ctx, res.Created[20]); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("milestone orchard: %v, want deleted", err)
+	}
+	if tk := must(f.s.GetTask(ctx, plant))(t); tk.MilestoneID != nil {
+		t.Errorf("plant %+v, want no milestone after its milestone was deleted", tk)
 	}
 }
 

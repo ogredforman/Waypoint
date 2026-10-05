@@ -119,6 +119,7 @@ type Reader interface {
 	GetTask(ctx context.Context, id int64) (domain.Task, error)
 	GetBlocker(ctx context.Context, id int64) (domain.Blocker, error)
 	GetIdea(ctx context.Context, id int64) (domain.Idea, error)
+	GetMilestone(ctx context.Context, id int64) (domain.Milestone, error)
 }
 
 // TempIDs maps the position of an applied creating op to the ID of the row it
@@ -141,18 +142,19 @@ const maxTaskDepth = 10000
 
 // CheckRefs checks p against the current state, which includes the ops of
 // the changeset applied before it: every ref resolves and points at an
-// existing row; a parent task or a blocker's task is in the same project; a
-// dependency's tasks are in the same project and differ; and a new parent
-// doesn't make a cycle. The applier calls it inside the apply transaction,
+// existing row; a parent task, a blocker's task, or a task's milestone is in
+// the same project; a dependency's tasks are in the same project and differ;
+// and a new parent doesn't make a cycle. The applier calls it inside the apply transaction,
 // just before applying p. Problems come back as a *domain.ValidationError;
 // any other error is a failed read.
 func CheckRefs(ctx context.Context, r Reader, p Payload, ids TempIDs) error {
 	k := refChecker{
-		r:        r,
-		ids:      map[string]int64{},
-		tasks:    map[string]domain.Task{},
-		blockers: map[string]domain.Blocker{},
-		ideas:    map[string]domain.Idea{},
+		r:          r,
+		ids:        map[string]int64{},
+		tasks:      map[string]domain.Task{},
+		blockers:   map[string]domain.Blocker{},
+		ideas:      map[string]domain.Idea{},
+		milestones: map[string]domain.Milestone{},
 	}
 	for _, fr := range p.refs() {
 		if err := k.load(ctx, fr, ids); err != nil {
@@ -167,12 +169,13 @@ func CheckRefs(ctx context.Context, r Reader, p Payload, ids TempIDs) error {
 
 // refChecker holds the rows CheckRefs loaded, keyed by payload field.
 type refChecker struct {
-	r        Reader
-	c        checker
-	ids      map[string]int64
-	tasks    map[string]domain.Task
-	blockers map[string]domain.Blocker
-	ideas    map[string]domain.Idea
+	r          Reader
+	c          checker
+	ids        map[string]int64
+	tasks      map[string]domain.Task
+	blockers   map[string]domain.Blocker
+	ideas      map[string]domain.Idea
+	milestones map[string]domain.Milestone
 }
 
 func (k *refChecker) load(ctx context.Context, fr fieldRef, temp TempIDs) error {
@@ -204,6 +207,11 @@ func (k *refChecker) load(ctx context.Context, fr fieldRef, temp TempIDs) error 
 		if i, err = k.r.GetIdea(ctx, id); err == nil {
 			k.ideas[fr.field] = i
 		}
+	case domain.TargetMilestone:
+		var m domain.Milestone
+		if m, err = k.r.GetMilestone(ctx, id); err == nil {
+			k.milestones[fr.field] = m
+		}
 	default:
 		return fmt.Errorf("check %s: unexpected ref kind %q", fr.field, fr.kind)
 	}
@@ -224,6 +232,11 @@ func (k *refChecker) rules(ctx context.Context, p Payload) error {
 	switch p := p.(type) {
 	case CreateTask:
 		k.sameProject("parent_task_id", "parent task", "project_id")
+		m, okM := k.milestones["milestone_id"]
+		projectID, okP := k.ids["project_id"]
+		if okM && okP && m.ProjectID != projectID {
+			k.c.add("milestone_id", "milestone %d is in another project", m.ID)
+		}
 	case CreateBlocker:
 		k.sameProject("task_id", "task", "project_id")
 	case UpdateBlocker:
@@ -255,6 +268,9 @@ func (k *refChecker) rules(ctx context.Context, p Payload) error {
 		}
 	case UpdateTask:
 		t, okT := k.tasks["task_id"]
+		if m, okM := k.milestones["milestone_id"]; okT && okM && m.ProjectID != t.ProjectID {
+			k.c.add("milestone_id", "milestone %d is in another project", m.ID)
+		}
 		parent, okP := k.tasks["parent_task_id"]
 		if !okT || !okP {
 			return nil

@@ -42,7 +42,8 @@ func TestDecodePayload(t *testing.T) {
 		{"create task blank title", domain.OpCreateTask, `{"project_id":1,"title":"  "}`, []string{"title"}},
 		{"create task bad enums", domain.OpCreateTask,
 			`{"project_id":1,"title":"x","size":"xl","energy":"high"}`, []string{"size", "energy"}},
-		{"create task milestone", domain.OpCreateTask, `{"project_id":1,"title":"x","milestone_id":1}`, []string{"milestone_id"}},
+		{"create task milestone", domain.OpCreateTask, `{"project_id":1,"title":"x","milestone_id":"$new:2"}`, nil},
+		{"create task bad milestone", domain.OpCreateTask, `{"project_id":1,"title":"x","milestone_id":0}`, []string{"milestone_id"}},
 		{"create task bad refs", domain.OpCreateTask,
 			`{"project_id":"$new:x","title":"x","parent_task_id":-2}`, []string{"project_id", "parent_task_id"}},
 		{"create task status", domain.OpCreateTask, `{"project_id":1,"title":"x","status":"done"}`, []string{"status"}},
@@ -51,6 +52,8 @@ func TestDecodePayload(t *testing.T) {
 		{"update task", domain.OpUpdateTask,
 			`{"task_id":1,"title":"t","notes":"","size":null,"energy":"deep","parent_task_id":null,"position":0}`, nil},
 		{"update task parent", domain.OpUpdateTask, `{"task_id":1,"parent_task_id":2}`, nil},
+		{"update task milestone", domain.OpUpdateTask, `{"task_id":1,"milestone_id":3}`, nil},
+		{"update task clear milestone", domain.OpUpdateTask, `{"task_id":1,"milestone_id":null}`, nil},
 		{"update task nothing", domain.OpUpdateTask, `{"task_id":1}`, []string{"payload"}},
 		{"update task own parent", domain.OpUpdateTask, `{"task_id":"$new:1","parent_task_id":"$new:1"}`, []string{"parent_task_id"}},
 		{"update task bad values", domain.OpUpdateTask,
@@ -119,6 +122,22 @@ func TestDecodePayload(t *testing.T) {
 		{"update project nothing", domain.OpUpdateProject, `{"project_id":1}`, []string{"payload"}},
 		{"update project bad", domain.OpUpdateProject, `{"project_id":1,"status":"abandoned"}`, []string{"status"}},
 
+		// create_milestone
+		{"create milestone", domain.OpCreateMilestone, `{"project_id":"$new:1","title":"MVP","description":"d"}`, nil},
+		{"create milestone missing", domain.OpCreateMilestone, `{"title":" "}`, []string{"project_id", "title"}},
+		{"create milestone status", domain.OpCreateMilestone, `{"project_id":1,"title":"x","status":"done"}`, []string{"status"}},
+
+		// update_milestone
+		{"update milestone", domain.OpUpdateMilestone,
+			`{"milestone_id":1,"title":"t","description":"","status":"done","position":0}`, nil},
+		{"update milestone nothing", domain.OpUpdateMilestone, `{"milestone_id":1}`, []string{"payload"}},
+		{"update milestone bad", domain.OpUpdateMilestone,
+			`{"milestone_id":1,"title":"","status":"late","position":-1}`, []string{"title", "status", "position"}},
+
+		// delete_milestone
+		{"delete milestone", domain.OpDeleteMilestone, `{"milestone_id":"$new:1"}`, nil},
+		{"delete milestone missing", domain.OpDeleteMilestone, `{}`, []string{"milestone_id"}},
+
 		// decoding problems
 		{"wrong type", domain.OpCreateTask, `{"project_id":1,"title":5}`, []string{"title"}},
 		{"not an object", domain.OpDeleteTask, `[1]`, []string{"payload"}},
@@ -145,7 +164,9 @@ func TestDecodePayload(t *testing.T) {
 func TestDecodeRoundTrip(t *testing.T) {
 	for op, payload := range map[domain.OpType]string{
 		domain.OpCreateTask:     `{"project_id":"$new:1","parent_task_id":4,"title":"a","notes":"n","size":"m","energy":"low"}`,
-		domain.OpUpdateTask:     `{"task_id":1,"size":null,"parent_task_id":"$new:2","position":3}`,
+		domain.OpUpdateTask:     `{"task_id":1,"size":null,"parent_task_id":"$new:2","milestone_id":null,"position":3}`,
+		domain.OpCreateMilestone: `{"project_id":"$new:1","title":"MVP","description":"d"}`,
+		domain.OpUpdateMilestone: `{"milestone_id":2,"status":"dropped","position":0}`,
 		domain.OpSplitTask:      `{"task_id":1,"subtasks":[{"title":"a"},{"title":"b","size":"xs"}]}`,
 		domain.OpUpdateBlocker:  `{"blocker_id":2,"task_id":null}`,
 		domain.OpUpdateIdea:     `{"idea_id":3,"project_id":5,"status":"promoted"}`,
@@ -191,6 +212,8 @@ func TestCreates(t *testing.T) {
 		{CreateBlocker{}, domain.TargetBlocker},
 		{ParkIdea{}, domain.TargetIdea},
 		{CreateProject{}, domain.TargetProject},
+		{CreateMilestone{}, domain.TargetMilestone},
+		{UpdateMilestone{}, ""},
 		{SplitTask{}, ""},
 		{UpdateTask{}, ""},
 	} {

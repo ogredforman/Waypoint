@@ -453,6 +453,7 @@ func (w writer) apply(ctx context.Context, pos int64, p Payload) (deleted any, e
 		t, err := tx.CreateTask(ctx, domain.Task{
 			ProjectID:     w.id(p.ProjectID),
 			ParentTaskID:  w.optID(p.ParentTaskID),
+			MilestoneID:   w.optID(p.MilestoneID),
 			Title:         p.Title,
 			Notes:         p.Notes,
 			Status:        domain.TaskTodo,
@@ -486,6 +487,9 @@ func (w writer) apply(ctx context.Context, pos int64, p Payload) (deleted any, e
 		}
 		if p.ParentTaskID.Set {
 			t.ParentTaskID = w.optID(p.ParentTaskID.Value)
+		}
+		if p.MilestoneID.Set {
+			t.MilestoneID = w.optID(p.MilestoneID.Value)
 		}
 		if p.Position != nil {
 			t.Position = *p.Position
@@ -716,6 +720,51 @@ func (w writer) apply(ctx context.Context, pos int64, p Payload) (deleted any, e
 		}
 		w.projects[pr.ID] = true
 		return deletedProjectOf(pr, n, entries), nil
+
+	case CreateMilestone:
+		m, err := tx.CreateMilestone(ctx, domain.Milestone{
+			ProjectID:   w.id(p.ProjectID),
+			Title:       p.Title,
+			Description: p.Description,
+			Status:      domain.MilestoneOpen,
+		})
+		w.ids[pos] = m.ID
+		if err != nil {
+			return nil, err
+		}
+		w.projects[m.ProjectID] = true
+		return nil, nil
+
+	case UpdateMilestone:
+		m, err := tx.GetMilestone(ctx, w.id(p.MilestoneID))
+		if err != nil {
+			return nil, err
+		}
+		if p.Title != nil {
+			m.Title = *p.Title
+		}
+		if p.Description != nil {
+			m.Description = *p.Description
+		}
+		if p.Status != nil {
+			m.Status = *p.Status
+		}
+		if p.Position != nil {
+			m.Position = *p.Position
+		}
+		if _, err = tx.UpdateMilestone(ctx, m); err != nil {
+			return nil, err
+		}
+		w.projects[m.ProjectID] = true
+		return nil, nil
+
+	case DeleteMilestone:
+		m, err := tx.DeleteMilestone(ctx, w.id(p.MilestoneID))
+		if err != nil {
+			return nil, err
+		}
+		w.projects[m.ProjectID] = true
+		return deletedMilestoneOf(m), nil
 	}
 	return nil, fmt.Errorf("apply: unexpected payload %T", p)
 }
@@ -727,6 +776,7 @@ type deletedTask struct {
 	ID            int64             `json:"id"`
 	ProjectID     int64             `json:"project_id"`
 	ParentTaskID  *int64            `json:"parent_task_id"`
+	MilestoneID   *int64            `json:"milestone_id"`
 	Title         string            `json:"title"`
 	Notes         string            `json:"notes"`
 	Status        domain.TaskStatus `json:"status"`
@@ -740,7 +790,7 @@ type deletedTask struct {
 
 func deletedTaskOf(t domain.Task) deletedTask {
 	return deletedTask{
-		ID: t.ID, ProjectID: t.ProjectID, ParentTaskID: t.ParentTaskID, Title: t.Title, Notes: t.Notes,
+		ID: t.ID, ProjectID: t.ProjectID, ParentTaskID: t.ParentTaskID, MilestoneID: t.MilestoneID, Title: t.Title, Notes: t.Notes,
 		Status: t.Status, Size: t.Size, Energy: t.Energy, Position: t.Position,
 		OriginEntryID: t.OriginEntryID, CreatedAt: t.CreatedAt, UpdatedAt: t.UpdatedAt,
 	}
@@ -781,6 +831,24 @@ func deletedIdeaOf(i domain.Idea) deletedIdea {
 	return deletedIdea{
 		ID: i.ID, ProjectID: i.ProjectID, Title: i.Title, Body: i.Body, Status: i.Status,
 		OriginEntryID: i.OriginEntryID, CreatedAt: i.CreatedAt, UpdatedAt: i.UpdatedAt,
+	}
+}
+
+type deletedMilestone struct {
+	ID          int64                  `json:"id"`
+	ProjectID   int64                  `json:"project_id"`
+	Title       string                 `json:"title"`
+	Description string                 `json:"description"`
+	Status      domain.MilestoneStatus `json:"status"`
+	Position    int64                  `json:"position"`
+	CreatedAt   time.Time              `json:"created_at"`
+	UpdatedAt   time.Time              `json:"updated_at"`
+}
+
+func deletedMilestoneOf(m domain.Milestone) deletedMilestone {
+	return deletedMilestone{
+		ID: m.ID, ProjectID: m.ProjectID, Title: m.Title, Description: m.Description, Status: m.Status,
+		Position: m.Position, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
 	}
 }
 

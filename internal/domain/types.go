@@ -19,7 +19,7 @@ type Project struct {
 	UpdatedAt        time.Time
 }
 
-// Milestone is an outcome-shaped chunk of a project. Unused until post-MVP.
+// Milestone is an outcome-shaped chunk of a project. Its tasks point at it.
 type Milestone struct {
 	ID          int64
 	ProjectID   int64

@@ -160,6 +160,12 @@ func TestValidate(t *testing.T) {
 		{"delete a project", ExtractionResult{Ops: []ChangeOpDraft{
 			opDraft(domain.OpDeleteProject, `{"project_id":1}`),
 		}}, []string{"ops[1].op_type"}},
+		{"milestones", ExtractionResult{Ops: []ChangeOpDraft{
+			opDraft(domain.OpCreateMilestone, `{"project_id":1,"title":"MVP"}`),
+			opDraft(domain.OpUpdateMilestone, `{"milestone_id":"$new:1","title":"Beta"}`),
+			opDraft(domain.OpDeleteMilestone, `{"milestone_id":"$new:1"}`),
+			opDraft(domain.OpCreateTask, `{"project_id":1,"title":"t","milestone_id":1}`),
+		}}, []string{"ops[1].op_type", "ops[2].op_type", "ops[3].op_type", "ops[4].milestone_id"}},
 		{"op refs not in snapshot", ExtractionResult{Ops: []ChangeOpDraft{
 			opDraft(domain.OpCreateTask, `{"project_id":2,"title":"t","parent_task_id":11}`),
 			opDraft(domain.OpResolveBlocker, `{"blocker_id":10}`),
