@@ -41,6 +41,7 @@ func values[T ~string](vs []T) []string {
 // TaskTodo).
 var enums = []enum{
 	{"ProjectStatus", values(domain.ProjectStatuses())},
+	{"MilestoneStatus", values(domain.MilestoneStatuses())},
 	{"TaskStatus", values(domain.TaskStatuses())},
 	{"TaskSize", values(domain.TaskSizes())},
 	{"Energy", values(domain.Energies())},

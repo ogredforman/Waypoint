@@ -76,11 +76,11 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   `waypoint.db` in as "Personal", starts each `profiles/<id>.db`), `List`, `Create` (optionally copying another profile's appearance), `Rename`, `Delete`, `Serve`, `Ping`,
   `EndStreams`, `Close`; implements `api.Profiles`. `files.go`: `prepare` (migrate, name, seed, checkpoint, close), `removeDB`.
 - **api**: chi router (`router.go`, route list in `handlers.routes`), one file per resource
-  (`projects.go`, `tasks.go`, `blockers.go`, `ideas.go`, `entries.go`, `changesets.go`, `settings.go`),
+  (`projects.go`, `milestones.go`, `tasks.go`, `blockers.go`, `ideas.go`, `entries.go`, `changesets.go`, `settings.go`),
   `profiles.go` (`Profiles` interface, `/api/profiles` routes, hands `/api/profiles/{profile}/*` to `Profiles.Serve`);
   `NewRouter(Deps{Logger, Web, Profiles})` is the root, `NewProfileHandler(ProfileDeps{…})` one profile's data routes and `/events`,
   `projects.go` also has `GET /projects/{id}/observations`, `DELETE /projects/{id}?entries=keep|delete` and `GET /projects/{id}/deletion` (paged by entry; `pageQuery` in `entries.go` reads `before`/`limit`),
-  `convert.go` (domain → apitypes; `projectDTO` takes the last activity, `handlers.projectView` reads a project with it), `respond.go` (JSON encode/decode, `h.fail` maps errors to the
+  `convert.go` (domain → apitypes, incl. `milestoneDTO`; `opRefs` names rows in op payloads, milestones too; `projectDTO` takes the last activity, `handlers.projectView` reads a project with it), `respond.go` (JSON encode/decode, `h.fail` maps errors to the
   single error shape, `badRequest`), `events.go` (`Hub`: SSE `/api/events`, `Publish`, `Notify`,
   `BriefingUpdated`, `Applied` → `changeset.applied`, `EntryDeleted` → `entry.deleted`), `serve.go`. Handlers are thin: decode, call a service, encode.
   **api/apitypes**: request/response/event DTOs; `gen/` generates `web/src/lib/api/*.gen.ts`

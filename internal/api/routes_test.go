@@ -927,6 +927,95 @@ func TestSettingsCapAppliesToNextActivation(t *testing.T) {
 // to type the frontend, lists the fields its route passes on to the op
 // payload, so the generated TS types can't drift from what the route
 // accepts.
+func TestMilestoneRoutes(t *testing.T) {
+	s := newServer(t)
+	p := s.project("Waypoint", domain.ProjectActive)
+	milestonesURL := fmt.Sprintf("/api/profiles/t/projects/%d/milestones", p.ID)
+	before := s.manualChangesets()
+	first := ok[apitypes.Milestone](s, http.StatusCreated, "POST", milestonesURL, `{"title": "MVP", "description": "the loop works"}`)
+	if first.Title != "MVP" || first.Description != "the loop works" || first.Status != domain.MilestoneOpen || first.ProjectID != p.ID {
+		t.Errorf("created milestone = %+v", first)
+	}
+	if got := s.manualChangesets(); got != before+1 {
+		t.Errorf("manual changesets = %d, want %d", got, before+1)
+	}
+	second := ok[apitypes.Milestone](s, http.StatusCreated, "POST", milestonesURL, `{"title": "Polish"}`)
+	if second.Position <= first.Position {
+		t.Errorf("second milestone position %d not after first %d", second.Position, first.Position)
+	}
+	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", milestonesURL, `{"title": "  "}`)
+	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", milestonesURL, `{"title": "x", "project_id": 1}`)
+	s.fails(http.StatusNotFound, "not_found", "POST", "/api/profiles/t/projects/999/milestones", `{"title": "x"}`)
+	s.fails(http.StatusNotFound, "not_found", "GET", "/api/profiles/t/projects/999/milestones", nil)
+
+	list := ok[[]apitypes.Milestone](s, http.StatusOK, "GET", milestonesURL, nil)
+	if len(list) != 2 || list[0].ID != first.ID || list[1].ID != second.ID {
+		t.Errorf("milestones = %+v", list)
+	}
+
+	firstURL := fmt.Sprintf("/api/profiles/t/milestones/%d", first.ID)
+	done := ok[apitypes.Milestone](s, http.StatusOK, "PATCH", firstURL, `{"title": "MVP shipped", "status": "done"}`)
+	if done.Title != "MVP shipped" || done.Status != domain.MilestoneDone || done.Description != "the loop works" {
+		t.Errorf("patched milestone = %+v", done)
+	}
+	moved := ok[apitypes.Milestone](s, http.StatusOK, "PATCH", firstURL, map[string]any{"position": second.Position + 1})
+	if moved.Position != second.Position+1 {
+		t.Errorf("moved milestone = %+v", moved)
+	}
+	if list := ok[[]apitypes.Milestone](s, http.StatusOK, "GET", milestonesURL, nil); len(list) != 2 || list[0].ID != second.ID {
+		t.Errorf("milestones after move = %+v", list)
+	}
+	s.fails(http.StatusUnprocessableEntity, "invalid", "PATCH", firstURL, `{"status": "finished"}`)
+	s.fails(http.StatusUnprocessableEntity, "invalid", "PATCH", firstURL, `{}`)
+	s.fails(http.StatusNotFound, "not_found", "PATCH", "/api/profiles/t/milestones/999", `{"title": "x"}`)
+
+	// Tasks take a milestone in their own project; null clears it.
+	tasksURL := fmt.Sprintf("/api/profiles/t/projects/%d/tasks", p.ID)
+	task := ok[apitypes.Task](s, http.StatusCreated, "POST", tasksURL, map[string]any{"title": "Ship", "milestone_id": first.ID})
+	if task.MilestoneID == nil || *task.MilestoneID != first.ID {
+		t.Errorf("task created in milestone = %+v", task)
+	}
+	taskURL := fmt.Sprintf("/api/profiles/t/tasks/%d", task.ID)
+	if got := ok[apitypes.Task](s, http.StatusOK, "PATCH", taskURL, `{"milestone_id": null}`); got.MilestoneID != nil {
+		t.Errorf("task after clearing milestone = %+v", got)
+	}
+	if got := ok[apitypes.Task](s, http.StatusOK, "PATCH", taskURL, map[string]any{"milestone_id": second.ID}); got.MilestoneID == nil || *got.MilestoneID != second.ID {
+		t.Errorf("task moved to second milestone = %+v", got)
+	}
+	other := s.project("Garden", domain.ProjectParked)
+	elsewhere := ok[apitypes.Milestone](s, http.StatusCreated, "POST", fmt.Sprintf("/api/profiles/t/projects/%d/milestones", other.ID), `{"title": "Beds"}`)
+	s.fails(http.StatusUnprocessableEntity, "invalid", "PATCH", taskURL, map[string]any{"milestone_id": elsewhere.ID})
+	s.fails(http.StatusUnprocessableEntity, "invalid", "POST", tasksURL, map[string]any{"title": "x", "milestone_id": elsewhere.ID})
+
+	// Deleting a milestone keeps its tasks, with no milestone.
+	secondURL := fmt.Sprintf("/api/profiles/t/milestones/%d", second.ID)
+	if rec := s.call("DELETE", secondURL, nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("DELETE milestone: status = %d, want 204", rec.Code)
+	}
+	if got := ok[apitypes.TaskDetail](s, http.StatusOK, "GET", taskURL, nil); got.Task.MilestoneID != nil {
+		t.Errorf("task after deleting its milestone = %+v", got.Task)
+	}
+	if list := ok[[]apitypes.Milestone](s, http.StatusOK, "GET", milestonesURL, nil); len(list) != 1 || list[0].ID != first.ID {
+		t.Errorf("milestones after delete = %+v", list)
+	}
+	s.fails(http.StatusNotFound, "not_found", "DELETE", secondURL, nil)
+}
+
+func TestChangeOpRefsNameMilestones(t *testing.T) {
+	s := newServer(t)
+	p := s.project("Waypoint", domain.ProjectActive)
+	m := ok[apitypes.Milestone](s, http.StatusCreated, "POST", fmt.Sprintf("/api/profiles/t/projects/%d/milestones", p.ID), `{"title": "MVP"}`)
+	payload := fmt.Sprintf(`{"project_id": %d, "milestone_id": %d, "title": "Ship"}`, p.ID, m.ID)
+	got, err := opRefs(context.Background(), s.store, json.RawMessage(payload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{fmt.Sprintf("project:%d", p.ID): "Waypoint", fmt.Sprintf("milestone:%d", m.ID): "MVP"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("refs = %v, want %v", got, want)
+	}
+}
+
 func TestRequestTypesMatchOps(t *testing.T) {
 	jsonFields := func(v any) []string {
 		var out []string
@@ -955,11 +1044,14 @@ func TestRequestTypesMatchOps(t *testing.T) {
 			with(jsonFields(changeset.CreateProject{}), "definition_of_done", "status")},
 		{"UpdateProjectRequest", apitypes.UpdateProjectRequest{},
 			without(jsonFields(changeset.UpdateProject{}), "project_id")},
-		// milestone_id joins the task requests with the milestone API (PLAN 1.5.18b).
+		{"CreateMilestoneRequest", apitypes.CreateMilestoneRequest{},
+			without(jsonFields(changeset.CreateMilestone{}), "project_id")},
+		{"UpdateMilestoneRequest", apitypes.UpdateMilestoneRequest{},
+			without(jsonFields(changeset.UpdateMilestone{}), "milestone_id")},
 		{"CreateTaskRequest", apitypes.CreateTaskRequest{},
-			with(without(jsonFields(changeset.CreateTask{}), "project_id", "milestone_id"), "status")},
+			with(without(jsonFields(changeset.CreateTask{}), "project_id"), "status")},
 		{"UpdateTaskRequest", apitypes.UpdateTaskRequest{},
-			with(without(jsonFields(changeset.UpdateTask{}), "task_id", "milestone_id"), "status")},
+			with(without(jsonFields(changeset.UpdateTask{}), "task_id"), "status")},
 		{"CreateBlockerRequest", apitypes.CreateBlockerRequest{},
 			without(jsonFields(changeset.CreateBlocker{}), "project_id")},
 		{"UpdateBlockerRequest", apitypes.UpdateBlockerRequest{},

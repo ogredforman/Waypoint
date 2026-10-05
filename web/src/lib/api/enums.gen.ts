@@ -3,6 +3,9 @@
 export const projectStatusValues = ["active", "paused", "parked", "done", "archived"] as const;
 export type ProjectStatus = (typeof projectStatusValues)[number];
 
+export const milestoneStatusValues = ["open", "done", "dropped"] as const;
+export type MilestoneStatus = (typeof milestoneStatusValues)[number];
+
 export const taskStatusValues = ["todo", "in_progress", "done", "dropped"] as const;
 export type TaskStatus = (typeof taskStatusValues)[number];
 

@@ -17,6 +17,7 @@ function detail(extra: Partial<TaskDetail> = {}): TaskDetail {
     task: {
       id: 3,
       project_id: 7,
+      milestone_id: null,
       parent_task_id: null,
       title: 'Write docs',
       notes: '',

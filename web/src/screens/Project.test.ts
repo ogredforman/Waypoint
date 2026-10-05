@@ -20,6 +20,7 @@ const project = (id: number, title: string): ProjectT => ({
 const task = (id: number, title: string): Task => ({
   id,
   project_id: 7,
+  milestone_id: null,
   parent_task_id: null,
   title,
   notes: '',

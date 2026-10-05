@@ -9,6 +9,7 @@ import (
 type Task struct {
 	ID            int64             `json:"id"`
 	ProjectID     int64             `json:"project_id"`
+	MilestoneID   *int64            `json:"milestone_id" tstype:"number | null,required"`
 	ParentTaskID  *int64            `json:"parent_task_id" tstype:"number | null,required"`
 	Title         string            `json:"title"`
 	Notes         string            `json:"notes"`
@@ -24,6 +25,7 @@ type Task struct {
 // CreateTaskRequest is the body of POST /api/projects/{id}/tasks. A task
 // starts as todo unless Status says otherwise.
 type CreateTaskRequest struct {
+	MilestoneID  *int64             `json:"milestone_id,omitempty"`
 	ParentTaskID *int64             `json:"parent_task_id,omitempty"`
 	Title        string             `json:"title"`
 	Notes        string             `json:"notes,omitempty"`
@@ -33,13 +35,15 @@ type CreateTaskRequest struct {
 }
 
 // UpdateTaskRequest is the body of PATCH /api/tasks/{id}. Only the fields
-// present change; null clears size, energy, or parent_task_id.
+// present change; null clears size, energy, parent_task_id, or
+// milestone_id. A milestone must be in the task's project.
 type UpdateTaskRequest struct {
 	Title        *string            `json:"title,omitempty"`
 	Notes        *string            `json:"notes,omitempty"`
 	Size         *domain.TaskSize   `json:"size,omitempty" tstype:"domain.TaskSize | null"`
 	Energy       *domain.Energy     `json:"energy,omitempty" tstype:"domain.Energy | null"`
 	ParentTaskID *int64             `json:"parent_task_id,omitempty" tstype:"number | null"`
+	MilestoneID  *int64             `json:"milestone_id,omitempty" tstype:"number | null"`
 	Position     *int64             `json:"position,omitempty"`
 	Status       *domain.TaskStatus `json:"status,omitempty"`
 }

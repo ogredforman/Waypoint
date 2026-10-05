@@ -36,6 +36,7 @@ func taskDTO(t domain.Task) apitypes.Task {
 	return apitypes.Task{
 		ID:            t.ID,
 		ProjectID:     t.ProjectID,
+		MilestoneID:   t.MilestoneID,
 		ParentTaskID:  t.ParentTaskID,
 		Title:         t.Title,
 		Notes:         t.Notes,
@@ -46,6 +47,19 @@ func taskDTO(t domain.Task) apitypes.Task {
 		OriginEntryID: t.OriginEntryID,
 		CreatedAt:     t.CreatedAt,
 		UpdatedAt:     t.UpdatedAt,
+	}
+}
+
+func milestoneDTO(m domain.Milestone) apitypes.Milestone {
+	return apitypes.Milestone{
+		ID:          m.ID,
+		ProjectID:   m.ProjectID,
+		Title:       m.Title,
+		Description: m.Description,
+		Status:      m.Status,
+		Position:    m.Position,
+		CreatedAt:   m.CreatedAt,
+		UpdatedAt:   m.UpdatedAt,
 	}
 }
 
@@ -158,6 +172,7 @@ type changesetReads interface {
 	ListChangeOps(ctx context.Context, changesetID int64) ([]domain.ChangeOp, error)
 	ChangesetEntryID(ctx context.Context, cs domain.Changeset) (*int64, error)
 	GetProject(ctx context.Context, id int64) (domain.Project, error)
+	GetMilestone(ctx context.Context, id int64) (domain.Milestone, error)
 	GetTask(ctx context.Context, id int64) (domain.Task, error)
 	GetBlocker(ctx context.Context, id int64) (domain.Blocker, error)
 	GetIdea(ctx context.Context, id int64) (domain.Idea, error)
@@ -209,6 +224,7 @@ func changeOpDTO(op domain.ChangeOp) apitypes.ChangeOp {
 // and the kind of row each names.
 var refFields = map[string]string{
 	"project_id":         "project",
+	"milestone_id":       "milestone",
 	"task_id":            "task",
 	"parent_task_id":     "task",
 	"blocked_by_task_id": "task",
@@ -246,6 +262,9 @@ func refName(ctx context.Context, r changesetReads, kind string, id int64) (stri
 	case "project":
 		p, err := r.GetProject(ctx, id)
 		return p.Title, err
+	case "milestone":
+		m, err := r.GetMilestone(ctx, id)
+		return m.Title, err
 	case "task":
 		t, err := r.GetTask(ctx, id)
 		return t.Title, err

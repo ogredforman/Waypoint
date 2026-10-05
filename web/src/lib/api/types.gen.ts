@@ -354,6 +354,42 @@ export interface PromoteIdeaResponse {
 }
 
 //////////
+// source: milestones.go
+
+/**
+ * Milestone is an outcome-shaped chunk of a project; tasks point at it with
+ * milestone_id.
+ */
+export interface Milestone {
+  id: number /* int64 */;
+  project_id: number /* int64 */;
+  title: string;
+  description: string;
+  status: domain.MilestoneStatus;
+  position: number /* int64 */;
+  created_at: string;
+  updated_at: string;
+}
+/**
+ * CreateMilestoneRequest is the body of POST /api/projects/{id}/milestones.
+ * A milestone starts open, after the project's other milestones.
+ */
+export interface CreateMilestoneRequest {
+  title: string;
+  description?: string;
+}
+/**
+ * UpdateMilestoneRequest is the body of PATCH /api/milestones/{id}. Only the
+ * fields present change; position orders it within its project.
+ */
+export interface UpdateMilestoneRequest {
+  title?: string;
+  description?: string;
+  status?: domain.MilestoneStatus;
+  position?: number /* int64 */;
+}
+
+//////////
 // source: profiles.go
 
 /**
@@ -560,6 +596,7 @@ export interface UpdateSettingsRequest {
 export interface Task {
   id: number /* int64 */;
   project_id: number /* int64 */;
+  milestone_id: number | null;
   parent_task_id: number | null;
   title: string;
   notes: string;
@@ -576,6 +613,7 @@ export interface Task {
  * starts as todo unless Status says otherwise.
  */
 export interface CreateTaskRequest {
+  milestone_id?: number /* int64 */;
   parent_task_id?: number /* int64 */;
   title: string;
   notes?: string;
@@ -585,7 +623,8 @@ export interface CreateTaskRequest {
 }
 /**
  * UpdateTaskRequest is the body of PATCH /api/tasks/{id}. Only the fields
- * present change; null clears size, energy, or parent_task_id.
+ * present change; null clears size, energy, parent_task_id, or
+ * milestone_id. A milestone must be in the task's project.
  */
 export interface UpdateTaskRequest {
   title?: string;
@@ -593,6 +632,7 @@ export interface UpdateTaskRequest {
   size?: domain.TaskSize | null;
   energy?: domain.Energy | null;
   parent_task_id?: number | null;
+  milestone_id?: number | null;
   position?: number /* int64 */;
   status?: domain.TaskStatus;
 }

@@ -9,6 +9,7 @@ function task(id: number, status: TaskStatus, position: number, extra: Partial<T
   return {
     id,
     project_id: 7,
+    milestone_id: null,
     parent_task_id: 1,
     title: `S${id}`,
     notes: '',
