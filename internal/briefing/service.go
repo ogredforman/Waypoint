@@ -293,7 +293,7 @@ func loadState(ctx context.Context, tx *store.ReadTx, projectID int64) (State, e
 }
 
 // loadTasks reads the project with its tasks, dependencies, and open
-// blockers: State without the recent entries.
+// blockers, and milestones: State without the recent entries.
 func loadTasks(ctx context.Context, tx *store.ReadTx, projectID int64) (State, error) {
 	p, err := tx.GetProject(ctx, projectID)
 	if err != nil {
@@ -304,6 +304,9 @@ func loadTasks(ctx context.Context, tx *store.ReadTx, projectID int64) (State, e
 		return State{}, err
 	}
 	if st.Dependencies, err = tx.ListTaskDependenciesByProject(ctx, projectID); err != nil {
+		return State{}, err
+	}
+	if st.Milestones, err = tx.ListMilestonesByProject(ctx, projectID); err != nil {
 		return State{}, err
 	}
 	blockers, err := tx.ListBlockersByProject(ctx, projectID)

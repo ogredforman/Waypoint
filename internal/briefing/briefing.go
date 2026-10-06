@@ -23,6 +23,8 @@ type State struct {
 	Tasks []domain.Task
 	// Dependencies are those of the project's tasks.
 	Dependencies []domain.TaskDependency
+	// Milestones are the project's milestones, open or not, in order.
+	Milestones []domain.Milestone
 	// Blockers are the project's open blockers, oldest first.
 	Blockers []domain.Blocker
 	// RecentEntries are the latest entries about the project, newest first.

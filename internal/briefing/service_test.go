@@ -191,6 +191,24 @@ func TestRefreshOnApply(t *testing.T) {
 	}
 }
 
+func TestRefreshPrefersFirstOpenMilestone(t *testing.T) {
+	f := newFixture(t)
+	p := f.project("Garden", domain.ProjectActive)
+	a := f.task(p, "Buy seeds", nil)
+	b := f.task(p, "Dig the bed", nil)
+	m := f.manual(changeset.CreateMilestone{ProjectID: changeset.ID(p), Title: "First bed"}).Created[1]
+	f.manual(changeset.UpdateTask{TaskID: changeset.ID(b), MilestoneID: changeset.To(changeset.ID(m))})
+	if got := nextOf(f.briefing(p)); got != b {
+		t.Errorf("with %d in the open milestone next = %d, want %d", b, got, b)
+	}
+
+	done := domain.MilestoneDone
+	f.manual(changeset.UpdateMilestone{MilestoneID: changeset.ID(m), Status: &done})
+	if got := nextOf(f.briefing(p)); got != a {
+		t.Errorf("after the milestone is done next = %d, want %d", got, a)
+	}
+}
+
 func TestRefreshSkipsInactiveProjects(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture(t)

@@ -121,7 +121,7 @@ func pickNext(st State) (*domain.Task, string) {
 	}
 
 	var todo []domain.Task
-	for _, t := range ready {
+	for _, t := range focus(st, ready) {
 		if t.Status == domain.TaskTodo && len(todo) < todoWindow {
 			todo = append(todo, t)
 		}
@@ -151,6 +151,52 @@ func pickNext(st State) (*domain.Task, string) {
 	default:
 		return next, reasonSmaller
 	}
+}
+
+// focus narrows ready to the first open milestone with a startable todo
+// task, or returns it whole if no open milestone has one.
+func focus(st State, ready []domain.Task) []domain.Task {
+	in := milestones(st)
+	for _, m := range st.Milestones {
+		if m.Status != domain.MilestoneOpen {
+			continue
+		}
+		var out []domain.Task
+		for _, t := range ready {
+			if id := in[t.ID]; id != nil && *id == m.ID {
+				out = append(out, t)
+			}
+		}
+		for _, t := range out {
+			if t.Status == domain.TaskTodo {
+				return out
+			}
+		}
+	}
+	return ready
+}
+
+// milestones maps each task to its milestone; a step counts in its top-level
+// task's.
+func milestones(st State) map[int64]*int64 {
+	byID := map[int64]domain.Task{}
+	for _, t := range st.Tasks {
+		byID[t.ID] = t
+	}
+	out := map[int64]*int64{}
+	for _, t := range st.Tasks {
+		top := t
+		// The bound guards against a parent cycle the store shouldn't allow.
+		for i := 0; top.ParentTaskID != nil && i < len(st.Tasks); i++ {
+			p, ok := byID[*top.ParentTaskID]
+			if !ok {
+				break
+			}
+			top = p
+		}
+		out[t.ID] = top.MilestoneID
+	}
+	return out
 }
 
 // alternatives returns up to maxAlternatives small or low-energy tasks that

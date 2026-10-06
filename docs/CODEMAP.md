@@ -69,7 +69,7 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   one tx), `Reprocess`, `DeleteEntry` (refused while running), `Wake`, `Run(ctx)` (claims runs, extracts, validates, stores result +
   changeset (keeping only `questions_per_entry` questions), emits `Event`s via `Notifier`, calls `AfterRun.EntryProcessed`). Failures recorded on
   the run, never partial state.
-- **briefing**: `Briefer` interface, `Heuristic` implementation (`heuristic.go`), `Service`
+- **briefing**: `Briefer` interface (`State` includes the project's milestones), `Heuristic` implementation (`heuristic.go`; todo window prefers the first open milestone), `Service`
   (`Refresh`, `Get` → `View` (with `Step`: the next task's parent and step number, → `Briefing.next_step`), `EntryDeleted`; drops recap entries the Briefer wasn't shown; implements `changeset.AfterApply` and `pipeline.AfterRun`; notifies
   `BriefingUpdated`). Briefings are cached per project in the DB; the recap (`[]domain.RecapEntry`, newest first, points with observation kinds) in `briefing_recap_points`.
 - **profile**: `Manager` runs every profile (ADR 0005): `Open` (removes half-built `*.db.new`, moves the legacy

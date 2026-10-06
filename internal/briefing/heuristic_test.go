@@ -27,8 +27,16 @@ func status(s domain.TaskStatus) func(*domain.Task) { return func(t *domain.Task
 func size(s domain.TaskSize) func(*domain.Task)     { return func(t *domain.Task) { t.Size = &s } }
 func energy(e domain.Energy) func(*domain.Task)     { return func(t *domain.Task) { t.Energy = &e } }
 func parent(id int64) func(*domain.Task)            { return func(t *domain.Task) { t.ParentTaskID = &id } }
+func in(milestoneID int64) func(*domain.Task) {
+	return func(t *domain.Task) { t.MilestoneID = &milestoneID }
+}
 func updated(d time.Duration) func(*domain.Task) {
 	return func(t *domain.Task) { t.UpdatedAt = t0.Add(d) }
+}
+
+// milestone builds a milestone; position follows the ID.
+func milestone(id int64, s domain.MilestoneStatus) domain.Milestone {
+	return domain.Milestone{ID: id, ProjectID: 1, Title: "m", Status: s, Position: id}
 }
 
 func blockerOn(taskID int64) domain.Blocker {
@@ -101,6 +109,36 @@ func TestHeuristicNext(t *testing.T) {
 			2, reasonNext},
 		{"parent is next once subtasks are done", State{Tasks: []domain.Task{task(1), task(2, parent(1), status(domain.TaskDone))}},
 			1, reasonNext},
+		{"first open milestone comes first", State{
+			Tasks:      []domain.Task{task(1, size(domain.SizeXS)), task(2, in(20)), task(3, in(10), size(domain.SizeL))},
+			Milestones: []domain.Milestone{milestone(10, domain.MilestoneOpen), milestone(20, domain.MilestoneOpen)},
+		}, 3, reasonNext},
+		{"smallest within the milestone", State{
+			Tasks:      []domain.Task{task(1, in(10), size(domain.SizeL)), task(2, size(domain.SizeXS)), task(3, in(10), size(domain.SizeS))},
+			Milestones: []domain.Milestone{milestone(10, domain.MilestoneOpen)},
+		}, 3, reasonSmall},
+		{"in progress outside the milestone still wins", State{
+			Tasks:      []domain.Task{task(1, in(10)), task(2, status(domain.TaskInProgress))},
+			Milestones: []domain.Milestone{milestone(10, domain.MilestoneOpen)},
+		}, 2, reasonInProgress},
+		{"done and dropped milestones are skipped", State{
+			Tasks:      []domain.Task{task(1, in(10)), task(2, in(20)), task(3, in(30))},
+			Milestones: []domain.Milestone{milestone(10, domain.MilestoneDone), milestone(20, domain.MilestoneDropped), milestone(30, domain.MilestoneOpen)},
+		}, 3, reasonNext},
+		{"a milestone with only waiting tasks is passed over", State{
+			Tasks:      []domain.Task{task(1, in(10)), task(2, in(20))},
+			Milestones: []domain.Milestone{milestone(10, domain.MilestoneOpen), milestone(20, domain.MilestoneOpen)},
+			Blockers:   []domain.Blocker{blockerOn(1)},
+		}, 2, reasonNext},
+		{"no open milestone with a startable task uses them all", State{
+			Tasks:      []domain.Task{task(1, in(10)), task(2, in(20)), task(3, size(domain.SizeS))},
+			Milestones: []domain.Milestone{milestone(10, domain.MilestoneOpen), milestone(20, domain.MilestoneDone)},
+			Blockers:   []domain.Blocker{blockerOn(1)},
+		}, 3, reasonSmall},
+		{"a step counts in its top-level task's milestone", State{
+			Tasks:      []domain.Task{task(1), task(2, in(10)), task(3, parent(2)), task(4, parent(3))},
+			Milestones: []domain.Milestone{milestone(10, domain.MilestoneOpen)},
+		}, 4, reasonNext},
 		{"everything waiting", State{
 			Tasks:        []domain.Task{task(1), task(2)},
 			Blockers:     []domain.Blocker{blockerOn(1)},
