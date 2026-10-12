@@ -2,7 +2,7 @@
 
 > Companion to [`SPEC.md`](./SPEC.md). The spec defines *what* and *why*; this plan defines *order*, *scope per stage*, and *exit criteria*. Each stage should end in a runnable, usable state. Don't pull later-stage work forward.
 
-**Current stage: Stage 1.5 — Foundation refinement**
+**Current stage: Stage 2 — MVP (real AI, dogfoodable)**
 
 Task IDs are `<stage>.<task>` (e.g. `1.5`, or `1.5.3` in Stage 1.5). Tick tasks `[x]` as they're finished. `/devflow:next-task` picks the first unchecked task in the current stage; `/devflow:park` adds ideas to the Parked section at the bottom.
 
@@ -97,7 +97,7 @@ Tasks:
 
 ---
 
-## Stage 1.5 — Foundation refinement
+## Stage 1.5 — Foundation refinement — done 2026-10-12
 
 **Goal:** settle the base the rest of the app builds on (appearance, settings, profiles, deletion, and the shape of tasks) now that the Stage 1 frontend is close to its finished form, so Stage 2 and later don't redo it. Comes from the owner's Stage 1 review (`docs/Stage-1-Review.md`). The core loop keeps working throughout: `make e2e` passes after every task.
 
