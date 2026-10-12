@@ -25,6 +25,12 @@ func main() {
 }
 
 func run() int {
+	if len(os.Args) > 1 && os.Args[1] == "eval" {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return runEval(ctx, os.Args[2:], os.LookupEnv, os.Stdout, os.Stderr)
+	}
+
 	cfg, err := config.Load(os.Args[1:], os.LookupEnv, runtime.GOOS, os.Stderr)
 	if errors.Is(err, flag.ErrHelp) {
 		return 0

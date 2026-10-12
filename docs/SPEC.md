@@ -431,7 +431,7 @@ UX notes: keyboard-first diary input (Ctrl/Cmd+Enter to submit); calm visual des
 
 - **Unit tests:** validator, changeset applier (including temp IDs and rollback on failure), heuristic briefing, mock extractor.
 - **Integration tests:** an HTTP API test harness against a temp SQLite DB, using the mock extractor end to end.
-- **Extraction evals ([M]):** `/testdata/entries/*.md` paired with expected observations and ops. Run a scoring command (`waypoint eval`) against any provider to catch prompt regressions.
+- **Extraction evals ([M]):** `/testdata/entries/*.md` paired with expected observations and ops. Run a scoring command (`waypoint eval`) against any provider to catch prompt regressions. `waypoint eval -provider X [-model M] [-v]` scores ops (type, rows, status) and links (target rows); other payload fields and free text aren't compared. It counts forbidden ops and runs that fail validation.
 - **Frontend:** component tests for the changeset review UI; one Playwright smoke test of the full write → review → apply loop.
 
 ## 13. Open questions

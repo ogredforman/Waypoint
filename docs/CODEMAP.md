@@ -86,6 +86,9 @@ Seed: cfg.SettingsDefaults(), Extractor: provider.New(…), …})` → `api.NewR
   `BriefingUpdated`). Briefings are cached per project in the DB; the recap (`[]domain.RecapEntry`, newest first, points with observation kinds) in `briefing_recap_points`.
 - **eval**: extraction evals (SPEC §12). `LoadFixtures(dir)` → `[]Fixture{Name, Notes, Input extract.ExtractInput, Expected extract.ExtractionResult, Forbid []domain.OpType}`;
   refuses a fixture whose quotes aren't in the body, whose expected result `extract.Validate` rejects, or whose expected ops use a forbidden type.
+  `Run(ctx, extractor, fixtures, done)` → `[]Outcome` (extract, validate, one retry as the pipeline does; `Status` ok/retried/invalid/error); `ScoreResult(f, got)` → `Score`
+  (ops matched by type + payload refs + status, temp refs as `new`; links as a set of targets; forbidden ops; `Counts` P/R/F1); `Total`, `WriteReport` (the text table).
+  CLI: `cmd/waypoint/eval.go` `runEval` is `waypoint eval [-provider X -model M -endpoint E -dir D -run S -v]` (key and timeout from config/env only).
 - **profile**: `Manager` runs every profile (ADR 0005): `Open` (removes half-built `*.db.new`, moves the legacy
   `waypoint.db` in as "Personal", starts each `profiles/<id>.db`), `List`, `Create` (optionally copying another profile's appearance), `Rename`, `Delete`, `Serve`, `Ping`,
   `EndStreams`, `Close`; implements `api.Profiles`. `files.go`: `prepare` (migrate, name, seed, checkpoint, close), `removeDB`.

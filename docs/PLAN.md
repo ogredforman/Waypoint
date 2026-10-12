@@ -168,7 +168,7 @@ Tasks:
 
 ### 2B. Evals
 - [x] **2.7** `/testdata/entries`: 15–30 realistic sample entries with expected observations and ops, several written from real dogfooding.
-- [ ] **2.8** `waypoint eval --provider X`: runs the fixtures, scores op and link accuracy, and prints a report. Run it whenever the prompt changes.
+- [x] **2.8** `waypoint eval --provider X`: runs the fixtures, scores op and link accuracy, and prints a report. Run it whenever the prompt changes.
 
 ### 2C. LLM features
 - [ ] **2.9** LLM `Briefer`: next action with a reason, plus a recap. Validated against existing task IDs, with heuristic fallback.
@@ -260,3 +260,5 @@ Ideas and tangents captured mid-work (via `/devflow:park`). Not scheduled. Revie
 - [ ] In the 2.3 manual run, qwen3:8b (Ollama) put `status` in an `update_task` payload instead of proposing `set_task_status`, and once named a milestone and task that weren't in the snapshot; the validator failed the run. Feed this to 2.5's retry and check in the 2.8 evals whether the prompt should say it more plainly (parked 2026-10-12; suggested stage: 2, with 2.5/2.8)
 - [ ] Ollama's default context (4096 tokens) cuts off the ~4.4k-token prompt, so the model never sees the entry and the run "succeeds" empty. The README (2.15) should say to set Ollama's context length to 16k; maybe also warn when a run's result is empty for a non-empty entry (parked 2026-10-12; suggested stage: 2, with 2.15)
 - [ ] A run details view (or `GET /api/runs/{id}`) showing a run's model, prompt version, latency, and raw output attempts, for debugging a provider without opening the DB; 2.6 stores them but nothing shows them (parked 2026-10-12; suggested stage: 3)
+- [ ] `waypoint eval` could write a JSON report (`-json`) and compare against a saved baseline, so a prompt change shows what got better or worse per fixture; today the text report has to be compared by eye (parked 2026-10-12; suggested stage: 3)
+- [ ] `waypoint eval -parallel N` for hosted providers; fixtures run one at a time, which suits a local model but is slow against an API (parked 2026-10-12; suggested stage: 3)
