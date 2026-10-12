@@ -164,7 +164,7 @@ Tasks:
 - [x] **2.3** `OpenAICompatExtractor` (OpenAI, Ollama, LM Studio, llama.cpp). Test with at least one local model. First, so the cheapest option (a free local model) is tried before a paid API; the same client covers hosted OpenAI-compatible services.
 - [x] **2.4** `AnthropicExtractor` (start with the smallest model, e.g. Haiku; move up only if the 2.8 evals call for it).
 - [x] **2.5** Robustness: timeouts, one retry with the validation errors fed back to the model, and a clean failed-run state with a retry button in the UI.
-- [ ] **2.6** Store the raw output and latency for every run.
+- [x] **2.6** Store the raw output and latency for every run.
 
 ### 2B. Evals
 - [ ] **2.7** `/testdata/entries`: 15–30 realistic sample entries with expected observations and ops, several written from real dogfooding.
@@ -259,3 +259,4 @@ Ideas and tangents captured mid-work (via `/devflow:park`). Not scheduled. Revie
 - [ ] A step's own Task detail page could say whose step it is ("Step 2 of *Set up CI*", linking to the parent), as the briefing does (parked 2026-10-04; suggested stage: 1.5 or 3)
 - [ ] In the 2.3 manual run, qwen3:8b (Ollama) put `status` in an `update_task` payload instead of proposing `set_task_status`, and once named a milestone and task that weren't in the snapshot; the validator failed the run. Feed this to 2.5's retry and check in the 2.8 evals whether the prompt should say it more plainly (parked 2026-10-12; suggested stage: 2, with 2.5/2.8)
 - [ ] Ollama's default context (4096 tokens) cuts off the ~4.4k-token prompt, so the model never sees the entry and the run "succeeds" empty. The README (2.15) should say to set Ollama's context length to 16k; maybe also warn when a run's result is empty for a non-empty entry (parked 2026-10-12; suggested stage: 2, with 2.15)
+- [ ] A run details view (or `GET /api/runs/{id}`) showing a run's model, prompt version, latency, and raw output attempts, for debugging a provider without opening the DB; 2.6 stores them but nothing shows them (parked 2026-10-12; suggested stage: 3)

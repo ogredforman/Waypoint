@@ -294,12 +294,12 @@ func TestProcessStoresResult(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantRaw, err := json.Marshal(want)
+	wantRes, err := json.Marshal(want)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(run.RawOutput, wantRaw) {
-		t.Errorf("raw output = %s, want %s", run.RawOutput, wantRaw)
+	if a := attempts(t, run); len(a) != 1 || a[0].Response != nil || !bytes.Equal(a[0].Result, wantRes) || a[0].Problems != nil {
+		t.Errorf("raw output = %s, want one attempt with result %s", run.RawOutput, wantRes)
 	}
 	if len(want.Ops) != 2 || len(want.Questions) != 1 {
 		t.Fatalf("mock result has %d ops and %d questions, want 2 and 1; test body needs updating", len(want.Ops), len(want.Questions))
@@ -410,8 +410,8 @@ func TestProcessRecordsExtractorFailure(t *testing.T) {
 	if len(x.calls) != 1 {
 		t.Errorf("extractor called %d times, want 1: an extractor error isn't retried", len(x.calls))
 	}
-	if run.RawOutput != nil || run.LatencyMS == nil {
-		t.Errorf("raw output = %s, latency = %v; want none and set", run.RawOutput, run.LatencyMS)
+	if a := attempts(t, run); len(a) != 1 || a[0].Response != nil || a[0].Result != nil || run.LatencyMS == nil {
+		t.Errorf("raw output = %s, latency = %v; want one empty attempt and set", run.RawOutput, run.LatencyMS)
 	}
 	if got := f.stored(e.ID); !got.empty() {
 		t.Errorf("a failed run stored %+v", got)
@@ -449,8 +449,9 @@ func TestProcessRejectsInvalidOutput(t *testing.T) {
 		!strings.Contains(*run.Error, "not in the snapshot") {
 		t.Errorf("run = %+v, want failed validation after the retry", run)
 	}
-	if run.RawOutput == nil {
-		t.Error("the invalid output wasn't kept on the run")
+	if a := attempts(t, run); len(a) != 2 || a[0].Result == nil || a[1].Result == nil ||
+		len(a[0].Problems) != 1 || len(a[1].Problems) != 1 || !strings.Contains(a[1].Problems[0], "not in the snapshot") {
+		t.Errorf("raw output = %s, want both invalid attempts with their problems", run.RawOutput)
 	}
 	if got := f.stored(e.ID); !got.empty() {
 		t.Errorf("an invalid result stored %+v", got)
@@ -498,14 +499,89 @@ func TestProcessRetrySucceeds(t *testing.T) {
 	if len(x.calls) != 2 || x.calls[1].Retry == nil {
 		t.Errorf("calls = %d, retry = %v; want 2 with feedback", len(x.calls), x.calls[len(x.calls)-1].Retry)
 	}
-	if !strings.Contains(string(run.RawOutput), `"Fixed"`) || strings.Contains(string(run.RawOutput), `"Made up"`) {
-		t.Errorf("raw output = %s, want the retry's", run.RawOutput)
+	if a := attempts(t, run); len(a) != 2 || !strings.Contains(string(a[0].Result), `"Made up"`) || len(a[0].Problems) != 1 ||
+		!strings.Contains(string(a[1].Result), `"Fixed"`) || a[1].Problems != nil {
+		t.Errorf("raw output = %s, want the rejected attempt with its problem, then the retry's", run.RawOutput)
 	}
 	if got := f.stored(e.ID); len(got.observations) != 1 || got.observations[0].Summary != "Fixed" {
 		t.Errorf("stored %+v, want the retry's observation", got)
 	}
 	if got := ev.list(); len(got) != 1 || got[0].Type != EventEntryProcessed {
 		t.Errorf("events = %+v, want one entry.processed", got)
+	}
+}
+
+// rawAttempt is one attempt in a run's raw output, with null read as nil.
+type rawAttempt struct {
+	Response  json.RawMessage
+	Result    json.RawMessage
+	Problems  []string
+	LatencyMS *int64 `json:"latency_ms"`
+}
+
+// attempts decodes a run's raw output, which must be {"attempts": [...]}.
+func attempts(t *testing.T, run domain.ExtractionRun) []rawAttempt {
+	t.Helper()
+	var raw struct{ Attempts []rawAttempt }
+	if err := json.Unmarshal(run.RawOutput, &raw); err != nil || raw.Attempts == nil {
+		t.Fatalf("raw output %s: %v, want attempts", run.RawOutput, err)
+	}
+	for i, a := range raw.Attempts {
+		if a.LatencyMS == nil || *a.LatencyMS < 0 {
+			t.Errorf("attempt %d has latency %v", i, a.LatencyMS)
+		}
+		if string(a.Response) == "null" {
+			raw.Attempts[i].Response = nil
+		}
+		if string(a.Result) == "null" {
+			raw.Attempts[i].Result = nil
+		}
+	}
+	return raw.Attempts
+}
+
+func TestProcessKeepsTheModelsReply(t *testing.T) {
+	tests := []struct {
+		name  string
+		reply string
+		want  string
+	}{
+		{"json", `{"stop_reason":"refusal"}`, `{"stop_reason":"refusal"}`},
+		{"cut off", `{"choices":[{"mess`, `"{\"choices\":[{\"mess"`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			x := &fakeExtractor{err: &extract.ResponseError{Response: json.RawMessage(tt.reply), Err: errors.New("no tool call")}}
+			w := f.worker(x, newEvents())
+			f.save(w, "note", nil)
+
+			run := f.run(processNext(t, w).ID)
+
+			if run.Status != domain.RunFailed || run.Error == nil || *run.Error != "extract: no tool call" {
+				t.Errorf("run = %+v, want failed with the extractor's error", run)
+			}
+			if a := attempts(t, run); len(a) != 1 || string(a[0].Response) != tt.want || a[0].Result != nil {
+				t.Errorf("raw output = %s, want the reply %s", run.RawOutput, tt.want)
+			}
+		})
+	}
+}
+
+func TestProcessKeepsTheReplyWithTheResult(t *testing.T) {
+	f := newFixture(t)
+	x := &fakeExtractor{res: extract.ExtractionResult{
+		Observations: []extract.ObservationDraft{{Kind: domain.ObservationNote, Summary: "Fine", SpanStart: 0, SpanEnd: 4}},
+		Response:     json.RawMessage(`{"id":"msg_1"}`),
+	}}
+	w := f.worker(x, newEvents())
+	f.save(w, "note", nil)
+
+	run := f.run(processNext(t, w).ID)
+
+	if a := attempts(t, run); run.Status != domain.RunSucceeded || len(a) != 1 ||
+		string(a[0].Response) != `{"id":"msg_1"}` || !strings.Contains(string(a[0].Result), `"Fine"`) {
+		t.Errorf("run = %+v, raw output = %s; want succeeded with the reply and the result", run, run.RawOutput)
 	}
 }
 

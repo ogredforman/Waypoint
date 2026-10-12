@@ -211,6 +211,9 @@ func TestExtractResult(t *testing.T) {
 			if res.Ops[0].OpType != domain.OpCreateTask {
 				t.Errorf("op type = %q", res.Ops[0].OpType)
 			}
+			if string(res.Response) != tt.reply {
+				t.Errorf("response = %s, want the reply", res.Response)
+			}
 			if err := extract.Validate(in, res); err != nil {
 				t.Errorf("Validate: %v", err)
 			}
@@ -240,6 +243,15 @@ func TestExtractErrors(t *testing.T) {
 			_, err := newExtractor(t, s, "sk-secret").Extract(context.Background(), input())
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 				t.Fatalf("err = %v, want one containing %q", err, tt.wantErr)
+			}
+			// A reply the model sent is kept for the run; a server error's
+			// body isn't a reply.
+			want := ""
+			if tt.status == http.StatusOK {
+				want = tt.reply
+			}
+			if got := string(extract.ResponseOf(err)); got != want {
+				t.Errorf("response = %q, want %q", got, want)
 			}
 			if len(err.Error()) > 400 {
 				t.Errorf("error is %d bytes long", len(err.Error()))

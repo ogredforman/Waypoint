@@ -79,18 +79,23 @@ func (x *Extractor) Extract(ctx context.Context, in extract.ExtractInput) (extra
 		return extract.ExtractionResult{}, err
 	}
 
+	// From here on the provider has answered, so a failure keeps its reply.
+	fail := func(err error) (extract.ExtractionResult, error) {
+		return extract.ExtractionResult{}, &extract.ResponseError{Response: raw, Err: err}
+	}
 	args, err := toolArguments(raw)
 	if err != nil {
-		return extract.ExtractionResult{}, err
+		return fail(err)
 	}
 	if args, err = llmhttp.NumericIDs(args); err != nil {
-		return extract.ExtractionResult{}, fmt.Errorf("decode %s arguments: %w", extract.ToolName, err)
+		return fail(fmt.Errorf("decode %s arguments: %w", extract.ToolName, err))
 	}
 	var res extract.ExtractionResult
 	if err := json.Unmarshal(args, &res); err != nil {
-		return extract.ExtractionResult{}, fmt.Errorf("decode %s arguments: %w", extract.ToolName, err)
+		return fail(fmt.Errorf("decode %s arguments: %w", extract.ToolName, err))
 	}
 	extract.ResolveQuotes(in.Entry.Body, res.Observations)
+	res.Response = raw
 	return res, nil
 }
 

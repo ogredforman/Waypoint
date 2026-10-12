@@ -359,6 +359,41 @@ func extractStage(err error) string {
 	return stageExtract
 }
 
+// attempt is one extractor call as the run's raw output records it.
+type attempt struct {
+	Response  json.RawMessage           `json:"response"` // the model's reply; null without one
+	Result    *extract.ExtractionResult `json:"result"`   // null if the extractor failed
+	Problems  []string                  `json:"problems,omitempty"`
+	LatencyMS int64                     `json:"latency_ms"`
+}
+
+// rawOutput encodes the attempts as {"attempts": [...]}. A reply that isn't
+// valid JSON (cut off at llmhttp.MaxResponse, say) is kept as a JSON string.
+// An attempt whose result can't be encoded, such as one with a NaN
+// confidence, keeps a null result. It returns nil only if encoding fails
+// even so.
+func rawOutput(attempts []attempt) json.RawMessage {
+	out := make([]attempt, len(attempts))
+	for i, a := range attempts {
+		if len(a.Response) > 0 && !json.Valid(a.Response) {
+			a.Response, _ = json.Marshal(string(a.Response))
+		}
+		if a.Result != nil {
+			if _, err := json.Marshal(a.Result); err != nil {
+				a.Result = nil
+			}
+		}
+		out[i] = a
+	}
+	b, err := json.Marshal(struct {
+		Attempts []attempt `json:"attempts"`
+	}{out})
+	if err != nil {
+		return nil
+	}
+	return b
+}
+
 // problems lists a validation error's problems as "field: problem" lines, to
 // feed back to the extractor.
 func problems(err error) []string {
@@ -433,37 +468,52 @@ func (w *Worker) process(ctx context.Context, run domain.ExtractionRun) {
 		Entry: entry, Snapshot: snap, ReplyTo: replyTo,
 		MaxQuestions: settings.QuestionsPerEntry, PromptVersion: run.PromptVersion,
 	}
+	// Every extractor call is an attempt in the raw output, so a failed or
+	// retried run keeps what the model said each time.
+	var attempts []attempt
 	start := time.Now()
-	res, err := w.extract(ctx, in)
+	call := func() (extract.ExtractionResult, error) {
+		t := time.Now()
+		res, err := w.extract(ctx, in)
+		a := attempt{Response: res.Response, LatencyMS: time.Since(t).Milliseconds()}
+		if err != nil {
+			a.Response = extract.ResponseOf(err)
+		} else {
+			a.Result = &res
+		}
+		attempts = append(attempts, a)
+		return res, err
+	}
+	res, err := call()
 	latency := time.Since(start).Milliseconds()
 	if err != nil {
-		w.fail(ctx, run, extractStage(err), err, nil, &latency)
+		w.fail(ctx, run, extractStage(err), err, rawOutput(attempts), &latency)
 		return
 	}
 
 	// Validate first: it catches what can't be encoded, such as a NaN
-	// confidence. The raw output of an invalid result is kept if it encodes.
-	// An invalid result gets one retry, told what was wrong; an extractor
-	// error doesn't, so a timeout can't double.
+	// confidence. An invalid result gets one retry, told what was wrong; an
+	// extractor error doesn't, so a timeout can't double.
 	if verr := extract.Validate(in, res); verr != nil {
-		raw, _ := json.Marshal(res)
+		attempts[0].Problems = problems(verr)
+		prev, _ := json.Marshal(res)
 		w.logger.Debug("extraction result invalid, retrying", "run_id", run.ID, "entry_id", run.EntryID)
-		in.Retry = &extract.Retry{Previous: raw, Problems: problems(verr)}
-		res, err = w.extract(ctx, in)
+		in.Retry = &extract.Retry{Previous: prev, Problems: attempts[0].Problems}
+		res, err = call()
 		latency = time.Since(start).Milliseconds()
 		if err != nil {
-			w.fail(ctx, run, extractStage(err), err, raw, &latency)
+			w.fail(ctx, run, extractStage(err), err, rawOutput(attempts), &latency)
 			return
 		}
 		if err := extract.Validate(in, res); err != nil {
-			raw, _ := json.Marshal(res)
-			w.fail(ctx, run, stageRetried, err, raw, &latency)
+			attempts[1].Problems = problems(err)
+			w.fail(ctx, run, stageRetried, err, rawOutput(attempts), &latency)
 			return
 		}
 	}
-	raw, err := json.Marshal(res)
-	if err != nil {
-		w.fail(ctx, run, stageValidate, fmt.Errorf("encode output: %w", err), nil, &latency)
+	raw := rawOutput(attempts)
+	if raw == nil {
+		w.fail(ctx, run, stageValidate, errors.New("encode output"), nil, &latency)
 		return
 	}
 

@@ -166,7 +166,7 @@ type ExtractionRun struct {
 	Model         string
 	PromptVersion string
 	InputSnapshot json.RawMessage // nil until the snapshot is built
-	RawOutput     json.RawMessage // nil until the extractor returns
+	RawOutput     json.RawMessage // {"attempts": [...]}; nil until the extractor is called
 	Status        ExtractionRunStatus
 	Error         *string
 	LatencyMS     *int64

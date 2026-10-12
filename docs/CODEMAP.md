@@ -61,7 +61,7 @@ Seed: cfg.SettingsDefaults(), Extractor: provider.New(…), …})` → `api.NewR
   calls `AfterApply.Applied`. `manual.go`: `Applier.ApplyManual(ctx, ops ...Payload)` for
   `source=manual`. `reject.go`: `RejectPending`. `AfterApplies` chains hooks (briefings, then the SSE hub).
 - **extract**: provider-neutral boundary. `Extractor{Extract, Name}`, `ExtractInput` (entry, snapshot, `ReplyTo` question, `Retry` (rejected result + problems, added to `UserMessage`)),
-  `ExtractionResult` (observations, links, `ChangeOpDraft`s, `QuestionDraft`s), `StateSnapshot`
+  `ExtractionResult` (observations, links, `ChangeOpDraft`s, `QuestionDraft`s, `Response`: the model's reply, not encoded), `ResponseError`/`ResponseOf` (an extractor error carrying the reply), `StateSnapshot`
   (projects with open `SnapshotMilestone`s, tasks, blockers; `Has`), `Validate` (shared validator, `MaxQuestions = 2`). `LinkDraft.TargetID` is a `changeset.Ref`,
   so a link can name `$new:N`; the worker stores those pending.
   `prompt.go` + embedded `prompt_system.md`: `PromptVersion` (bump on any prompt or format change), `SystemPrompt(maxQuestions)`,
@@ -79,7 +79,7 @@ Seed: cfg.SettingsDefaults(), Extractor: provider.New(…), …})` → `api.NewR
   **extract/provider**: `New(Options{Provider, Model, Endpoint, APIKey, Timeout, MockLatency})` picks the extractor (empty provider = mock; `Timeout` > 0 replaces the provider's `DefaultTimeout`); `main` calls it.
 - **pipeline**: `SnapshotBuilder.Build(ctx, entry)`; `Worker`: `SaveEntry` (entry + pending run in
   one tx), `Reprocess`, `DeleteEntry` (refused while running), `Wake`, `Run(ctx)` (claims runs, extracts, validates, stores result +
-  changeset (keeping only `questions_per_entry` questions), emits `Event`s via `Notifier`, calls `AfterRun.EntryProcessed`). An invalid result is retried once with `extract.Retry`; failures recorded on
+  changeset (keeping only `questions_per_entry` questions), emits `Event`s via `Notifier`, calls `AfterRun.EntryProcessed`). An invalid result is retried once with `extract.Retry`; the run's raw output is `rawOutput(attempts)`, `{"attempts":[{response, result, problems, latency_ms}]}`, one per extractor call; failures recorded on
   the run, never partial state, with the stage first in the error (`timeout`, `unreachable`, `validate (retried)`, …); `FailureOf(msg)` → `FailureReason` for the API's `ExtractionRun.failure`.
 - **briefing**: `Briefer` interface (`State` includes the project's milestones), `Heuristic` implementation (`heuristic.go`; todo window prefers the first open milestone), `Service`
   (`Refresh`, `Get` → `View` (with `Step`: the next task's parent and step number, → `Briefing.next_step`), `EntryDeleted`; drops recap entries the Briefer wasn't shown; implements `changeset.AfterApply` and `pipeline.AfterRun`; notifies

@@ -3,6 +3,7 @@ package extract
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/ogredforman/waypoint/internal/changeset"
 	"github.com/ogredforman/waypoint/internal/domain"
@@ -40,12 +41,35 @@ type Retry struct {
 	Problems []string        // the validator's "field: problem" lines
 }
 
-// ExtractionResult is an extractor's output. It is stored as the run's raw
+// ExtractionResult is an extractor's output. It is stored in the run's raw
 // output, so it has JSON tags.
 type ExtractionResult struct {
 	Observations []ObservationDraft `json:"observations"`
 	Ops          []ChangeOpDraft    `json:"ops"`
 	Questions    []QuestionDraft    `json:"questions"`
+	// Response is the model's reply as the provider sent it, stored next to
+	// the result; nil for an extractor with no model behind it.
+	Response json.RawMessage `json:"-"`
+}
+
+// ResponseError is an extractor error that comes with the model's reply: the
+// provider answered, but not with a usable result (no tool call, bad JSON, a
+// refusal, a reply cut off). The worker stores the reply on the failed run.
+type ResponseError struct {
+	Response json.RawMessage
+	Err      error
+}
+
+func (e *ResponseError) Error() string { return e.Err.Error() }
+func (e *ResponseError) Unwrap() error { return e.Err }
+
+// ResponseOf returns the reply carried by err, or nil if it carries none.
+func ResponseOf(err error) json.RawMessage {
+	var re *ResponseError
+	if errors.As(err, &re) {
+		return re.Response
+	}
+	return nil
 }
 
 // ObservationDraft is a typed fragment of the entry. SpanStart and SpanEnd are
