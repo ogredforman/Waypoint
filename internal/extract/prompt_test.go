@@ -40,10 +40,7 @@ func TestSystemPromptCoversKindsAndOps(t *testing.T) {
 			t.Errorf("observation kind %q isn't described", k)
 		}
 	}
-	notProposed := []domain.OpType{
-		domain.OpDeleteProject,
-		domain.OpCreateMilestone, domain.OpUpdateMilestone, domain.OpDeleteMilestone,
-	}
+	notProposed := []domain.OpType{domain.OpDeleteProject}
 	for _, op := range domain.OpTypes() {
 		described := strings.Contains(p, "- "+string(op)+" {")
 		if slices.Contains(notProposed, op) {
@@ -53,9 +50,6 @@ func TestSystemPromptCoversKindsAndOps(t *testing.T) {
 		} else if !described {
 			t.Errorf("op %q isn't described", op)
 		}
-	}
-	if strings.Contains(p, "milestone") {
-		t.Error("the prompt mentions milestones, which extraction can't propose yet")
 	}
 }
 
@@ -69,8 +63,9 @@ func TestUserMessage(t *testing.T) {
 			Projects: []SnapshotProject{
 				{
 					ID: 1, Title: "Build Waypoint", Status: domain.ProjectActive,
+					Milestones: []SnapshotMilestone{{ID: 3, Title: "MVP"}, {ID: 6, Title: "Beta"}},
 					Tasks: []SnapshotTask{
-						{ID: 10, Title: "Write the login form", Status: domain.TaskInProgress, UpdatedAt: at(2)},
+						{ID: 10, Title: "Write the login form", Status: domain.TaskInProgress, MilestoneID: ptr(int64(3)), UpdatedAt: at(2)},
 						{ID: 12, Title: "Add validation", Status: domain.TaskTodo, ParentTaskID: ptr(int64(10)), UpdatedAt: at(3)},
 						{ID: 13, Title: "Orphan step", Status: domain.TaskTodo, ParentTaskID: ptr(int64(99)), UpdatedAt: at(4)},
 					},
@@ -97,8 +92,11 @@ Entry scoped to: project 1 "Build Waypoint"
 # Projects
 
 project 1 "Build Waypoint" (active)
+Open milestones, in order:
+- milestone 3: "MVP"
+- milestone 6: "Beta"
 Open tasks:
-- task 10 [in_progress] "Write the login form" (updated 2026-10-02)
+- task 10 [in_progress] "Write the login form" (milestone 3, updated 2026-10-02)
   - task 12 [todo] "Add validation" (updated 2026-10-03)
 - task 13 [todo] "Orphan step" (updated 2026-10-04)
 Open blockers:

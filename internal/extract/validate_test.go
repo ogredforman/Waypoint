@@ -40,8 +40,9 @@ func input() ExtractInput {
 		Snapshot: StateSnapshot{
 			Projects: []SnapshotProject{{
 				ID: 1, Title: "Waypoint", Status: domain.ProjectActive,
-				Tasks:    []SnapshotTask{{ID: 10, Title: "Ship it", Status: domain.TaskInProgress}},
-				Blockers: []SnapshotBlocker{{ID: 20, Description: "CI is red"}},
+				Milestones: []SnapshotMilestone{{ID: 40, Title: "MVP"}},
+				Tasks:      []SnapshotTask{{ID: 10, Title: "Ship it", Status: domain.TaskInProgress, MilestoneID: ptr(int64(40))}},
+				Blockers:   []SnapshotBlocker{{ID: 20, Description: "CI is red"}},
 			}},
 			Ideas: []SnapshotIdea{{ID: 30, Title: "Dark mode"}},
 		},
@@ -71,7 +72,8 @@ func TestValidate(t *testing.T) {
 		{"valid", ExtractionResult{
 			Observations: []ObservationDraft{
 				obs(0, n, link(domain.TargetProject, 1), link(domain.TargetTask, 10),
-					link(domain.TargetBlocker, 20), link(domain.TargetIdea, 30)),
+					link(domain.TargetBlocker, 20), link(domain.TargetIdea, 30), link(domain.TargetMilestone, 40),
+					LinkDraft{TargetType: domain.TargetMilestone, TargetID: changeset.Temp(8), Confidence: ptr(0.8)}),
 				obs(6, 9), // exactly the "☕"
 				obs(n, n),
 			},
@@ -84,6 +86,11 @@ func TestValidate(t *testing.T) {
 				opDraft(domain.OpUpdateIdea, `{"idea_id":30,"project_id":1}`),
 				opDraft(domain.OpCreateProject, `{"title":"New"}`),
 				opDraft(domain.OpParkIdea, `{"project_id":"$new:6","title":"i"}`),
+				opDraft(domain.OpCreateMilestone, `{"project_id":1,"title":"Beta"}`),
+				opDraft(domain.OpCreateTask, `{"project_id":1,"title":"Invite a friend","milestone_id":"$new:8"}`),
+				opDraft(domain.OpUpdateTask, `{"task_id":10,"milestone_id":null}`),
+				opDraft(domain.OpUpdateMilestone, `{"milestone_id":40,"status":"done"}`),
+				opDraft(domain.OpDeleteMilestone, `{"milestone_id":"$new:8"}`),
 			},
 			Questions: []QuestionDraft{{Text: "What's next?", Reason: "no next step"}, {Text: "q", Reason: "r"}},
 		}, nil},
@@ -119,7 +126,7 @@ func TestValidate(t *testing.T) {
 			"observations[0].links[0].target_id",
 			"observations[0].links[1].target_id",
 			"observations[0].links[2].target_id",
-			"observations[0].links[3].target_type",
+			"observations[0].links[3].target_id", // no milestone 1
 			"observations[0].links[4].target_type",
 			"observations[0].links[5].confidence",
 			"observations[0].links[6].confidence",
@@ -160,12 +167,17 @@ func TestValidate(t *testing.T) {
 		{"delete a project", ExtractionResult{Ops: []ChangeOpDraft{
 			opDraft(domain.OpDeleteProject, `{"project_id":1}`),
 		}}, []string{"ops[1].op_type"}},
-		{"milestones", ExtractionResult{Ops: []ChangeOpDraft{
-			opDraft(domain.OpCreateMilestone, `{"project_id":1,"title":"MVP"}`),
-			opDraft(domain.OpUpdateMilestone, `{"milestone_id":"$new:1","title":"Beta"}`),
-			opDraft(domain.OpDeleteMilestone, `{"milestone_id":"$new:1"}`),
+		{"milestones not in snapshot", ExtractionResult{Ops: []ChangeOpDraft{
+			opDraft(domain.OpCreateMilestone, `{"project_id":2,"title":"MVP"}`),
+			opDraft(domain.OpUpdateMilestone, `{"milestone_id":41,"title":"Beta"}`),
+			opDraft(domain.OpDeleteMilestone, `{"milestone_id":41}`),
 			opDraft(domain.OpCreateTask, `{"project_id":1,"title":"t","milestone_id":1}`),
-		}}, []string{"ops[1].op_type", "ops[2].op_type", "ops[3].op_type", "ops[4].milestone_id"}},
+			opDraft(domain.OpUpdateTask, `{"task_id":10,"milestone_id":41}`),
+		}}, []string{"ops[1].project_id", "ops[2].milestone_id", "ops[3].milestone_id", "ops[4].milestone_id", "ops[5].milestone_id"}},
+		{"temp milestone ref to a task", ExtractionResult{Ops: []ChangeOpDraft{
+			opDraft(domain.OpCreateTask, `{"project_id":1,"title":"t"}`),
+			opDraft(domain.OpCreateTask, `{"project_id":1,"title":"u","milestone_id":"$new:1"}`),
+		}}, []string{"ops[2].milestone_id"}},
 		{"op refs not in snapshot", ExtractionResult{Ops: []ChangeOpDraft{
 			opDraft(domain.OpCreateTask, `{"project_id":2,"title":"t","parent_task_id":11}`),
 			opDraft(domain.OpResolveBlocker, `{"blocker_id":10}`),
@@ -269,7 +281,8 @@ func TestSnapshotHas(t *testing.T) {
 		{domain.TargetBlocker, 20, true},
 		{domain.TargetIdea, 30, true},
 		{domain.TargetIdea, 1, false},
-		{domain.TargetMilestone, 1, false},
+		{domain.TargetMilestone, 40, true},
+		{domain.TargetMilestone, 10, false},
 	} {
 		if got := s.Has(tt.kind, tt.id); got != tt.want {
 			t.Errorf("Has(%s, %d) = %v, want %v", tt.kind, tt.id, got, tt.want)

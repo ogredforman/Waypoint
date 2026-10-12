@@ -57,7 +57,7 @@
           "items": {
             "type": "object",
             "properties": {
-              "target_type": {"type": "string", "enum": ["project", "task", "blocker", "idea"]},
+              "target_type": {"type": "string", "enum": ["project", "milestone", "task", "blocker", "idea"]},
               "target_id": {"$ref": "#/$defs/ref"},
               "confidence": {"$ref": "#/$defs/confidence"}
             },
@@ -83,7 +83,8 @@
                 "notes": {"type": "string"},
                 "size": {"$ref": "#/$defs/size"},
                 "energy": {"$ref": "#/$defs/energy"},
-                "parent_task_id": {"$ref": "#/$defs/ref"}
+                "parent_task_id": {"$ref": "#/$defs/ref"},
+                "milestone_id": {"$ref": "#/$defs/ref"}
               },
               "required": ["project_id", "title"],
               "additionalProperties": false
@@ -106,7 +107,8 @@
                 "notes": {"type": "string"},
                 "size": {"$ref": "#/$defs/nullable_size"},
                 "energy": {"$ref": "#/$defs/nullable_energy"},
-                "parent_task_id": {"$ref": "#/$defs/nullable_ref"}
+                "parent_task_id": {"$ref": "#/$defs/nullable_ref"},
+                "milestone_id": {"$ref": "#/$defs/nullable_ref"}
               },
               "required": ["task_id"],
               "additionalProperties": false
@@ -375,6 +377,65 @@
                 "status": {"type": "string", "enum": ["active", "paused", "parked", "done", "archived"]}
               },
               "required": ["project_id"],
+              "additionalProperties": false
+            },
+            "rationale": {"$ref": "#/$defs/rationale"},
+            "confidence": {"$ref": "#/$defs/confidence"}
+          },
+          "required": ["op_type", "payload", "rationale", "confidence"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op_type": {"const": "create_milestone"},
+            "payload": {
+              "type": "object",
+              "properties": {
+                "project_id": {"$ref": "#/$defs/ref"},
+                "title": {"type": "string"},
+                "description": {"type": "string"}
+              },
+              "required": ["project_id", "title"],
+              "additionalProperties": false
+            },
+            "rationale": {"$ref": "#/$defs/rationale"},
+            "confidence": {"$ref": "#/$defs/confidence"}
+          },
+          "required": ["op_type", "payload", "rationale", "confidence"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op_type": {"const": "update_milestone"},
+            "payload": {
+              "type": "object",
+              "properties": {
+                "milestone_id": {"$ref": "#/$defs/ref"},
+                "title": {"type": "string"},
+                "description": {"type": "string"},
+                "status": {"type": "string", "enum": ["open", "done", "dropped"]}
+              },
+              "required": ["milestone_id"],
+              "additionalProperties": false
+            },
+            "rationale": {"$ref": "#/$defs/rationale"},
+            "confidence": {"$ref": "#/$defs/confidence"}
+          },
+          "required": ["op_type", "payload", "rationale", "confidence"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op_type": {"const": "delete_milestone"},
+            "payload": {
+              "type": "object",
+              "properties": {
+                "milestone_id": {"$ref": "#/$defs/ref"}
+              },
+              "required": ["milestone_id"],
               "additionalProperties": false
             },
             "rationale": {"$ref": "#/$defs/rationale"},

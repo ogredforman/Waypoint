@@ -62,7 +62,7 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   `source=manual`. `reject.go`: `RejectPending`. `AfterApplies` chains hooks (briefings, then the SSE hub).
 - **extract**: provider-neutral boundary. `Extractor{Extract, Name}`, `ExtractInput` (entry, snapshot, `ReplyTo` question),
   `ExtractionResult` (observations, links, `ChangeOpDraft`s, `QuestionDraft`s), `StateSnapshot`
-  (`Has`), `Validate` (shared validator, `MaxQuestions = 2`). `LinkDraft.TargetID` is a `changeset.Ref`,
+  (projects with open `SnapshotMilestone`s, tasks, blockers; `Has`), `Validate` (shared validator, `MaxQuestions = 2`). `LinkDraft.TargetID` is a `changeset.Ref`,
   so a link can name `$new:N`; the worker stores those pending.
   `prompt.go` + embedded `prompt_system.md`: `PromptVersion` (bump on any prompt or format change), `SystemPrompt(maxQuestions)`,
   `UserMessage(ExtractInput)` (snapshot as text, rows as "task 12"); `ExtractInput.MaxQuestions` is the questions-per-entry setting.

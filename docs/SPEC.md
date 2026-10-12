@@ -104,7 +104,7 @@ Milestones:
 - `update_milestone`: {milestone_id, title?, description?, status?, position?} (`position` orders the milestone within its project)
 - `delete_milestone`: {milestone_id}
 
-Extraction can't propose milestone ops yet; the shared validator rejects them until milestones are in the snapshot and the prompt (PLAN 2.2b).
+Extraction may propose milestone ops and a task's `milestone_id`, naming open milestones from the snapshot or `$new:N`; the prompt asks for a new milestone only when the entry names an outcome or phase, and leaves `position` (reordering) to the user.
 
 Projects:
 - `create_project`: {title, why?} (always created as `parked`)
@@ -148,7 +148,7 @@ profile; the database from before profiles became the one named "Personal". See
 
 1. **Write.** The user submits an entry, optionally scoped to a project (default: "auto").
 2. **Persist.** The entry is stored immediately and the UI returns. Processing is asynchronous.
-3. **Snapshot.** Build a compact state snapshot: active projects, plus the entry's project whatever its status (even archived, so reading an old entry again still works); their open tasks (id, title, status); open blockers; parked ideas (titles only); and the observation summaries of the last N entries written before this one, from the entry's project or, for an unscoped entry, from any project. N is `snapshot_recent_entries` in `config.toml` (default 5; 0 for none).
+3. **Snapshot.** Build a compact state snapshot: active projects, plus the entry's project whatever its status (even archived, so reading an old entry again still works); their open milestones (id, title, in order); their open tasks (id, title, status, and milestone if it is open); open blockers; parked ideas (titles only); and the observation summaries of the last N entries written before this one, from the entry's project or, for an unscoped entry, from any project. N is `snapshot_recent_entries` in `config.toml` (default 5; 0 for none).
 4. **Extract.** Call the configured `Extractor` with (entry, snapshot). It returns a validated `ExtractionResult`:
    - `observations[]`: kind, summary, text span, links[] with confidence. A link names a row in the snapshot, or `"$new:N"` for the entity the op at position N creates (that op must create that kind of entity)
    - `ops[]`: proposed change ops with rationale and confidence

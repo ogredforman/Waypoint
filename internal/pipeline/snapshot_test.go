@@ -78,6 +78,15 @@ func (f fixture) task(task domain.Task) domain.Task {
 	return task
 }
 
+func (f fixture) milestone(m domain.Milestone) domain.Milestone {
+	f.t.Helper()
+	f.write(func(tx *store.Tx) (err error) {
+		m, err = tx.CreateMilestone(context.Background(), m)
+		return err
+	})
+	return m
+}
+
 func (f fixture) blocker(b domain.Blocker) domain.Blocker {
 	f.t.Helper()
 	f.write(func(tx *store.Tx) (err error) {
@@ -135,7 +144,8 @@ func (f fixture) observe(e domain.Entry, summaries ...string) {
 // world is the state the tests build snapshots over.
 type world struct {
 	waypoint, shed, piano, done  domain.Project
-	spec, stub, piece            domain.Task
+	alpha, mvp, beta             domain.Milestone
+	spec, stub, piece, polish    domain.Task
 	driver                       domain.Blocker
 	themes, garden               domain.Idea
 	early, loose, shedDay, fresh domain.Entry
@@ -143,7 +153,8 @@ type world struct {
 }
 
 // seed creates active projects Waypoint and Shed, parked Piano, and a done
-// project; tasks and blockers of every status; ideas of every status; and
+// project; Waypoint milestones done Alpha, then open MVP and Beta; tasks and
+// blockers of every status; ideas of every status; and
 // entries around the current Waypoint entry.
 func seed(f fixture) world {
 	var w world
@@ -152,10 +163,15 @@ func seed(f fixture) world {
 	w.piano = f.project("Learn piano", domain.ProjectParked)
 	w.done = f.project("Old thing", domain.ProjectDone)
 
-	w.spec = f.task(domain.Task{ProjectID: w.waypoint.ID, Title: "Write the spec", Status: domain.TaskTodo})
+	w.alpha = f.milestone(domain.Milestone{ProjectID: w.waypoint.ID, Title: "Alpha", Status: domain.MilestoneDone})
+	w.mvp = f.milestone(domain.Milestone{ProjectID: w.waypoint.ID, Title: "MVP", Status: domain.MilestoneOpen})
+	w.beta = f.milestone(domain.Milestone{ProjectID: w.waypoint.ID, Title: "Beta", Status: domain.MilestoneOpen})
+
+	w.spec = f.task(domain.Task{ProjectID: w.waypoint.ID, MilestoneID: &w.mvp.ID, Title: "Write the spec", Status: domain.TaskTodo})
 	f.task(domain.Task{ProjectID: w.waypoint.ID, Title: "Pick a name", Status: domain.TaskDone})
 	w.stub = f.task(domain.Task{ProjectID: w.waypoint.ID, ParentTaskID: &w.spec.ID, Title: "Stub the outline", Status: domain.TaskInProgress})
 	f.task(domain.Task{ProjectID: w.waypoint.ID, Title: "Use Postgres", Status: domain.TaskDropped})
+	w.polish = f.task(domain.Task{ProjectID: w.waypoint.ID, MilestoneID: &w.alpha.ID, Title: "Polish the alpha", Status: domain.TaskTodo})
 	w.piece = f.task(domain.Task{ProjectID: w.piano.ID, Title: "Learn a scale", Status: domain.TaskTodo})
 	f.task(domain.Task{ProjectID: w.done.ID, Title: "Finish it", Status: domain.TaskTodo})
 
@@ -199,15 +215,18 @@ func TestBuildScopedToActiveProject(t *testing.T) {
 		Projects: []extract.SnapshotProject{
 			{
 				ID: w.waypoint.ID, Title: "Build Waypoint", Status: domain.ProjectActive,
+				// Open milestones only; a task in done Alpha shows no milestone.
+				Milestones: []extract.SnapshotMilestone{{ID: w.mvp.ID, Title: "MVP"}, {ID: w.beta.ID, Title: "Beta"}},
 				Tasks: []extract.SnapshotTask{
-					{ID: w.spec.ID, Title: "Write the spec", Status: domain.TaskTodo, UpdatedAt: w.spec.UpdatedAt},
+					{ID: w.spec.ID, Title: "Write the spec", Status: domain.TaskTodo, MilestoneID: &w.mvp.ID, UpdatedAt: w.spec.UpdatedAt},
 					{ID: w.stub.ID, Title: "Stub the outline", Status: domain.TaskInProgress, ParentTaskID: &w.spec.ID, UpdatedAt: w.stub.UpdatedAt},
+					{ID: w.polish.ID, Title: "Polish the alpha", Status: domain.TaskTodo, UpdatedAt: w.polish.UpdatedAt},
 				},
 				Blockers: []extract.SnapshotBlocker{{ID: w.driver.ID, TaskID: &w.spec.ID, Description: "waiting on the driver"}},
 			},
 			{
 				ID: w.shed.ID, Title: "Garden shed", Status: domain.ProjectActive,
-				Tasks: []extract.SnapshotTask{}, Blockers: []extract.SnapshotBlocker{},
+				Milestones: []extract.SnapshotMilestone{}, Tasks: []extract.SnapshotTask{}, Blockers: []extract.SnapshotBlocker{},
 			},
 		},
 		Ideas: []extract.SnapshotIdea{

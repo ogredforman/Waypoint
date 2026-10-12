@@ -10,7 +10,7 @@ import (
 
 // PromptVersion names the system prompt and the user message format below.
 // Bump it whenever either changes, so runs and eval scores stay comparable.
-const PromptVersion = "v1"
+const PromptVersion = "v2"
 
 //go:embed prompt_system.md
 var systemPromptText string
@@ -54,6 +54,12 @@ func UserMessage(in ExtractInput) string {
 	}
 	for _, p := range snap.Projects {
 		fmt.Fprintf(&b, "\nproject %d %s (%s)\n", p.ID, quote(p.Title), p.Status)
+		if len(p.Milestones) > 0 {
+			b.WriteString("Open milestones, in order:\n")
+			for _, m := range p.Milestones {
+				fmt.Fprintf(&b, "- milestone %d: %s\n", m.ID, quote(m.Title))
+			}
+		}
 		writeTasks(&b, p.Tasks)
 		if len(p.Blockers) > 0 {
 			b.WriteString("Open blockers:\n")
@@ -115,7 +121,11 @@ func writeTasks(b *strings.Builder, tasks []SnapshotTask) {
 	}
 	var write func(t SnapshotTask, depth int)
 	write = func(t SnapshotTask, depth int) {
-		fmt.Fprintf(b, "%s- task %d [%s] %s (updated %s)\n", strings.Repeat("  ", depth), t.ID, t.Status, quote(t.Title), day(t.UpdatedAt))
+		in := ""
+		if t.MilestoneID != nil {
+			in = fmt.Sprintf("milestone %d, ", *t.MilestoneID)
+		}
+		fmt.Fprintf(b, "%s- task %d [%s] %s (%supdated %s)\n", strings.Repeat("  ", depth), t.ID, t.Status, quote(t.Title), in, day(t.UpdatedAt))
 		for _, s := range steps[t.ID] {
 			write(s, depth+1)
 		}

@@ -79,34 +79,31 @@ func enumOf(t *testing.T, resolve func(schemaNode) schemaNode, n schemaNode) []s
 }
 
 // extractableOps are the op types extraction may propose: not deleting a
-// project (ADR 0008), and no milestones until PLAN 2.2b.
+// project (ADR 0008).
 func extractableOps() []domain.OpType {
-	return slices.DeleteFunc(domain.OpTypes(), func(op domain.OpType) bool {
-		switch op {
-		case domain.OpDeleteProject, domain.OpCreateMilestone, domain.OpUpdateMilestone, domain.OpDeleteMilestone:
-			return true
-		}
-		return false
-	})
+	return slices.DeleteFunc(domain.OpTypes(), func(op domain.OpType) bool { return op == domain.OpDeleteProject })
 }
 
 // payloadTypes maps each extractable op type to its payload struct.
 var payloadTypes = map[domain.OpType]reflect.Type{
-	domain.OpCreateTask:     reflect.TypeFor[changeset.CreateTask](),
-	domain.OpUpdateTask:     reflect.TypeFor[changeset.UpdateTask](),
-	domain.OpSetTaskStatus:  reflect.TypeFor[changeset.SetTaskStatus](),
-	domain.OpSplitTask:      reflect.TypeFor[changeset.SplitTask](),
-	domain.OpAddDependency:  reflect.TypeFor[changeset.AddDependency](),
-	domain.OpDeleteTask:     reflect.TypeFor[changeset.DeleteTask](),
-	domain.OpCreateBlocker:  reflect.TypeFor[changeset.CreateBlocker](),
-	domain.OpUpdateBlocker:  reflect.TypeFor[changeset.UpdateBlocker](),
-	domain.OpResolveBlocker: reflect.TypeFor[changeset.ResolveBlocker](),
-	domain.OpDeleteBlocker:  reflect.TypeFor[changeset.DeleteBlocker](),
-	domain.OpParkIdea:       reflect.TypeFor[changeset.ParkIdea](),
-	domain.OpUpdateIdea:     reflect.TypeFor[changeset.UpdateIdea](),
-	domain.OpDeleteIdea:     reflect.TypeFor[changeset.DeleteIdea](),
-	domain.OpCreateProject:  reflect.TypeFor[changeset.CreateProject](),
-	domain.OpUpdateProject:  reflect.TypeFor[changeset.UpdateProject](),
+	domain.OpCreateTask:      reflect.TypeFor[changeset.CreateTask](),
+	domain.OpUpdateTask:      reflect.TypeFor[changeset.UpdateTask](),
+	domain.OpSetTaskStatus:   reflect.TypeFor[changeset.SetTaskStatus](),
+	domain.OpSplitTask:       reflect.TypeFor[changeset.SplitTask](),
+	domain.OpAddDependency:   reflect.TypeFor[changeset.AddDependency](),
+	domain.OpDeleteTask:      reflect.TypeFor[changeset.DeleteTask](),
+	domain.OpCreateBlocker:   reflect.TypeFor[changeset.CreateBlocker](),
+	domain.OpUpdateBlocker:   reflect.TypeFor[changeset.UpdateBlocker](),
+	domain.OpResolveBlocker:  reflect.TypeFor[changeset.ResolveBlocker](),
+	domain.OpDeleteBlocker:   reflect.TypeFor[changeset.DeleteBlocker](),
+	domain.OpParkIdea:        reflect.TypeFor[changeset.ParkIdea](),
+	domain.OpUpdateIdea:      reflect.TypeFor[changeset.UpdateIdea](),
+	domain.OpDeleteIdea:      reflect.TypeFor[changeset.DeleteIdea](),
+	domain.OpCreateProject:   reflect.TypeFor[changeset.CreateProject](),
+	domain.OpUpdateProject:   reflect.TypeFor[changeset.UpdateProject](),
+	domain.OpCreateMilestone: reflect.TypeFor[changeset.CreateMilestone](),
+	domain.OpUpdateMilestone: reflect.TypeFor[changeset.UpdateMilestone](),
+	domain.OpDeleteMilestone: reflect.TypeFor[changeset.DeleteMilestone](),
 }
 
 // jsonFields returns a struct's JSON field names and which of them are
@@ -190,14 +187,13 @@ func TestSchemaEnumsMatchDomain(t *testing.T) {
 		return nil
 	}
 
-	targets := slices.DeleteFunc(domain.TargetTypes(), func(k domain.TargetType) bool { return k == domain.TargetMilestone })
 	tests := []struct {
 		name string
 		node schemaNode
 		want []string
 	}{
 		{"observation kind", obs["kind"].(schemaNode), sorted(domain.ObservationKinds())},
-		{"link target_type", link["target_type"].(schemaNode), sorted(targets)},
+		{"link target_type", link["target_type"].(schemaNode), sorted(domain.TargetTypes())},
 		{"size", defs["size"].(schemaNode), sorted(domain.TaskSizes())},
 		{"nullable size", defs["nullable_size"].(schemaNode), sorted(domain.TaskSizes())},
 		{"energy", defs["energy"].(schemaNode), sorted(domain.Energies())},
@@ -205,6 +201,7 @@ func TestSchemaEnumsMatchDomain(t *testing.T) {
 		{"task status", payloadProp(domain.OpSetTaskStatus, "status"), sorted(domain.TaskStatuses())},
 		{"idea status", payloadProp(domain.OpUpdateIdea, "status"), sorted(domain.IdeaStatuses())},
 		{"project status", payloadProp(domain.OpUpdateProject, "status"), sorted(domain.ProjectStatuses())},
+		{"milestone status", payloadProp(domain.OpUpdateMilestone, "status"), sorted(domain.MilestoneStatuses())},
 	}
 	for _, tt := range tests {
 		if got := enumOf(t, resolve, tt.node); !slices.Equal(got, tt.want) {

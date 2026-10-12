@@ -27,7 +27,8 @@ func NewSnapshotBuilder(s *store.Store, now func() time.Time, recentEntries int)
 
 // Build returns the snapshot for entry e:
 //   - the active projects, plus e's project whatever its status (even archived), each with its
-//     open tasks (in position order) and open blockers;
+//     open milestones (in order), open tasks (in position order, each with its
+//     milestone if that is open), and open blockers;
 //   - every parked idea, title only;
 //   - up to recentEntries entries written before e, newest first: those of
 //     e's project, or of any project if e has none. Each carries the
@@ -68,11 +69,25 @@ func addProjects(ctx context.Context, tx *store.ReadTx, e domain.Entry, snap *ex
 			continue
 		}
 		sp := extract.SnapshotProject{
-			ID:       p.ID,
-			Title:    p.Title,
-			Status:   p.Status,
-			Tasks:    []extract.SnapshotTask{},
-			Blockers: []extract.SnapshotBlocker{},
+			ID:         p.ID,
+			Title:      p.Title,
+			Status:     p.Status,
+			Milestones: []extract.SnapshotMilestone{},
+			Tasks:      []extract.SnapshotTask{},
+			Blockers:   []extract.SnapshotBlocker{},
+		}
+
+		milestones, err := tx.ListMilestonesByProject(ctx, p.ID)
+		if err != nil {
+			return err
+		}
+		open := make(map[int64]bool, len(milestones))
+		for _, m := range milestones {
+			if m.Status != domain.MilestoneOpen {
+				continue
+			}
+			open[m.ID] = true
+			sp.Milestones = append(sp.Milestones, extract.SnapshotMilestone{ID: m.ID, Title: m.Title})
 		}
 
 		tasks, err := tx.ListTasksByProject(ctx, p.ID)
@@ -83,13 +98,17 @@ func addProjects(ctx context.Context, tx *store.ReadTx, e domain.Entry, snap *ex
 			if t.Status != domain.TaskTodo && t.Status != domain.TaskInProgress {
 				continue
 			}
-			sp.Tasks = append(sp.Tasks, extract.SnapshotTask{
+			st := extract.SnapshotTask{
 				ID:           t.ID,
 				Title:        t.Title,
 				Status:       t.Status,
 				ParentTaskID: t.ParentTaskID,
 				UpdatedAt:    t.UpdatedAt,
-			})
+			}
+			if t.MilestoneID != nil && open[*t.MilestoneID] {
+				st.MilestoneID = t.MilestoneID
+			}
+			sp.Tasks = append(sp.Tasks, st)
 		}
 
 		blockers, err := tx.ListBlockersByProject(ctx, p.ID)
