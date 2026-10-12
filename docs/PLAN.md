@@ -159,7 +159,7 @@ Tasks:
 
 ### 2A. Extraction with a real model
 - [x] **2.1** Prompt design: a system prompt stating the principles (tasks are startable actions; propose, don't impose; at most 2 questions; park new ideas); snapshot formatting; version the prompt (`prompt_version`).
-- [ ] **2.2** JSON schema for `ExtractionResult`, used via tool/function calling. Observations carry a verbatim `quote` instead of byte offsets; a shared helper in `internal/extract` turns quotes into spans (first match after the previous quote, then whitespace- and quote-normalised, else an empty span).
+- [x] **2.2** JSON schema for `ExtractionResult`, used via tool/function calling. Observations carry a verbatim `quote` instead of byte offsets; a shared helper in `internal/extract` turns quotes into spans (first match after the previous quote, then whitespace- and quote-normalised, else an empty span).
 - [ ] **2.2b** Milestones in extraction: open milestones in the snapshot (and `StateSnapshot.Has`), milestone ops and links allowed by the validator, and the prompt describing them (bump `PromptVersion`). Split out of 2.1.
 - [ ] **2.3** `AnthropicExtractor`.
 - [ ] **2.4** `OpenAICompatExtractor` (OpenAI, Ollama, LM Studio, llama.cpp). Test with at least one local model.

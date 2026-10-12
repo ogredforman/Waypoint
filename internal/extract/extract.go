@@ -41,9 +41,12 @@ type ExtractionResult struct {
 // ObservationDraft is a typed fragment of the entry. SpanStart and SpanEnd are
 // byte offsets into the entry body, on UTF-8 character boundaries. An empty
 // span (SpanStart == SpanEnd) means the observation isn't tied to any text.
+// An LLM extractor gets a Quote from the model instead, copied from the body,
+// and sets the span from it with ResolveQuotes.
 type ObservationDraft struct {
 	Kind      domain.ObservationKind `json:"kind"`
 	Summary   string                 `json:"summary"`
+	Quote     string                 `json:"quote,omitempty"`
 	SpanStart int64                  `json:"span_start"`
 	SpanEnd   int64                  `json:"span_end"`
 	Links     []LinkDraft            `json:"links,omitempty"`

@@ -1,0 +1,389 @@
+{
+  "type": "object",
+  "properties": {
+    "observations": {
+      "type": "array",
+      "description": "The meaningful fragments of the entry, in the order they appear.",
+      "items": {"$ref": "#/$defs/observation"}
+    },
+    "ops": {
+      "type": "array",
+      "description": "Proposed changes, in order. An op's position, counting from 1, is the N of \"$new:N\".",
+      "items": {"$ref": "#/$defs/op"}
+    },
+    "questions": {
+      "type": "array",
+      "description": "Follow-up questions; often none.",
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": {"type": "string", "description": "The question to show the person."},
+          "reason": {"type": "string", "description": "What is missing that the answer would fill in."}
+        },
+        "required": ["text", "reason"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["observations", "ops", "questions"],
+  "additionalProperties": false,
+  "$defs": {
+    "ref": {
+      "description": "An ID from the snapshot, or \"$new:N\" for what the op at position N creates.",
+      "anyOf": [
+        {"type": "integer", "minimum": 1},
+        {"type": "string", "pattern": "^\\$new:[1-9][0-9]*$"}
+      ]
+    },
+    "nullable_ref": {
+      "description": "As ref; null clears it.",
+      "anyOf": [{"$ref": "#/$defs/ref"}, {"type": "null"}]
+    },
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "rationale": {"type": "string", "description": "One short sentence saying why, from the entry."},
+    "size": {"type": "string", "enum": ["xs", "s", "m", "l"]},
+    "energy": {"type": "string", "enum": ["low", "medium", "deep"]},
+    "nullable_size": {"anyOf": [{"$ref": "#/$defs/size"}, {"type": "null"}]},
+    "nullable_energy": {"anyOf": [{"$ref": "#/$defs/energy"}, {"type": "null"}]},
+    "observation": {
+      "type": "object",
+      "properties": {
+        "kind": {"type": "string", "enum": ["progress", "plan", "blocker", "idea", "feeling", "decision", "question", "note"]},
+        "summary": {"type": "string", "description": "One short sentence in the third person, readable without the entry."},
+        "quote": {"type": "string", "description": "A short phrase copied exactly from the entry; empty if the observation isn't tied to particular words."},
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "target_type": {"type": "string", "enum": ["project", "task", "blocker", "idea"]},
+              "target_id": {"$ref": "#/$defs/ref"},
+              "confidence": {"$ref": "#/$defs/confidence"}
+            },
+            "required": ["target_type", "target_id", "confidence"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["kind", "summary", "quote", "links"],
+      "additionalProperties": false
+    },
+    "op": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "op_type": {"const": "create_task"},
+            "payload": {
+              "type": "object",
+              "properties": {
+                "project_id": {"$ref": "#/$defs/ref"},
+                "title": {"type": "string"},
+                "notes": {"type": "string"},
+                "size": {"$ref": "#/$defs/size"},
+                "energy": {"$ref": "#/$defs/energy"},
+                "parent_task_id": {"$ref": "#/$defs/ref"}
+              },
+              "required": ["project_id", "title"],
+              "additionalProperties": false
+            },
+            "rationale": {"$ref": "#/$defs/rationale"},
+            "confidence": {"$ref": "#/$defs/confidence"}
+          },
+          "required": ["op_type", "payload", "rationale", "confidence"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op_type": {"const": "update_task"},
+            "payload": {
+              "type": "object",
+              "properties": {
+                "task_id": {"$ref": "#/$defs/ref"},
+                "title": {"type": "string"},
+                "notes": {"type": "string"},
+                "size": {"$ref": "#/$defs/nullable_size"},
+                "energy": {"$ref": "#/$defs/nullable_energy"},
+                "parent_task_id": {"$ref": "#/$defs/nullable_ref"}
+              },
+              "required": ["task_id"],
+              "additionalProperties": false
+            },
+            "rationale": {"$ref": "#/$defs/rationale"},
+            "confidence": {"$ref": "#/$defs/confidence"}
+          },
+          "required": ["op_type", "payload", "rationale", "confidence"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op_type": {"const": "set_task_status"},
+            "payload": {
+              "type": "object",
+              "properties": {
+                "task_id": {"$ref": "#/$defs/ref"},
+                "status": {"type": "string", "enum": ["todo", "in_progress", "done", "dropped"]}
+              },
+              "required": ["task_id", "status"],
+              "additionalProperties": false
+            },
+            "rationale": {"$ref": "#/$defs/rationale"},
+            "confidence": {"$ref": "#/$defs/confidence"}
+          },
+          "required": ["op_type", "payload", "rationale", "confidence"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op_type": {"const": "split_task"},
+            "payload": {
+              "type": "object",
+              "properties": {
+                "task_id": {"$ref": "#/$defs/ref"},
+                "subtasks": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "title": {"type": "string"},
+                      "notes": {"type": "string"},
+                      "size": {"$ref": "#/$defs/size"},
+                      "energy": {"$ref": "#/$defs/energy"}
+                    },
+                    "required": ["title"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": ["task_id", "subtasks"],
+              "additionalProperties": false
+            },
+            "rationale": {"$ref": "#/$defs/rationale"},
+            "confidence": {"$ref": "#/$defs/confidence"}
+          },
+          "required": ["op_type", "payload", "rationale", "confidence"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op_type": {"const": "add_dependency"},
+            "payload": {
+              "type": "object",
+              "properties": {
+                "task_id": {"$ref": "#/$defs/ref"},
+                "blocked_by_task_id": {"$ref": "#/$defs/ref"}
+              },
+              "required": ["task_id", "blocked_by_task_id"],
+              "additionalProperties": false
+            },
+            "rationale": {"$ref": "#/$defs/rationale"},
+            "confidence": {"$ref": "#/$defs/confidence"}
+          },
+          "required": ["op_type", "payload", "rationale", "confidence"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op_type": {"const": "delete_task"},
+            "payload": {
+              "type": "object",
+              "properties": {
+                "task_id": {"$ref": "#/$defs/ref"}
+              },
+              "required": ["task_id"],
+              "additionalProperties": false
+            },
+            "rationale": {"$ref": "#/$defs/rationale"},
+            "confidence": {"$ref": "#/$defs/confidence"}
+          },
+          "required": ["op_type", "payload", "rationale", "confidence"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op_type": {"const": "create_blocker"},
+            "payload": {
+              "type": "object",
+              "properties": {
+                "project_id": {"$ref": "#/$defs/ref"},
+                "task_id": {"$ref": "#/$defs/ref"},
+                "description": {"type": "string"}
+              },
+              "required": ["project_id", "description"],
+              "additionalProperties": false
+            },
+            "rationale": {"$ref": "#/$defs/rationale"},
+            "confidence": {"$ref": "#/$defs/confidence"}
+          },
+          "required": ["op_type", "payload", "rationale", "confidence"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op_type": {"const": "update_blocker"},
+            "payload": {
+              "type": "object",
+              "properties": {
+                "blocker_id": {"$ref": "#/$defs/ref"},
+                "description": {"type": "string"},
+                "task_id": {"$ref": "#/$defs/nullable_ref"}
+              },
+              "required": ["blocker_id"],
+              "additionalProperties": false
+            },
+            "rationale": {"$ref": "#/$defs/rationale"},
+            "confidence": {"$ref": "#/$defs/confidence"}
+          },
+          "required": ["op_type", "payload", "rationale", "confidence"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op_type": {"const": "resolve_blocker"},
+            "payload": {
+              "type": "object",
+              "properties": {
+                "blocker_id": {"$ref": "#/$defs/ref"}
+              },
+              "required": ["blocker_id"],
+              "additionalProperties": false
+            },
+            "rationale": {"$ref": "#/$defs/rationale"},
+            "confidence": {"$ref": "#/$defs/confidence"}
+          },
+          "required": ["op_type", "payload", "rationale", "confidence"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op_type": {"const": "delete_blocker"},
+            "payload": {
+              "type": "object",
+              "properties": {
+                "blocker_id": {"$ref": "#/$defs/ref"}
+              },
+              "required": ["blocker_id"],
+              "additionalProperties": false
+            },
+            "rationale": {"$ref": "#/$defs/rationale"},
+            "confidence": {"$ref": "#/$defs/confidence"}
+          },
+          "required": ["op_type", "payload", "rationale", "confidence"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op_type": {"const": "park_idea"},
+            "payload": {
+              "type": "object",
+              "properties": {
+                "project_id": {"$ref": "#/$defs/ref"},
+                "title": {"type": "string"},
+                "body": {"type": "string"}
+              },
+              "required": ["title"],
+              "additionalProperties": false
+            },
+            "rationale": {"$ref": "#/$defs/rationale"},
+            "confidence": {"$ref": "#/$defs/confidence"}
+          },
+          "required": ["op_type", "payload", "rationale", "confidence"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op_type": {"const": "update_idea"},
+            "payload": {
+              "type": "object",
+              "properties": {
+                "idea_id": {"$ref": "#/$defs/ref"},
+                "title": {"type": "string"},
+                "body": {"type": "string"},
+                "project_id": {"$ref": "#/$defs/nullable_ref"},
+                "status": {"type": "string", "enum": ["parked", "promoted", "discarded"]}
+              },
+              "required": ["idea_id"],
+              "additionalProperties": false
+            },
+            "rationale": {"$ref": "#/$defs/rationale"},
+            "confidence": {"$ref": "#/$defs/confidence"}
+          },
+          "required": ["op_type", "payload", "rationale", "confidence"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op_type": {"const": "delete_idea"},
+            "payload": {
+              "type": "object",
+              "properties": {
+                "idea_id": {"$ref": "#/$defs/ref"}
+              },
+              "required": ["idea_id"],
+              "additionalProperties": false
+            },
+            "rationale": {"$ref": "#/$defs/rationale"},
+            "confidence": {"$ref": "#/$defs/confidence"}
+          },
+          "required": ["op_type", "payload", "rationale", "confidence"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op_type": {"const": "create_project"},
+            "payload": {
+              "type": "object",
+              "properties": {
+                "title": {"type": "string"},
+                "why": {"type": "string"}
+              },
+              "required": ["title"],
+              "additionalProperties": false
+            },
+            "rationale": {"$ref": "#/$defs/rationale"},
+            "confidence": {"$ref": "#/$defs/confidence"}
+          },
+          "required": ["op_type", "payload", "rationale", "confidence"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op_type": {"const": "update_project"},
+            "payload": {
+              "type": "object",
+              "properties": {
+                "project_id": {"$ref": "#/$defs/ref"},
+                "title": {"type": "string"},
+                "why": {"type": "string"},
+                "definition_of_done": {"type": "string"},
+                "status": {"type": "string", "enum": ["active", "paused", "parked", "done", "archived"]}
+              },
+              "required": ["project_id"],
+              "additionalProperties": false
+            },
+            "rationale": {"$ref": "#/$defs/rationale"},
+            "confidence": {"$ref": "#/$defs/confidence"}
+          },
+          "required": ["op_type", "payload", "rationale", "confidence"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

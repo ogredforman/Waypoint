@@ -67,6 +67,9 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   `prompt.go` + embedded `prompt_system.md`: `PromptVersion` (bump on any prompt or format change), `SystemPrompt(maxQuestions)`,
   `UserMessage(ExtractInput)` (snapshot as text, rows as "task 12"); `ExtractInput.MaxQuestions` is the questions-per-entry setting.
   An extractor with a `PromptVersion()` method gets it recorded on its runs (`pipeline` `prompted`).
+  `schema.go` + embedded `schema.json`: `ToolName`, `ToolDescription`, `ResultSchema()` (the model's tool input; ops extraction
+  may propose, observations with a `quote`; `schema_test.go` keeps it in step with the domain enums and payload structs).
+  `quote.go`: `ResolveQuotes(body, observations)` sets spans from `ObservationDraft.Quote` (exact, then whitespace- and quote-normalised).
   **extract/mock**: deterministic line-prefix extractor (SPEC §10.4), `mock.New(latency)`.
 - **pipeline**: `SnapshotBuilder.Build(ctx, entry)`; `Worker`: `SaveEntry` (entry + pending run in
   one tx), `Reprocess`, `DeleteEntry` (refused while running), `Wake`, `Run(ctx)` (claims runs, extracts, validates, stores result +
@@ -210,3 +213,4 @@ All use a real temp SQLite DB migrated with `db.Migrations()`.
   (full wiring over HTTP + SSE); `api/events_test.go`: `newEventsServer`, `openStream`.
 - `db/schema_test.go`: `migrated(t)`, `seed`, `noFKViolations`.
 - `extract/mock/mock_test.go`: `run(t, snap, project, body)`.
+- `extract/validate_test.go`: `input()` (entry + snapshot), `opDraft`, `obs`, `link`, `fields`.
