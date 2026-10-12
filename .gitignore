@@ -33,6 +33,7 @@ config.toml
 .env
 .env.*
 !.env.example
+API_KEY
 
 # --- Claude Code personal files ---
 CLAUDE.local.md
