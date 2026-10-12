@@ -104,7 +104,7 @@ Milestones:
 - `update_milestone`: {milestone_id, title?, description?, status?, position?} (`position` orders the milestone within its project)
 - `delete_milestone`: {milestone_id}
 
-Extraction can't propose milestone ops yet; the shared validator rejects them until the Stage 2 prompt can.
+Extraction can't propose milestone ops yet; the shared validator rejects them until milestones are in the snapshot and the prompt (PLAN 2.2b).
 
 Projects:
 - `create_project`: {title, why?} (always created as `parked`)
@@ -320,6 +320,8 @@ type Extractor interface {
 type ExtractInput struct {
     Entry    Entry
     Snapshot StateSnapshot
+    ReplyTo  *FollowUpQuestion // the question this entry answers, if any
+    MaxQuestions int           // the questions-per-entry setting; the worker drops extras
     PromptVersion string
 }
 

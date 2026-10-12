@@ -228,8 +228,18 @@ func (w *Worker) DeleteEntry(ctx context.Context, entryID int64) (domain.Entry, 
 	return e, nil
 }
 
+// prompted is implemented by extractors that use the extraction prompt, so
+// each run records which version it ran with. The mock extractor uses none.
+type prompted interface {
+	PromptVersion() string
+}
+
 func (w *Worker) newRun(entryID int64) domain.ExtractionRun {
-	return domain.ExtractionRun{EntryID: entryID, Provider: w.extractor.Name()}
+	run := domain.ExtractionRun{EntryID: entryID, Provider: w.extractor.Name()}
+	if p, ok := w.extractor.(prompted); ok {
+		run.PromptVersion = p.PromptVersion()
+	}
+	return run
 }
 
 // Wake tells the worker there may be a pending run. It never blocks.
@@ -336,7 +346,16 @@ func (w *Worker) process(ctx context.Context, run domain.ExtractionRun) {
 		return
 	}
 
-	in := extract.ExtractInput{Entry: entry, Snapshot: snap, ReplyTo: replyTo, PromptVersion: run.PromptVersion}
+	settings, err := w.store.GetSettings(ctx)
+	if err != nil {
+		w.fail(ctx, run, stageLoad, err, nil, nil)
+		return
+	}
+
+	in := extract.ExtractInput{
+		Entry: entry, Snapshot: snap, ReplyTo: replyTo,
+		MaxQuestions: settings.QuestionsPerEntry, PromptVersion: run.PromptVersion,
+	}
 	start := time.Now()
 	res, err := w.extract(ctx, in)
 	latency := time.Since(start).Milliseconds()
@@ -359,12 +378,8 @@ func (w *Worker) process(ctx context.Context, run domain.ExtractionRun) {
 	}
 
 	// The raw output keeps every question; only as many as the settings
-	// allow are stored. Validate has already enforced the hard ceiling.
-	settings, err := w.store.GetSettings(ctx)
-	if err != nil {
-		w.fail(ctx, run, stageStore, err, raw, &latency)
-		return
-	}
+	// allow are stored, whatever the extractor was asked for. Validate has
+	// already enforced the hard ceiling.
 	if len(res.Questions) > settings.QuestionsPerEntry {
 		res.Questions = res.Questions[:settings.QuestionsPerEntry]
 	}

@@ -20,11 +20,13 @@ type Extractor interface {
 }
 
 // ExtractInput is everything an extractor sees: the entry, a snapshot of the
-// state it may refer to, and the question the entry answers, if any.
+// state it may refer to, the question the entry answers, if any, and how many
+// questions to ask at most (the questions-per-entry setting).
 type ExtractInput struct {
 	Entry         domain.Entry
 	Snapshot      StateSnapshot
 	ReplyTo       *domain.FollowUpQuestion // nil unless Entry.ReplyToQuestionID is set
+	MaxQuestions  int                      // 0..MaxQuestions; the worker drops any extras
 	PromptVersion string
 }
 

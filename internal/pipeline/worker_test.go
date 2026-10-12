@@ -59,8 +59,9 @@ func (e *events) next(t *testing.T) Event {
 
 // fakeExtractor returns a fixed result or error, or blocks until its context
 // is cancelled if block is set. during, if set, runs while it "extracts", to
-// change state behind the worker's back.
+// change state behind the worker's back. in is the last input it was given.
 type fakeExtractor struct {
+	in      extract.ExtractInput
 	res     extract.ExtractionResult
 	err     error
 	block   bool
@@ -71,7 +72,8 @@ type fakeExtractor struct {
 
 func (*fakeExtractor) Name() string { return "fake" }
 
-func (f *fakeExtractor) Extract(ctx context.Context, _ extract.ExtractInput) (extract.ExtractionResult, error) {
+func (f *fakeExtractor) Extract(ctx context.Context, in extract.ExtractInput) (extract.ExtractionResult, error) {
+	f.in = in
 	if f.during != nil {
 		f.during()
 	}
@@ -810,6 +812,40 @@ func TestProcessKeepsQuestionsPerEntrySetting(t *testing.T) {
 				t.Error("the raw output lost the dropped question")
 			}
 		})
+	}
+}
+
+// promptedExtractor is a fakeExtractor that uses the extraction prompt.
+type promptedExtractor struct{ fakeExtractor }
+
+func (*promptedExtractor) PromptVersion() string { return extract.PromptVersion }
+
+func TestProcessPassesPromptVersionAndQuestionLimit(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	err := f.s.InTx(ctx, func(tx *store.Tx) error {
+		_, err := tx.UpdateSettings(ctx, domain.Settings{ActiveProjectCap: 3, QuestionsPerEntry: 1, Theme: domain.ThemeMidnight, InterfaceFont: domain.FontInter, DiaryFont: domain.DiaryLiterata})
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	x := &promptedExtractor{}
+	w := f.worker(x, nil)
+	f.save(w, "note", nil)
+	run := f.run(processNext(t, w).ID)
+	if run.Status != domain.RunSucceeded || run.PromptVersion != extract.PromptVersion {
+		t.Fatalf("run = %+v, want succeeded with prompt version %q", run, extract.PromptVersion)
+	}
+	if x.in.PromptVersion != extract.PromptVersion || x.in.MaxQuestions != 1 {
+		t.Errorf("input prompt version %q, max questions %d; want %q, 1", x.in.PromptVersion, x.in.MaxQuestions, extract.PromptVersion)
+	}
+
+	// The mock uses no prompt, so its runs name none.
+	plain := f.worker(&fakeExtractor{}, nil)
+	f.save(plain, "note", nil)
+	if run := f.run(processNext(t, plain).ID); run.PromptVersion != "" {
+		t.Errorf("unprompted run has prompt version %q", run.PromptVersion)
 	}
 }
 
