@@ -47,6 +47,15 @@ type Config struct {
 	// summaries, the extractor sees for context. 0 means none. It is set in
 	// config.toml only.
 	SnapshotRecentEntries int
+
+	// Provider, Model, Endpoint, and APIKey choose the extractor (see
+	// extract/provider). An empty Provider means the mock. They are set in
+	// config.toml or WAYPOINT_* env vars, never flags, so a key stays out of
+	// shell history. APIKey must never be logged.
+	Provider string
+	Model    string
+	Endpoint string
+	APIKey   string
 }
 
 // Addr is the listen address. The server always binds to loopback.
@@ -86,6 +95,11 @@ type fileConfig struct {
 	MockLatency       *string `toml:"mock_latency"`
 
 	SnapshotRecentEntries *int `toml:"snapshot_recent_entries"`
+
+	Provider *string `toml:"provider"`
+	Model    *string `toml:"model"`
+	Endpoint *string `toml:"endpoint"`
+	APIKey   *string `toml:"api_key"`
 }
 
 // Load resolves the configuration from args (without the program name), the
@@ -151,6 +165,17 @@ func Load(args []string, env LookupEnv, goos string, stderr io.Writer) (Config, 
 	}
 	if err := fromEnv.apply(&cfg, "WAYPOINT_PORT", "WAYPOINT_DATA_DIR", "WAYPOINT_LOG_LEVEL"); err != nil {
 		return Config{}, fmt.Errorf("env %w", err)
+	}
+
+	for name, field := range map[string]*string{
+		"WAYPOINT_PROVIDER": &cfg.Provider,
+		"WAYPOINT_MODEL":    &cfg.Model,
+		"WAYPOINT_ENDPOINT": &cfg.Endpoint,
+		"WAYPOINT_API_KEY":  &cfg.APIKey,
+	} {
+		if v, ok := nonEmpty(env, name); ok {
+			*field = v
+		}
 	}
 
 	var fromFlags overrides
@@ -267,6 +292,16 @@ func applyFile(cfg *Config, path string) error {
 			return fmt.Errorf("snapshot_recent_entries: must not be negative, got %d", *fc.SnapshotRecentEntries)
 		}
 		cfg.SnapshotRecentEntries = *fc.SnapshotRecentEntries
+	}
+	for field, v := range map[*string]*string{
+		&cfg.Provider: fc.Provider,
+		&cfg.Model:    fc.Model,
+		&cfg.Endpoint: fc.Endpoint,
+		&cfg.APIKey:   fc.APIKey,
+	} {
+		if v != nil {
+			*field = *v
+		}
 	}
 	return nil
 }

@@ -15,7 +15,7 @@ import (
 
 	"github.com/ogredforman/waypoint/internal/api"
 	"github.com/ogredforman/waypoint/internal/config"
-	"github.com/ogredforman/waypoint/internal/extract/mock"
+	"github.com/ogredforman/waypoint/internal/extract/provider"
 	"github.com/ogredforman/waypoint/internal/profile"
 	"github.com/ogredforman/waypoint/internal/web"
 )
@@ -40,6 +40,17 @@ func run() int {
 		logger.Error("startup failed", "err", err)
 		return 1
 	}
+	extractor, err := provider.New(provider.Options{
+		Provider:    cfg.Provider,
+		Model:       cfg.Model,
+		Endpoint:    cfg.Endpoint,
+		APIKey:      cfg.APIKey,
+		MockLatency: cfg.MockLatency,
+	})
+	if err != nil {
+		logger.Error("startup failed", "err", err)
+		return 1
+	}
 	logger.Info("config loaded",
 		"config_file", cfg.File,
 		"data_dir", cfg.DataDir,
@@ -48,6 +59,9 @@ func run() int {
 		"log_level", cfg.LogLevel.String(),
 		"mock_latency", cfg.MockLatency.String(),
 		"snapshot_recent_entries", cfg.SnapshotRecentEntries,
+		"provider", extractor.Name(),
+		"model", cfg.Model,
+		"endpoint", cfg.Endpoint,
 	)
 
 	ctx := context.Background()
@@ -58,7 +72,7 @@ func run() int {
 		Dir:                   cfg.ProfilesDir(),
 		LegacyDB:              cfg.LegacyDBPath(),
 		Seed:                  cfg.SettingsDefaults(),
-		Extractor:             mock.New(cfg.MockLatency),
+		Extractor:             extractor,
 		SnapshotRecentEntries: cfg.SnapshotRecentEntries,
 		Logger:                logger,
 	})

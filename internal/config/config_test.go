@@ -196,6 +196,45 @@ func TestLoadPrecedence(t *testing.T) {
 	}
 }
 
+func TestLoadExtractor(t *testing.T) {
+	file := "provider = 'openai-compatible'\nmodel = 'qwen3:8b'\nendpoint = 'http://localhost:11434/v1'\napi_key = 'from-file'\n"
+	tests := []struct {
+		name string
+		file string
+		env  map[string]string
+		want [4]string // provider, model, endpoint, api key
+	}{
+		{name: "default is empty (the mock)"},
+		{name: "file", file: file, want: [4]string{"openai-compatible", "qwen3:8b", "http://localhost:11434/v1", "from-file"}},
+		{
+			name: "env overrides file",
+			file: file,
+			env:  map[string]string{"WAYPOINT_MODEL": "llama3.2", "WAYPOINT_ENDPOINT": "http://localhost:1234/v1", "WAYPOINT_API_KEY": "from-env"},
+			want: [4]string{"openai-compatible", "llama3.2", "http://localhost:1234/v1", "from-env"},
+		},
+		{
+			name: "env alone",
+			env:  map[string]string{"WAYPOINT_PROVIDER": "mock"},
+			want: [4]string{"mock", "", "", ""},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env, configDir := testEnv(t, tt.env)
+			if tt.file != "" {
+				writeFile(t, filepath.Join(configDir, "config.toml"), tt.file)
+			}
+			cfg, err := Load(nil, env, "linux", io.Discard)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := [4]string{cfg.Provider, cfg.Model, cfg.Endpoint, cfg.APIKey}; got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestLoadExplicitConfigFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "custom.toml")

@@ -815,10 +815,12 @@ func TestProcessKeepsQuestionsPerEntrySetting(t *testing.T) {
 	}
 }
 
-// promptedExtractor is a fakeExtractor that uses the extraction prompt.
+// promptedExtractor is a fakeExtractor that uses the extraction prompt and
+// calls a model.
 type promptedExtractor struct{ fakeExtractor }
 
 func (*promptedExtractor) PromptVersion() string { return extract.PromptVersion }
+func (*promptedExtractor) Model() string         { return "fake-model" }
 
 func TestProcessPassesPromptVersionAndQuestionLimit(t *testing.T) {
 	f := newFixture(t)
@@ -834,8 +836,8 @@ func TestProcessPassesPromptVersionAndQuestionLimit(t *testing.T) {
 	w := f.worker(x, nil)
 	f.save(w, "note", nil)
 	run := f.run(processNext(t, w).ID)
-	if run.Status != domain.RunSucceeded || run.PromptVersion != extract.PromptVersion {
-		t.Fatalf("run = %+v, want succeeded with prompt version %q", run, extract.PromptVersion)
+	if run.Status != domain.RunSucceeded || run.PromptVersion != extract.PromptVersion || run.Model != "fake-model" {
+		t.Fatalf("run = %+v, want succeeded with prompt version %q and model fake-model", run, extract.PromptVersion)
 	}
 	if x.in.PromptVersion != extract.PromptVersion || x.in.MaxQuestions != 1 {
 		t.Errorf("input prompt version %q, max questions %d; want %q, 1", x.in.PromptVersion, x.in.MaxQuestions, extract.PromptVersion)
@@ -844,8 +846,8 @@ func TestProcessPassesPromptVersionAndQuestionLimit(t *testing.T) {
 	// The mock uses no prompt, so its runs name none.
 	plain := f.worker(&fakeExtractor{}, nil)
 	f.save(plain, "note", nil)
-	if run := f.run(processNext(t, plain).ID); run.PromptVersion != "" {
-		t.Errorf("unprompted run has prompt version %q", run.PromptVersion)
+	if run := f.run(processNext(t, plain).ID); run.PromptVersion != "" || run.Model != "" {
+		t.Errorf("unprompted run has prompt version %q, model %q", run.PromptVersion, run.Model)
 	}
 }
 

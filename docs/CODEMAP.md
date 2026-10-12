@@ -18,7 +18,7 @@ Signatures here are summaries; `go doc ./internal/<pkg>` or `grep -n '^func' <fi
 ## Wiring (`cmd/waypoint/main.go`)
 
 `config.Load` → `profile.Open(ctx, profile.Options{Dir: cfg.ProfilesDir(), LegacyDB: cfg.LegacyDBPath(),
-Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRouter(api.Deps{Logger, Web, Profiles})` →
+Seed: cfg.SettingsDefaults(), Extractor: provider.New(…), …})` → `api.NewRouter(api.Deps{Logger, Web, Profiles})` →
 `api.Serve(…, profiles.EndStreams)` → `profiles.Close()`. Per profile, `profile.Manager.start` builds (ADR 0005):
 `db.Open` + `db.Migrate` → `store.New` → `st.SeedSettings` (only if missing) → `api.NewHub` →
 `pipeline.NewSnapshotBuilder` → `briefing.NewService(st, …, hub, logger)` →
@@ -66,11 +66,14 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   so a link can name `$new:N`; the worker stores those pending.
   `prompt.go` + embedded `prompt_system.md`: `PromptVersion` (bump on any prompt or format change), `SystemPrompt(maxQuestions)`,
   `UserMessage(ExtractInput)` (snapshot as text, rows as "task 12"); `ExtractInput.MaxQuestions` is the questions-per-entry setting.
-  An extractor with a `PromptVersion()` method gets it recorded on its runs (`pipeline` `prompted`).
+  An extractor with a `PromptVersion()` method gets it recorded on its runs (`pipeline` `prompted`); one with `Model()`, the model (`modeled`).
   `schema.go` + embedded `schema.json`: `ToolName`, `ToolDescription`, `ResultSchema()` (the model's tool input; ops extraction
   may propose, observations with a `quote`; `schema_test.go` keeps it in step with the domain enums and payload structs).
   `quote.go`: `ResolveQuotes(body, observations)` sets spans from `ObservationDraft.Quote` (exact, then whitespace- and quote-normalised).
   **extract/mock**: deterministic line-prefix extractor (SPEC §10.4), `mock.New(latency)`.
+  **extract/openaicompat**: `New(Options{Endpoint, Model, APIKey, HTTPClient})` for any OpenAI-compatible `/chat/completions` (Ollama, LM Studio,
+  llama.cpp, OpenAI): forced `propose_changes` tool call (or a JSON object in the content), then `ResolveQuotes`; `DefaultTimeout`.
+  **extract/provider**: `New(Options{Provider, Model, Endpoint, APIKey, MockLatency})` picks the extractor (empty provider = mock); `main` calls it.
 - **pipeline**: `SnapshotBuilder.Build(ctx, entry)`; `Worker`: `SaveEntry` (entry + pending run in
   one tx), `Reprocess`, `DeleteEntry` (refused while running), `Wake`, `Run(ctx)` (claims runs, extracts, validates, stores result +
   changeset (keeping only `questions_per_entry` questions), emits `Event`s via `Notifier`, calls `AfterRun.EntryProcessed`). Failures recorded on
@@ -91,7 +94,8 @@ Seed: cfg.SettingsDefaults(), Extractor: mock.New(…), …})` → `api.NewRoute
   `BriefingUpdated`, `Applied` → `changeset.applied`, `EntryDeleted` → `entry.deleted`), `serve.go`. Handlers are thin: decode, call a service, encode.
   **api/apitypes**: request/response/event DTOs; `gen/` generates `web/src/lib/api/*.gen.ts`
   (`make gen`, checked by `make lint`).
-- **config**: `Load(args, env, goos, stderr)` (flags > env > `config.toml`), `EnsureDataDir`, `ProfilesDir`, `LegacyDBPath`,
+- **config**: `Load(args, env, goos, stderr)` (flags > env > `config.toml`; `provider`/`model`/`endpoint`/`api_key` from the file or
+  `WAYPOINT_PROVIDER`/`_MODEL`/`_ENDPOINT`/`_API_KEY` only, no flags), `EnsureDataDir`, `ProfilesDir`, `LegacyDBPath`,
   `SettingsDefaults` (the preference values that seed a new database).
 - **web**: embeds `web/dist`, `NewHandler` serves the SPA with fallback.
 - `tools/hooks`: Claude Code hooks (edit guard, formatter, stop check). Not app code.
@@ -213,4 +217,5 @@ All use a real temp SQLite DB migrated with `db.Migrations()`.
   (full wiring over HTTP + SSE); `api/events_test.go`: `newEventsServer`, `openStream`.
 - `db/schema_test.go`: `migrated(t)`, `seed`, `noFKViolations`.
 - `extract/mock/mock_test.go`: `run(t, snap, project, body)`.
+- `extract/openaicompat/openaicompat_test.go`: `newServer(t, status, reply)` (fake chat completions server), `toolReply`, `contentReply`, `input()`.
 - `extract/validate_test.go`: `input()` (entry + snapshot), `opDraft`, `obs`, `link`, `fields`.

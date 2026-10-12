@@ -234,10 +234,19 @@ type prompted interface {
 	PromptVersion() string
 }
 
+// modeled is implemented by extractors that call a model, so each run records
+// which one.
+type modeled interface {
+	Model() string
+}
+
 func (w *Worker) newRun(entryID int64) domain.ExtractionRun {
 	run := domain.ExtractionRun{EntryID: entryID, Provider: w.extractor.Name()}
 	if p, ok := w.extractor.(prompted); ok {
 		run.PromptVersion = p.PromptVersion()
+	}
+	if m, ok := w.extractor.(modeled); ok {
+		run.Model = m.Model()
 	}
 	return run
 }
