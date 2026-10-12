@@ -1,0 +1,1 @@
+Rough night. Spent three hours on the fixtures and I'm only on the fourth one, I keep second-guessing what the "right" extraction even is. Starting to feel like this whole eval thing is a rabbit hole.

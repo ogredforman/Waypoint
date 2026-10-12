@@ -1,0 +1,16 @@
+{
+  "snapshot": "waypoint",
+  "project_id": 1,
+  "notes": "A new feature idea is parked in the entry's project, not made a task.",
+  "expected": {
+    "observations": [
+      {"kind": "idea", "summary": "Idea: import git commit messages as diary entries.", "quote": "it'd be cool if Waypoint could pull in my commit messages from git as entries automatically", "links": [{"target_type": "idea", "target_id": "$new:1", "confidence": 0.9}]},
+      {"kind": "decision", "summary": "Keeping focus on the MVP for now.", "quote": "Not now though, MVP first", "links": [{"target_type": "milestone", "target_id": 40, "confidence": 0.6}]}
+    ],
+    "ops": [
+      {"op_type": "park_idea", "payload": {"project_id": 1, "title": "Import git commit messages as entries"}, "rationale": "A new idea they want to keep for later.", "confidence": 0.9}
+    ],
+    "questions": []
+  },
+  "forbid": ["create_task", "create_project", "create_milestone"]
+}

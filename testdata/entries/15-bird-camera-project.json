@@ -1,0 +1,15 @@
+{
+  "snapshot": "waypoint",
+  "notes": "Unscoped, an explicit new project: create_project (always parked), never activated, no tasks forced into it.",
+  "expected": {
+    "observations": [
+      {"kind": "idea", "summary": "New project idea: a Raspberry Pi bird feeder camera that saves clips.", "quote": "a bird feeder camera with a Raspberry Pi that saves clips when something lands", "links": [{"target_type": "project", "target_id": "$new:1", "confidence": 0.9}]},
+      {"kind": "feeling", "summary": "Looking forward to doing it with the kids.", "quote": "Would be fun to do with the kids", "links": [{"target_type": "project", "target_id": "$new:1", "confidence": 0.7}]}
+    ],
+    "ops": [
+      {"op_type": "create_project", "payload": {"title": "Bird feeder camera", "why": "A Raspberry Pi camera that saves clips of birds; fun to build with the kids."}, "rationale": "They want to start this as a new project.", "confidence": 0.85}
+    ],
+    "questions": []
+  },
+  "forbid": ["update_project"]
+}

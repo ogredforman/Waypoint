@@ -1,0 +1,15 @@
+{
+  "snapshot": "waypoint",
+  "project_id": 1,
+  "notes": "Dropping a milestone is update_milestone with status dropped, not delete_milestone; its tasks are left alone.",
+  "expected": {
+    "observations": [
+      {"kind": "decision", "summary": "Dropping the packaging milestone; running from source is enough for now.", "quote": "Not going to bother with packaging for now", "links": [{"target_type": "milestone", "target_id": 41, "confidence": 0.95}]}
+    ],
+    "ops": [
+      {"op_type": "update_milestone", "payload": {"milestone_id": 41, "status": "dropped"}, "rationale": "They're dropping the packaging milestone.", "confidence": 0.9}
+    ],
+    "questions": []
+  },
+  "forbid": ["delete_milestone", "delete_task"]
+}

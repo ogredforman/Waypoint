@@ -1,0 +1,20 @@
+{
+  "snapshot": "waypoint",
+  "project_id": 1,
+  "notes": "The entry breaks an existing task into steps: split_task on task 12, not three new top-level tasks.",
+  "expected": {
+    "observations": [
+      {"kind": "feeling", "summary": "The LLM briefer feels too big.", "quote": "The LLM briefer feels huge every time I look at it", "links": [{"target_type": "task", "target_id": 12, "confidence": 0.9}]},
+      {"kind": "plan", "summary": "The briefer splits into the prompt, checking task IDs, and a heuristic fallback.", "quote": "write the prompt, check its answer against the real task IDs, then fall back to the heuristic when it's wrong", "links": [{"target_type": "task", "target_id": 12, "confidence": 0.9}]}
+    ],
+    "ops": [
+      {"op_type": "split_task", "payload": {"task_id": 12, "subtasks": [
+        {"title": "Write the briefer prompt"},
+        {"title": "Check the briefer's answer against real task IDs"},
+        {"title": "Fall back to the heuristic briefing when the answer is invalid"}
+      ]}, "rationale": "They named the three parts of the briefer.", "confidence": 0.85}
+    ],
+    "questions": []
+  },
+  "forbid": ["delete_task"]
+}

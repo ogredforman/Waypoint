@@ -1,0 +1,17 @@
+{
+  "snapshot": "waypoint",
+  "notes": "Unscoped, about the shed: finish a task, add the step that has to come before the next one. Spelling differs from the task title (levelled/level).",
+  "expected": {
+    "observations": [
+      {"kind": "progress", "summary": "Finished levelling the gravel pad; it took longer than expected.", "quote": "Levelled the gravel pad this morning", "links": [{"target_type": "task", "target_id": 51, "confidence": 0.95}]},
+      {"kind": "plan", "summary": "Will measure the floor before ordering lumber.", "quote": "I need to measure the floor properly before I order anything", "links": [{"target_type": "task", "target_id": 50, "confidence": 0.8}, {"target_type": "task", "target_id": "$new:2", "confidence": 0.85}]}
+    ],
+    "ops": [
+      {"op_type": "set_task_status", "payload": {"task_id": 51, "status": "done"}, "rationale": "The pad is levelled.", "confidence": 0.95},
+      {"op_type": "create_task", "payload": {"project_id": 2, "title": "Measure the shed floor for the lumber order"}, "rationale": "They need measurements before ordering lumber.", "confidence": 0.8},
+      {"op_type": "add_dependency", "payload": {"task_id": 50, "blocked_by_task_id": "$new:2"}, "rationale": "Ordering waits for the measurements.", "confidence": 0.6}
+    ],
+    "questions": []
+  },
+  "forbid": ["create_project"]
+}

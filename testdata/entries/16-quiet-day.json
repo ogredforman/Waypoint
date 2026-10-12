@@ -1,0 +1,12 @@
+{
+  "snapshot": "waypoint",
+  "notes": "Nothing to plan: no ops, no questions, nothing guilt-shaped.",
+  "expected": {
+    "observations": [
+      {"kind": "note", "summary": "A busy work day with no project time.", "quote": "Long day at work, didn't touch anything"}
+    ],
+    "ops": [],
+    "questions": []
+  },
+  "forbid": ["create_task", "set_task_status", "park_idea", "create_blocker", "update_project"]
+}

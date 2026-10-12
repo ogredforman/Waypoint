@@ -167,7 +167,7 @@ Tasks:
 - [x] **2.6** Store the raw output and latency for every run.
 
 ### 2B. Evals
-- [ ] **2.7** `/testdata/entries`: 15–30 realistic sample entries with expected observations and ops, several written from real dogfooding.
+- [x] **2.7** `/testdata/entries`: 15–30 realistic sample entries with expected observations and ops, several written from real dogfooding.
 - [ ] **2.8** `waypoint eval --provider X`: runs the fixtures, scores op and link accuracy, and prints a report. Run it whenever the prompt changes.
 
 ### 2C. LLM features

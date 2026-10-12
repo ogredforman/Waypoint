@@ -1,0 +1,16 @@
+{
+  "snapshot": "waypoint",
+  "project_id": 1,
+  "reply_to": {"text": "What's the first step for the eval command?", "reason": "The task has no clear next step."},
+  "notes": "A short reply to a question: read it with the question, propose the step under task 11, and don't ask again.",
+  "expected": {
+    "observations": [
+      {"kind": "plan", "summary": "First step for the eval command: load the fixtures and print pass/fail per entry.", "quote": "loading the fixtures and printing pass/fail per entry", "links": [{"target_type": "task", "target_id": 11, "confidence": 0.9}, {"target_type": "task", "target_id": "$new:1", "confidence": 0.9}]}
+    ],
+    "ops": [
+      {"op_type": "create_task", "payload": {"project_id": 1, "parent_task_id": 11, "title": "Load the fixtures and print pass/fail per entry"}, "rationale": "Their answer names the first step of the eval command.", "confidence": 0.85}
+    ],
+    "questions": []
+  },
+  "forbid": ["set_task_status"]
+}

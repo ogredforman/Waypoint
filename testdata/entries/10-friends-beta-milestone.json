@@ -1,0 +1,17 @@
+{
+  "snapshot": "waypoint",
+  "project_id": 1,
+  "notes": "An outcome the entry names is a milestone; its first step is a task in it via $new:1.",
+  "expected": {
+    "observations": [
+      {"kind": "plan", "summary": "Wants a beta milestone that friends can install.", "quote": "a beta that a couple of friends can install", "links": [{"target_type": "milestone", "target_id": "$new:1", "confidence": 0.9}]},
+      {"kind": "plan", "summary": "First step: write a Windows install guide.", "quote": "writing an install guide for Windows", "links": [{"target_type": "task", "target_id": "$new:2", "confidence": 0.9}]}
+    ],
+    "ops": [
+      {"op_type": "create_milestone", "payload": {"project_id": 1, "title": "Beta friends can install"}, "rationale": "They want a beta milestone after the MVP.", "confidence": 0.85},
+      {"op_type": "create_task", "payload": {"project_id": 1, "milestone_id": "$new:1", "title": "Write an install guide for Windows"}, "rationale": "The first step towards the beta.", "confidence": 0.85}
+    ],
+    "questions": []
+  },
+  "forbid": ["update_milestone"]
+}

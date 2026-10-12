@@ -1,0 +1,15 @@
+{
+  "snapshot": "waypoint",
+  "notes": "Unscoped. A blocker named in different words is resolved.",
+  "expected": {
+    "observations": [
+      {"kind": "progress", "summary": "The building permit arrived from the council.", "quote": "The council finally sent the permit!!", "links": [{"target_type": "blocker", "target_id": 60, "confidence": 0.95}]},
+      {"kind": "plan", "summary": "Can start building the shed next weekend.", "quote": "Can actually start building next weekend", "links": [{"target_type": "project", "target_id": 2, "confidence": 0.85}]}
+    ],
+    "ops": [
+      {"op_type": "resolve_blocker", "payload": {"blocker_id": 60}, "rationale": "The permit has arrived.", "confidence": 0.95}
+    ],
+    "questions": []
+  },
+  "forbid": ["create_blocker"]
+}

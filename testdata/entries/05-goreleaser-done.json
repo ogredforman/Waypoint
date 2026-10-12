@@ -1,0 +1,16 @@
+{
+  "snapshot": "waypoint",
+  "project_id": 1,
+  "notes": "A task in a later milestone is done; the decision to skip Mac is an observation, not a new task.",
+  "expected": {
+    "observations": [
+      {"kind": "progress", "summary": "goreleaser builds work for Windows and Linux.", "quote": "Finished the goreleaser config, builds for windows and linux both work", "links": [{"target_type": "task", "target_id": 15, "confidence": 0.95}]},
+      {"kind": "decision", "summary": "Mac builds can wait; no Mac to test on.", "quote": "Mac can wait, I don't have one to test on anyway", "links": [{"target_type": "milestone", "target_id": 41, "confidence": 0.6}]}
+    ],
+    "ops": [
+      {"op_type": "set_task_status", "payload": {"task_id": 15, "status": "done"}, "rationale": "The goreleaser config is finished.", "confidence": 0.9}
+    ],
+    "questions": []
+  },
+  "forbid": ["create_task"]
+}

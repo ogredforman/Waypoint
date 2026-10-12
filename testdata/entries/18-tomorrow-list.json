@@ -1,0 +1,16 @@
+{
+  "snapshot": "waypoint",
+  "project_id": 1,
+  "notes": "A list: one item is an existing task (link, don't duplicate), the other is new.",
+  "expected": {
+    "observations": [
+      {"kind": "plan", "summary": "Plans to fix the project picker Escape bug tomorrow.", "quote": "fix the picker Escape bug", "links": [{"target_type": "task", "target_id": 16, "confidence": 0.9}]},
+      {"kind": "plan", "summary": "Plans to find out why the SSE stream drops after sleep.", "quote": "figure out why the SSE stream drops after the laptop sleeps", "links": [{"target_type": "task", "target_id": "$new:1", "confidence": 0.9}]}
+    ],
+    "ops": [
+      {"op_type": "create_task", "payload": {"project_id": 1, "title": "Find out why the SSE stream drops after the laptop sleeps"}, "rationale": "A new thing to look into tomorrow.", "confidence": 0.85}
+    ],
+    "questions": []
+  },
+  "forbid": ["set_task_status"]
+}

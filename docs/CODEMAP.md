@@ -84,6 +84,8 @@ Seed: cfg.SettingsDefaults(), Extractor: provider.New(…), …})` → `api.NewR
 - **briefing**: `Briefer` interface (`State` includes the project's milestones), `Heuristic` implementation (`heuristic.go`; todo window prefers the first open milestone), `Service`
   (`Refresh`, `Get` → `View` (with `Step`: the next task's parent and step number, → `Briefing.next_step`), `EntryDeleted`; drops recap entries the Briefer wasn't shown; implements `changeset.AfterApply` and `pipeline.AfterRun`; notifies
   `BriefingUpdated`). Briefings are cached per project in the DB; the recap (`[]domain.RecapEntry`, newest first, points with observation kinds) in `briefing_recap_points`.
+- **eval**: extraction evals (SPEC §12). `LoadFixtures(dir)` → `[]Fixture{Name, Notes, Input extract.ExtractInput, Expected extract.ExtractionResult, Forbid []domain.OpType}`;
+  refuses a fixture whose quotes aren't in the body, whose expected result `extract.Validate` rejects, or whose expected ops use a forbidden type.
 - **profile**: `Manager` runs every profile (ADR 0005): `Open` (removes half-built `*.db.new`, moves the legacy
   `waypoint.db` in as "Personal", starts each `profiles/<id>.db`), `List`, `Create` (optionally copying another profile's appearance), `Rename`, `Delete`, `Serve`, `Ping`,
   `EndStreams`, `Close`; implements `api.Profiles`. `files.go`: `prepare` (migrate, name, seed, checkpoint, close), `removeDB`.
@@ -222,4 +224,7 @@ All use a real temp SQLite DB migrated with `db.Migrations()`.
 - `extract/mock/mock_test.go`: `run(t, snap, project, body)`.
 - `extract/openaicompat/openaicompat_test.go`: `newServer(t, status, reply)` (fake chat completions server), `toolReply`, `contentReply`, `input()`.
 - `extract/anthropic/anthropic_test.go`: `newServer(t, status, reply)` (fake Messages server), `reply(stopReason, blocks...)`, `toolUse`, `text`, `input()`.
+- `testdata/entries/`: eval fixtures, `NN-slug.md` (the entry) + `NN-slug.json` (`snapshot`, `project_id`, `reply_to`, `notes`, `expected` result, `forbid` op types);
+  `snapshots/waypoint.json` (Waypoint mid-Stage 2, Garden shed, paused Learn Spanish; IDs: projects 1-3, tasks 10-16/50-52/70, milestones 40-41, blockers 20-21/60, ideas 30-32) and `snapshots/empty.json`.
+  `eval/fixtures_test.go` loads them all; `write(t, dir, name, content)` builds a throwaway fixture dir.
 - `extract/validate_test.go`: `input()` (entry + snapshot), `opDraft`, `obs`, `link`, `fields`.

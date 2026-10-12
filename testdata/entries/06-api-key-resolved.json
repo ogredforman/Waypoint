@@ -1,0 +1,15 @@
+{
+  "snapshot": "waypoint",
+  "notes": "Unscoped. A project-level blocker is resolved.",
+  "expected": {
+    "observations": [
+      {"kind": "progress", "summary": "The Anthropic API key is now set up on the desktop.", "quote": "Finally put the Anthropic key on the desktop", "links": [{"target_type": "blocker", "target_id": 21, "confidence": 0.9}]},
+      {"kind": "progress", "summary": "The Anthropic extractor gave sensible proposals on real entries.", "quote": "the proposals look sane", "links": [{"target_type": "project", "target_id": 1, "confidence": 0.8}]}
+    ],
+    "ops": [
+      {"op_type": "resolve_blocker", "payload": {"blocker_id": 21}, "rationale": "The key is on the desktop now.", "confidence": 0.9}
+    ],
+    "questions": []
+  },
+  "forbid": ["create_blocker", "delete_blocker"]
+}

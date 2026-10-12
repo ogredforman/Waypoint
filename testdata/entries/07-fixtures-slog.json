@@ -1,0 +1,18 @@
+{
+  "snapshot": "waypoint",
+  "project_id": 1,
+  "notes": "Discouraged tone on a task that has been in progress for two weeks: a gentle scope question, no status change, no guilt.",
+  "expected": {
+    "observations": [
+      {"kind": "feeling", "summary": "Had a rough evening on the fixtures.", "quote": "Rough night", "links": [{"target_type": "task", "target_id": 10, "confidence": 0.8}]},
+      {"kind": "progress", "summary": "Four fixtures written after three hours.", "quote": "Spent three hours on the fixtures and I'm only on the fourth one", "links": [{"target_type": "task", "target_id": 10, "confidence": 0.95}]},
+      {"kind": "question", "summary": "Unsure what the right expected extraction is.", "quote": "I keep second-guessing what the \"right\" extraction even is", "links": [{"target_type": "task", "target_id": 10, "confidence": 0.85}]},
+      {"kind": "feeling", "summary": "Worried the eval work is a rabbit hole.", "quote": "this whole eval thing is a rabbit hole", "links": [{"target_type": "task", "target_id": 10, "confidence": 0.7}, {"target_type": "task", "target_id": 11, "confidence": 0.5}]}
+    ],
+    "ops": [],
+    "questions": [
+      {"text": "Would a smaller first batch, say ten fixtures, be enough to get the eval command going?", "reason": "The entry sounds discouraged and the scope might be the problem."}
+    ]
+  },
+  "forbid": ["set_task_status", "delete_task", "update_project"]
+}

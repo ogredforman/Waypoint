@@ -1,0 +1,60 @@
+{
+  "taken_at": "2026-10-12T21:00:00Z",
+  "projects": [
+    {
+      "id": 1,
+      "title": "Waypoint",
+      "status": "active",
+      "milestones": [
+        {"id": 40, "title": "MVP: real AI, dogfoodable"},
+        {"id": 41, "title": "Packaging and desktop"}
+      ],
+      "tasks": [
+        {"id": 10, "title": "Write eval fixtures in /testdata/entries", "status": "in_progress", "milestone_id": 40, "updated_at": "2026-09-28T20:00:00Z"},
+        {"id": 11, "title": "Build the waypoint eval command", "status": "todo", "milestone_id": 40, "updated_at": "2026-10-01T19:00:00Z"},
+        {"id": 12, "title": "Write the LLM Briefer", "status": "todo", "milestone_id": 40, "updated_at": "2026-10-01T19:00:00Z"},
+        {"id": 13, "title": "Suggest split_task for vague or stalled tasks", "status": "todo", "milestone_id": 40, "updated_at": "2026-10-01T19:00:00Z"},
+        {"id": 14, "title": "Run the fixtures against qwen3 on Ollama", "status": "todo", "milestone_id": 40, "updated_at": "2026-10-10T22:00:00Z"},
+        {"id": 15, "title": "Set up goreleaser builds", "status": "todo", "milestone_id": 41, "updated_at": "2026-10-01T19:00:00Z"},
+        {"id": 16, "title": "Fix Escape closing the project picker twice", "status": "todo", "updated_at": "2026-10-04T18:00:00Z"}
+      ],
+      "blockers": [
+        {"id": 20, "task_id": 14, "description": "qwen3:14b doesn't fit in GPU memory"},
+        {"id": 21, "description": "No Anthropic API key on the desktop"}
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Garden shed",
+      "status": "active",
+      "milestones": [],
+      "tasks": [
+        {"id": 50, "title": "Order lumber for the shed floor", "status": "todo", "updated_at": "2026-10-05T09:00:00Z"},
+        {"id": 51, "title": "Level the gravel pad", "status": "in_progress", "updated_at": "2026-10-11T10:00:00Z"},
+        {"id": 52, "title": "Pick a roofing material", "status": "todo", "updated_at": "2026-10-05T09:00:00Z"}
+      ],
+      "blockers": [
+        {"id": 60, "description": "Waiting for the building permit from the council"}
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Learn Spanish",
+      "status": "paused",
+      "milestones": [],
+      "tasks": [
+        {"id": 70, "title": "Book a trial lesson with a tutor", "status": "todo", "updated_at": "2026-08-20T18:00:00Z"}
+      ],
+      "blockers": []
+    }
+  ],
+  "ideas": [
+    {"id": 30, "project_id": 1, "title": "Tray icon with a quick entry box"},
+    {"id": 31, "project_id": 1, "title": "Voice entries transcribed with Whisper"},
+    {"id": 32, "title": "Write a blog post about building Waypoint"}
+  ],
+  "recent_entries": [
+    {"id": 101, "created_at": "2026-10-11T22:10:00Z", "summaries": ["Got the OpenAI-compatible extractor talking to Ollama", "qwen3:14b runs out of GPU memory; 8b works"]},
+    {"id": 102, "created_at": "2026-10-12T08:30:00Z", "summaries": ["Started levelling the gravel pad for the shed"]}
+  ]
+}

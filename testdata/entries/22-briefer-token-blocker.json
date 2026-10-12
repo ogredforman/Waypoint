@@ -1,0 +1,16 @@
+{
+  "snapshot": "waypoint",
+  "project_id": 1,
+  "notes": "Something in the way of one task is a blocker on that task.",
+  "expected": {
+    "observations": [
+      {"kind": "blocker", "summary": "The briefer prompt is stuck on fitting the state into fewer tokens.", "quote": "The briefer prompt is stuck until I figure out how to squeeze the state into fewer tokens", "links": [{"target_type": "task", "target_id": 12, "confidence": 0.9}, {"target_type": "blocker", "target_id": "$new:1", "confidence": 0.9}]},
+      {"kind": "note", "summary": "The snapshot alone is about 6k tokens.", "quote": "The whole snapshot is like 6k tokens", "links": [{"target_type": "task", "target_id": 12, "confidence": 0.7}]}
+    ],
+    "ops": [
+      {"op_type": "create_blocker", "payload": {"project_id": 1, "task_id": 12, "description": "The state is too many tokens for the briefer prompt"}, "rationale": "The briefer prompt can't move until the state is smaller.", "confidence": 0.85}
+    ],
+    "questions": []
+  },
+  "forbid": ["set_task_status"]
+}

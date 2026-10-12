@@ -1,0 +1,1 @@
+Anthropic extractor is in and the retry/raw output stuff is done. Haiku called the tool on the first try, which was a relief. Wrapped up the eval fixtures tonight too, 22 entries. Starting on the eval command tomorrow, first thing.

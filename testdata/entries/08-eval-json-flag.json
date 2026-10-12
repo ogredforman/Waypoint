@@ -1,0 +1,15 @@
+{
+  "snapshot": "waypoint",
+  "project_id": 1,
+  "notes": "A plain new task, in the MVP milestone because it's part of the eval work.",
+  "expected": {
+    "observations": [
+      {"kind": "plan", "summary": "Plans a --json flag on the eval report to compare prompt versions.", "quote": "Need to add a --json flag to the eval report", "links": [{"target_type": "task", "target_id": "$new:1", "confidence": 0.9}, {"target_type": "task", "target_id": 11, "confidence": 0.6}]}
+    ],
+    "ops": [
+      {"op_type": "create_task", "payload": {"project_id": 1, "milestone_id": 40, "title": "Add a --json flag to the eval report"}, "rationale": "They need it to diff runs between prompt versions.", "confidence": 0.9}
+    ],
+    "questions": []
+  },
+  "forbid": ["park_idea"]
+}

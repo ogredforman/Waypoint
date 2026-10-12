@@ -1,0 +1,14 @@
+{
+  "snapshot": "waypoint",
+  "reply_to": {"text": "Is anything in the way of picking the roofing material?", "reason": "The task hasn't moved in a week."},
+  "notes": "Unscoped reply that only makes sense with its question: no blocker, a tentative leaning, nothing to change.",
+  "expected": {
+    "observations": [
+      {"kind": "note", "summary": "Nothing is in the way of the roofing choice; it just hasn't been looked at.", "quote": "Not really, I just haven't looked into it yet", "links": [{"target_type": "task", "target_id": 52, "confidence": 0.85}]},
+      {"kind": "note", "summary": "Leaning towards a metal roof.", "quote": "Metal is probably fine", "links": [{"target_type": "task", "target_id": 52, "confidence": 0.85}]}
+    ],
+    "ops": [],
+    "questions": []
+  },
+  "forbid": ["create_blocker", "set_task_status", "create_project"]
+}

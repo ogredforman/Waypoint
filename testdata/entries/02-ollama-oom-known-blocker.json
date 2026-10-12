@@ -1,0 +1,13 @@
+{
+  "snapshot": "waypoint",
+  "notes": "Unscoped. The blocker is already in the snapshot (blocker 20): link to it, don't create it again.",
+  "expected": {
+    "observations": [
+      {"kind": "blocker", "summary": "qwen3:14b still runs out of memory on the 3070.", "quote": "it still dies, out of memory on the 3070", "links": [{"target_type": "blocker", "target_id": 20, "confidence": 0.9}, {"target_type": "task", "target_id": 14, "confidence": 0.8}]},
+      {"kind": "note", "summary": "qwen3:8b runs, just more slowly.", "quote": "8b runs fine though, just slower", "links": [{"target_type": "task", "target_id": 14, "confidence": 0.7}]}
+    ],
+    "ops": [],
+    "questions": []
+  },
+  "forbid": ["create_blocker", "resolve_blocker", "create_task"]
+}

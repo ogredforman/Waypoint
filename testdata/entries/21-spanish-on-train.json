@@ -1,0 +1,15 @@
+{
+  "snapshot": "waypoint",
+  "project_id": 3,
+  "notes": "Scoped to a paused project: record it, keep it paused, no guilt about the gap, and no tasks for one-off progress.",
+  "expected": {
+    "observations": [
+      {"kind": "progress", "summary": "Did a Spanish lesson on the train, the first in a month.", "quote": "Did a Spanish lesson on the train", "links": [{"target_type": "project", "target_id": 3, "confidence": 0.95}]},
+      {"kind": "feeling", "summary": "Enjoyed the lesson.", "quote": "Felt nice", "links": [{"target_type": "project", "target_id": 3, "confidence": 0.8}]},
+      {"kind": "decision", "summary": "Spanish stays on hold until the shed is done.", "quote": "Not picking it back up properly until the shed is done though", "links": [{"target_type": "project", "target_id": 3, "confidence": 0.9}, {"target_type": "project", "target_id": 2, "confidence": 0.6}]}
+    ],
+    "ops": [],
+    "questions": []
+  },
+  "forbid": ["update_project", "create_task", "set_task_status"]
+}

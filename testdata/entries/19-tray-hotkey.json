@@ -1,0 +1,15 @@
+{
+  "snapshot": "waypoint",
+  "project_id": 1,
+  "notes": "Refines an idea already parked (idea 30): update it, don't park a second one or promote it.",
+  "expected": {
+    "observations": [
+      {"kind": "idea", "summary": "A global hotkey for quick entry would beat a tray icon.", "quote": "a global hotkey that pops up a quick entry box would be better than a tray icon", "links": [{"target_type": "idea", "target_id": 30, "confidence": 0.9}]}
+    ],
+    "ops": [
+      {"op_type": "update_idea", "payload": {"idea_id": 30, "title": "Global hotkey with a quick entry box"}, "rationale": "They prefer a hotkey to a tray icon.", "confidence": 0.75}
+    ],
+    "questions": []
+  },
+  "forbid": ["park_idea", "create_task"]
+}

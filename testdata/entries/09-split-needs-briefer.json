@@ -1,0 +1,15 @@
+{
+  "snapshot": "waypoint",
+  "project_id": 1,
+  "notes": "An ordering between two existing tasks is a dependency, not a blocker.",
+  "expected": {
+    "observations": [
+      {"kind": "decision", "summary": "split_task suggestions wait for the LLM briefer, which has the stalled-task logic.", "quote": "I can't really do the split_task suggestions until the LLM briefer exists", "links": [{"target_type": "task", "target_id": 13, "confidence": 0.9}, {"target_type": "task", "target_id": 12, "confidence": 0.9}]}
+    ],
+    "ops": [
+      {"op_type": "add_dependency", "payload": {"task_id": 13, "blocked_by_task_id": 12}, "rationale": "The suggestions need the briefer's stalled-task logic.", "confidence": 0.85}
+    ],
+    "questions": []
+  },
+  "forbid": ["create_task", "create_blocker"]
+}

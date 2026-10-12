@@ -1,0 +1,18 @@
+{
+  "snapshot": "waypoint",
+  "project_id": 1,
+  "notes": "Progress on work that has no task (no create_task for done work), one task finished, and a stated start on the next one.",
+  "expected": {
+    "observations": [
+      {"kind": "progress", "summary": "Finished the Anthropic extractor and the retry and raw output work.", "quote": "Anthropic extractor is in and the retry/raw output stuff is done", "links": [{"target_type": "project", "target_id": 1, "confidence": 0.9}]},
+      {"kind": "feeling", "summary": "Relieved that Haiku called the tool on the first try.", "quote": "Haiku called the tool on the first try, which was a relief", "links": [{"target_type": "project", "target_id": 1, "confidence": 0.7}]},
+      {"kind": "progress", "summary": "Finished the eval fixtures, 22 entries.", "quote": "Wrapped up the eval fixtures tonight too, 22 entries", "links": [{"target_type": "task", "target_id": 10, "confidence": 0.95}]},
+      {"kind": "plan", "summary": "Starting the eval command tomorrow.", "quote": "Starting on the eval command tomorrow, first thing", "links": [{"target_type": "task", "target_id": 11, "confidence": 0.9}]}
+    ],
+    "ops": [
+      {"op_type": "set_task_status", "payload": {"task_id": 10, "status": "done"}, "rationale": "The fixtures are wrapped up.", "confidence": 0.9}
+    ],
+    "questions": []
+  },
+  "forbid": ["create_task", "delete_task"]
+}
