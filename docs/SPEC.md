@@ -225,7 +225,7 @@ Requirements are tagged by the stage in which they're first needed: **[P]** Prot
 - [L] Scope-creep warnings and "welcome back" recaps after long gaps.
 
 **Settings**
-- [P] Choose the extractor provider (mock / anthropic / openai-compatible), model, and API key or endpoint, via config file or env vars: `provider`, `model`, `endpoint` (the API base URL, e.g. `http://localhost:11434/v1`), and `api_key` in `config.toml`, or `WAYPOINT_PROVIDER`, `WAYPOINT_MODEL`, `WAYPOINT_ENDPOINT`, `WAYPOINT_API_KEY`; no flags, so a key stays out of shell history. The default is the mock. A local server must give the model a context window that holds the prompt and tool schema (about 5k tokens before the snapshot); Ollama's default of 4096 cuts the prompt off, so set its context length to 16k or more.
+- [P] Choose the extractor provider (mock / anthropic / openai-compatible), model, and API key or endpoint, via config file or env vars: `provider`, `model`, `endpoint` (the API base URL, e.g. `http://localhost:11434/v1`), and `api_key` in `config.toml`, or `WAYPOINT_PROVIDER`, `WAYPOINT_MODEL`, `WAYPOINT_ENDPOINT`, `WAYPOINT_API_KEY`; no flags, so a key stays out of shell history. The default is the mock. For `anthropic`, `endpoint` defaults to `https://api.anthropic.com/v1` and `model` to `claude-haiku-4-5`; `api_key` is required. A local server must give the model a context window that holds the prompt and tool schema (about 5k tokens before the snapshot); Ollama's default of 4096 cuts the prompt off, so set its context length to 16k or more.
 - [M] The same settings editable in the UI.
 
 ## 9. Non-functional requirements

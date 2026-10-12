@@ -1,17 +1,16 @@
 package openaicompat
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/ogredforman/waypoint/internal/extract"
+	"github.com/ogredforman/waypoint/internal/extract/llmhttp"
 )
 
 // Name is the provider name runs record.
@@ -25,14 +24,6 @@ const DefaultTimeout = 5 * time.Minute
 // most, plus any thinking; the cap stops a local model that loops from
 // holding the GPU until the timeout.
 const MaxTokens = 8192
-
-// maxResponse caps how much of a response is read: far more than MaxTokens
-// of output, so only a misbehaving server reaches it (and then fails to decode).
-const maxResponse = 8 << 20
-
-// maxErrorMessage caps how much of a server's error message goes into a run's
-// error, in case the server echoes part of the request back.
-const maxErrorMessage = 200
 
 // Options configure an Extractor. Endpoint is the API's base URL, such as
 // "http://localhost:11434/v1" for Ollama; "/chat/completions" is appended.
@@ -79,37 +70,20 @@ func (x *Extractor) PromptVersion() string { return extract.PromptVersion }
 
 // Extract sends one chat completion request and decodes the tool call.
 func (x *Extractor) Extract(ctx context.Context, in extract.ExtractInput) (extract.ExtractionResult, error) {
-	body, err := json.Marshal(x.request(in))
-	if err != nil {
-		return extract.ExtractionResult{}, fmt.Errorf("encode request: %w", err)
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, x.url, bytes.NewReader(body))
-	if err != nil {
-		return extract.ExtractionResult{}, fmt.Errorf("build request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
+	header := http.Header{}
 	if x.apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+x.apiKey)
+		header.Set("Authorization", "Bearer "+x.apiKey)
 	}
-
-	resp, err := x.client.Do(req)
+	raw, err := llmhttp.Post(ctx, x.client, x.url, header, x.request(in))
 	if err != nil {
-		return extract.ExtractionResult{}, fmt.Errorf("call %s: %w", x.url, err)
-	}
-	defer resp.Body.Close()
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxResponse))
-	if err != nil {
-		return extract.ExtractionResult{}, fmt.Errorf("read response: %w", err)
-	}
-	if resp.StatusCode/100 != 2 {
-		return extract.ExtractionResult{}, statusError(resp.StatusCode, raw)
+		return extract.ExtractionResult{}, err
 	}
 
 	args, err := toolArguments(raw)
 	if err != nil {
 		return extract.ExtractionResult{}, err
 	}
-	if args, err = numericIDs(args); err != nil {
+	if args, err = llmhttp.NumericIDs(args); err != nil {
 		return extract.ExtractionResult{}, fmt.Errorf("decode %s arguments: %w", extract.ToolName, err)
 	}
 	var res extract.ExtractionResult
@@ -220,50 +194,6 @@ func toolArguments(raw []byte) (json.RawMessage, error) {
 	return nil, fmt.Errorf("the model did not call %s", extract.ToolName)
 }
 
-// numericIDs turns IDs written as strings of digits ("1") into numbers, in
-// target_id and every other "_id" field. Servers that don't constrain tool
-// calls to the schema, such as Ollama, let models quote them. Anything else,
-// including "$new:N", is left for the validator.
-func numericIDs(args json.RawMessage) (json.RawMessage, error) {
-	dec := json.NewDecoder(bytes.NewReader(args))
-	dec.UseNumber()
-	var v any
-	if err := dec.Decode(&v); err != nil {
-		return nil, err
-	}
-	return json.Marshal(fixIDs(v))
-}
-
-func fixIDs(v any) any {
-	switch v := v.(type) {
-	case map[string]any:
-		for k, e := range v {
-			if s, ok := e.(string); ok && strings.HasSuffix(k, "_id") && isPositiveInt(s) {
-				v[k] = json.Number(s)
-			} else {
-				v[k] = fixIDs(e)
-			}
-		}
-	case []any:
-		for i, e := range v {
-			v[i] = fixIDs(e)
-		}
-	}
-	return v
-}
-
-func isPositiveInt(s string) bool {
-	if s == "" || len(s) > 18 || s[0] == '0' {
-		return false
-	}
-	for _, r := range s {
-		if r < '0' || r > '9' {
-			return false
-		}
-	}
-	return true
-}
-
 // jsonObject finds a JSON object in free text: whatever lies between the
 // first "{" and the last "}" after any <think> block, if it's valid JSON.
 func jsonObject(s string) (json.RawMessage, bool) {
@@ -276,30 +206,4 @@ func jsonObject(s string) (json.RawMessage, bool) {
 	}
 	obj := json.RawMessage(s[start : end+1])
 	return obj, json.Valid(obj)
-}
-
-// statusError reports a non-2xx response with the server's error message,
-// cut short, and nothing else from the body.
-func statusError(status int, raw []byte) error {
-	var body struct {
-		Error json.RawMessage `json:"error"`
-	}
-	var msg string
-	if json.Unmarshal(raw, &body) == nil && len(body.Error) > 0 {
-		var e struct {
-			Message string `json:"message"`
-		}
-		if json.Unmarshal(body.Error, &e) == nil {
-			msg = e.Message
-		} else {
-			_ = json.Unmarshal(body.Error, &msg) // some servers send a bare string
-		}
-	}
-	if r := []rune(msg); len(r) > maxErrorMessage {
-		msg = string(r[:maxErrorMessage]) + "…"
-	}
-	if msg == "" {
-		return fmt.Errorf("server returned %d %s", status, http.StatusText(status))
-	}
-	return fmt.Errorf("server returned %d %s: %s", status, http.StatusText(status), msg)
 }

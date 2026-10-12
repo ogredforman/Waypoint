@@ -141,3 +141,9 @@ func TestUserMessageEmptyState(t *testing.T) {
 		}
 	}
 }
+
+func TestSystemPromptNamesTool(t *testing.T) {
+	if !strings.Contains(SystemPrompt(MaxQuestions), ToolName) {
+		t.Errorf("system prompt does not name the %s tool", ToolName)
+	}
+}

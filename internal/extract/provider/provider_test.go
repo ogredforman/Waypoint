@@ -17,6 +17,8 @@ func TestNew(t *testing.T) {
 		{name: "openai-compatible", opts: Options{Provider: "openai-compatible", Endpoint: "http://localhost:11434/v1", Model: "qwen3:8b"}, wantName: "openai-compatible"},
 		{name: "openai-compatible without model", opts: Options{Provider: "openai-compatible", Endpoint: "http://localhost:11434/v1"}, wantErr: "model"},
 		{name: "openai-compatible without endpoint", opts: Options{Provider: "openai-compatible", Model: "qwen3:8b"}, wantErr: "endpoint"},
+		{name: "anthropic", opts: Options{Provider: "anthropic", APIKey: "sk-test"}, wantName: "anthropic"},
+		{name: "anthropic without key", opts: Options{Provider: "anthropic"}, wantErr: "api_key"},
 		{name: "unknown", opts: Options{Provider: "magic"}, wantErr: "unknown provider"},
 	}
 	for _, tt := range tests {

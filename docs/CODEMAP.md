@@ -73,6 +73,9 @@ Seed: cfg.SettingsDefaults(), Extractor: provider.New(…), …})` → `api.NewR
   **extract/mock**: deterministic line-prefix extractor (SPEC §10.4), `mock.New(latency)`.
   **extract/openaicompat**: `New(Options{Endpoint, Model, APIKey, HTTPClient})` for any OpenAI-compatible `/chat/completions` (Ollama, LM Studio,
   llama.cpp, OpenAI): forced `propose_changes` tool call (or a JSON object in the content), then `ResolveQuotes`; `DefaultTimeout`.
+  **extract/anthropic**: `New(Options{Endpoint, Model, APIKey, HTTPClient})` for the Messages API (defaults `https://api.anthropic.com/v1`, `claude-haiku-4-5`; key required):
+  `propose_changes` tool call, forced with temperature 0 for Haiku/3.x/Sonnet 4 (`pinsOutput`), `auto` otherwise; system prompt cached; then `ResolveQuotes`.
+  **extract/llmhttp**: what the model extractors share: `Post` (JSON POST, read cap, server error message cut short), `NumericIDs` (quoted `_id`s to numbers).
   **extract/provider**: `New(Options{Provider, Model, Endpoint, APIKey, MockLatency})` picks the extractor (empty provider = mock); `main` calls it.
 - **pipeline**: `SnapshotBuilder.Build(ctx, entry)`; `Worker`: `SaveEntry` (entry + pending run in
   one tx), `Reprocess`, `DeleteEntry` (refused while running), `Wake`, `Run(ctx)` (claims runs, extracts, validates, stores result +
@@ -218,4 +221,5 @@ All use a real temp SQLite DB migrated with `db.Migrations()`.
 - `db/schema_test.go`: `migrated(t)`, `seed`, `noFKViolations`.
 - `extract/mock/mock_test.go`: `run(t, snap, project, body)`.
 - `extract/openaicompat/openaicompat_test.go`: `newServer(t, status, reply)` (fake chat completions server), `toolReply`, `contentReply`, `input()`.
+- `extract/anthropic/anthropic_test.go`: `newServer(t, status, reply)` (fake Messages server), `reply(stopReason, blocks...)`, `toolUse`, `text`, `input()`.
 - `extract/validate_test.go`: `input()` (entry + snapshot), `opDraft`, `obs`, `link`, `fields`.

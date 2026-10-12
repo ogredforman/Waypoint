@@ -10,7 +10,7 @@ import (
 
 // PromptVersion names the system prompt and the user message format below.
 // Bump it whenever either changes, so runs and eval scores stay comparable.
-const PromptVersion = "v2"
+const PromptVersion = "v3"
 
 //go:embed prompt_system.md
 var systemPromptText string

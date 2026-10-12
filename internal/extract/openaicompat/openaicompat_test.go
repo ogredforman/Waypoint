@@ -12,6 +12,7 @@ import (
 
 	"github.com/ogredforman/waypoint/internal/domain"
 	"github.com/ogredforman/waypoint/internal/extract"
+	"github.com/ogredforman/waypoint/internal/extract/llmhttp"
 )
 
 const body = "Finished the login page. Next I want to write tests."
@@ -217,23 +218,6 @@ func TestExtractResult(t *testing.T) {
 	}
 }
 
-func TestNumericIDs(t *testing.T) {
-	tests := []struct{ in, want string }{
-		{`{"task_id":"12","n":[{"target_id":"3"}]}`, `{"n":[{"target_id":3}],"task_id":12}`},
-		{`{"task_id":"$new:2","project_id":"01","milestone_id":"0","blocker_id":"x1"}`, `{"blocker_id":"x1","milestone_id":"0","project_id":"01","task_id":"$new:2"}`},
-		{`{"title":"12","task_id":12,"confidence":0.25,"parent_task_id":null}`, `{"confidence":0.25,"parent_task_id":null,"task_id":12,"title":"12"}`},
-	}
-	for _, tt := range tests {
-		got, err := numericIDs(json.RawMessage(tt.in))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if string(got) != tt.want {
-			t.Errorf("numericIDs(%s) = %s, want %s", tt.in, got, tt.want)
-		}
-	}
-}
-
 func TestExtractErrors(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -244,7 +228,7 @@ func TestExtractErrors(t *testing.T) {
 		{name: "server error message", status: http.StatusNotFound, reply: `{"error":{"message":"model \"test-model\" not found"}}`, wantErr: `404 Not Found: model "test-model" not found`},
 		{name: "server error as a string", status: http.StatusBadRequest, reply: `{"error":"bad request"}`, wantErr: "400 Bad Request: bad request"},
 		{name: "server error without a message", status: http.StatusInternalServerError, reply: `oops`, wantErr: "500 Internal Server Error"},
-		{name: "long server error is cut short", status: http.StatusBadRequest, reply: `{"error":{"message":"` + strings.Repeat("x", 500) + `"}}`, wantErr: strings.Repeat("x", maxErrorMessage) + "…"},
+		{name: "long server error is cut short", status: http.StatusBadRequest, reply: `{"error":{"message":"` + strings.Repeat("x", 500) + `"}}`, wantErr: strings.Repeat("x", llmhttp.MaxErrorMessage) + "…"},
 		{name: "not JSON", status: http.StatusOK, reply: `<html>`, wantErr: "decode response"},
 		{name: "no choices", status: http.StatusOK, reply: `{"choices":[]}`, wantErr: "no choices"},
 		{name: "no tool call", status: http.StatusOK, reply: contentReply("I can't help with that."), wantErr: "did not call " + extract.ToolName},
