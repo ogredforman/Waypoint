@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Entry, EntryDetail, Observation, ObservationLink } from './api/types.gen'
 import {
   canReprocess,
+  failureText,
   highlightClass,
   kindLabel,
   observationHref,
@@ -140,6 +141,7 @@ describe('entry detail helpers', () => {
       entry_id: 1,
       status,
       error: null,
+      failure: null,
       created_at: '',
       updated_at: '',
     })
@@ -148,6 +150,24 @@ describe('entry detail helpers', () => {
     expect(runState(detail({ run: run('failed') }))).toBe('failed')
     expect(runState(detail({ run: run('succeeded') }))).toBe('done')
     expect(runState(detail())).toBe('done')
+  })
+
+  it('says why a run failed, calmly', () => {
+    const failed = (failure: 'timeout' | 'unreachable' | 'invalid' | 'error' | null) => ({
+      id: 1,
+      entry_id: 1,
+      status: 'failed' as const,
+      error: 'x',
+      failure,
+      created_at: '',
+      updated_at: '',
+    })
+    expect(failureText(failed('timeout'))).toContain('took too long')
+    expect(failureText(failed('unreachable'))).toContain('reach the model')
+    expect(failureText(failed('invalid'))).toContain('even on a second try')
+    for (const text of [failureText(failed('error')), failureText(failed(null)), failureText(null)]) {
+      expect(text).toBe("Waypoint couldn't read this entry. It's saved as written.")
+    }
   })
 
   it('finds the question a reply answers among loaded details', () => {
@@ -194,6 +214,7 @@ describe('reading again', () => {
     entry_id: 1,
     status,
     error: null,
+    failure: null,
     created_at: '',
     updated_at: '',
   })

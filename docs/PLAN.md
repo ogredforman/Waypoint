@@ -163,7 +163,7 @@ Tasks:
 - [x] **2.2b** Milestones in extraction: open milestones in the snapshot (and `StateSnapshot.Has`), milestone ops and links allowed by the validator, and the prompt describing them (bump `PromptVersion`). Split out of 2.1.
 - [x] **2.3** `OpenAICompatExtractor` (OpenAI, Ollama, LM Studio, llama.cpp). Test with at least one local model. First, so the cheapest option (a free local model) is tried before a paid API; the same client covers hosted OpenAI-compatible services.
 - [x] **2.4** `AnthropicExtractor` (start with the smallest model, e.g. Haiku; move up only if the 2.8 evals call for it).
-- [ ] **2.5** Robustness: timeouts, one retry with the validation errors fed back to the model, and a clean failed-run state with a retry button in the UI.
+- [x] **2.5** Robustness: timeouts, one retry with the validation errors fed back to the model, and a clean failed-run state with a retry button in the UI.
 - [ ] **2.6** Store the raw output and latency for every run.
 
 ### 2B. Evals

@@ -37,12 +37,15 @@ type CreateEntryResponse struct {
 }
 
 type ExtractionRun struct {
-	ID        int64                      `json:"id"`
-	EntryID   int64                      `json:"entry_id"`
-	Status    domain.ExtractionRunStatus `json:"status"`
-	Error     *string                    `json:"error" tstype:"string | null,required"`
-	CreatedAt time.Time                  `json:"created_at"`
-	UpdatedAt time.Time                  `json:"updated_at"`
+	ID      int64                      `json:"id"`
+	EntryID int64                      `json:"entry_id"`
+	Status  domain.ExtractionRunStatus `json:"status"`
+	Error   *string                    `json:"error" tstype:"string | null,required"`
+	// Failure is why a failed run failed, for the UI to say plainly; null
+	// unless the run failed.
+	Failure   *string   `json:"failure" tstype:"'timeout' | 'unreachable' | 'invalid' | 'error' | null,required"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // EntryDetail is the body of GET /api/entries/{id}.

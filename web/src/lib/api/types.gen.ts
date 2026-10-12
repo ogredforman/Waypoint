@@ -186,6 +186,11 @@ export interface ExtractionRun {
   entry_id: number /* int64 */;
   status: domain.ExtractionRunStatus;
   error: string | null;
+  /**
+   * Failure is why a failed run failed, for the UI to say plainly; null
+   * unless the run failed.
+   */
+  failure: 'timeout' | 'unreachable' | 'invalid' | 'error' | null;
   created_at: string;
   updated_at: string;
 }

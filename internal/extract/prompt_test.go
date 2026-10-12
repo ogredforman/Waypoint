@@ -142,6 +142,35 @@ func TestUserMessageEmptyState(t *testing.T) {
 	}
 }
 
+func TestUserMessageRetry(t *testing.T) {
+	in := ExtractInput{Entry: domain.Entry{Body: "hello"}}
+	first := UserMessage(in)
+	if strings.Contains(first, "rejected") {
+		t.Errorf("a first attempt mentions a rejected answer:\n%s", first)
+	}
+
+	in.Retry = &Retry{
+		Previous: []byte(`{"ops":[{"op_type":"update_task","payload":{"task_id":999}}]}`),
+		Problems: []string{"ops[0].payload.task_id: task 999 is not in the snapshot", "questions: at most 2"},
+	}
+	got := UserMessage(in)
+	if !strings.HasPrefix(got, first) {
+		t.Errorf("a retry changes the message before the retry section:\n%s", got)
+	}
+	want := "\n# Your previous answer was rejected\nThese problems were found in it:\n" +
+		"- ops[0].payload.task_id: task 999 is not in the snapshot\n- questions: at most 2\n" +
+		"Your previous answer:\n<previous_answer>\n" + string(in.Retry.Previous) + "\n</previous_answer>\n" +
+		"Call " + ToolName + " again with a complete, corrected answer."
+	if !strings.Contains(got, want) {
+		t.Errorf("UserMessage lacks the retry section %q:\n%s", want, got)
+	}
+
+	in.Retry.Previous = nil
+	if got := UserMessage(in); strings.Contains(got, "previous_answer") {
+		t.Errorf("an unencodable previous answer is still quoted:\n%s", got)
+	}
+}
+
 func TestSystemPromptNamesTool(t *testing.T) {
 	if !strings.Contains(SystemPrompt(MaxQuestions), ToolName) {
 		t.Errorf("system prompt does not name the %s tool", ToolName)

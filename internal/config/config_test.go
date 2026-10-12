@@ -235,6 +235,34 @@ func TestLoadExtractor(t *testing.T) {
 	}
 }
 
+func TestLoadTimeout(t *testing.T) {
+	tests := []struct {
+		name string
+		file string
+		env  map[string]string
+		want time.Duration
+	}{
+		{name: "default is the provider's"},
+		{name: "file", file: "timeout = '10m'\n", want: 10 * time.Minute},
+		{name: "env overrides file", file: "timeout = '10m'\n", env: map[string]string{"WAYPOINT_TIMEOUT": "90s"}, want: 90 * time.Second},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env, configDir := testEnv(t, tt.env)
+			if tt.file != "" {
+				writeFile(t, filepath.Join(configDir, "config.toml"), tt.file)
+			}
+			cfg, err := Load(nil, env, "linux", io.Discard)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg.Timeout != tt.want {
+				t.Errorf("Timeout = %s, want %s", cfg.Timeout, tt.want)
+			}
+		})
+	}
+}
+
 func TestLoadExplicitConfigFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "custom.toml")
@@ -288,6 +316,9 @@ func TestLoadErrors(t *testing.T) {
 		{name: "file mock latency not a duration", file: "mock_latency = 'soon'\n", wantErr: "mock_latency"},
 		{name: "file mock latency negative", file: "mock_latency = '-1s'\n", wantErr: "mock_latency"},
 		{name: "file snapshot recent entries negative", file: "snapshot_recent_entries = -1\n", wantErr: "snapshot_recent_entries"},
+		{name: "file timeout not a duration", file: "timeout = 'soon'\n", wantErr: "timeout"},
+		{name: "file timeout zero", file: "timeout = '0s'\n", wantErr: "timeout"},
+		{name: "env timeout negative", env: map[string]string{"WAYPOINT_TIMEOUT": "-1m"}, wantErr: "WAYPOINT_TIMEOUT"},
 		{name: "env port too high", env: map[string]string{"WAYPOINT_PORT": "70000"}, wantErr: "WAYPOINT_PORT"},
 		{name: "env port not a number", env: map[string]string{"WAYPOINT_PORT": "abc"}, wantErr: "WAYPOINT_PORT"},
 		{name: "env bad log level", env: map[string]string{"WAYPOINT_LOG_LEVEL": "loud"}, wantErr: "WAYPOINT_LOG_LEVEL"},

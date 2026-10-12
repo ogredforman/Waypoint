@@ -20,14 +20,24 @@ type Extractor interface {
 }
 
 // ExtractInput is everything an extractor sees: the entry, a snapshot of the
-// state it may refer to, the question the entry answers, if any, and how many
-// questions to ask at most (the questions-per-entry setting).
+// state it may refer to, the question the entry answers, if any, how many
+// questions to ask at most (the questions-per-entry setting), and, on a retry,
+// what was wrong with the previous result.
 type ExtractInput struct {
 	Entry         domain.Entry
 	Snapshot      StateSnapshot
 	ReplyTo       *domain.FollowUpQuestion // nil unless Entry.ReplyToQuestionID is set
 	MaxQuestions  int                      // 0..MaxQuestions; the worker drops any extras
 	PromptVersion string
+	Retry         *Retry // set on the one retry after the validator rejected a result
+}
+
+// Retry tells an extractor why its previous result was rejected, so it can
+// correct it (SPEC §7.1). UserMessage includes it, so an LLM extractor needs
+// nothing more.
+type Retry struct {
+	Previous json.RawMessage // the rejected result; empty if it couldn't be encoded
+	Problems []string        // the validator's "field: problem" lines
 }
 
 // ExtractionResult is an extractor's output. It is stored as the run's raw

@@ -525,6 +525,9 @@ func TestE2EFailedRunThenReprocess(t *testing.T) {
 	if d.Run == nil || d.Run.Status != domain.RunFailed || d.Run.Error == nil || len(d.Changesets) != 0 {
 		t.Fatalf("entry after failure = run %+v, changesets %+v", d.Run, d.Changesets)
 	}
+	if d.Run.Failure == nil || *d.Run.Failure != "error" {
+		t.Errorf("failure = %v, want \"error\"", d.Run.Failure)
+	}
 
 	run := send[apitypes.ExtractionRun](a, http.StatusAccepted, "POST", target+"/reprocess", nil)
 	if run.ID == created.Run.ID || run.Status != domain.RunPending {
@@ -532,7 +535,7 @@ func TestE2EFailedRunThenReprocess(t *testing.T) {
 	}
 	a.processed(created.Entry.ID, run.ID, true, p.ID)
 	d = send[apitypes.EntryDetail](a, http.StatusOK, "GET", target, nil)
-	if d.Run == nil || d.Run.ID != run.ID || d.Run.Status != domain.RunSucceeded || len(d.Changesets) != 1 {
+	if d.Run == nil || d.Run.ID != run.ID || d.Run.Status != domain.RunSucceeded || len(d.Changesets) != 1 || d.Run.Failure != nil {
 		t.Errorf("entry after reprocess = run %+v, changesets %+v", d.Run, d.Changesets)
 	}
 

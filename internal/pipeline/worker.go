@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
+	"strings"
 	"time"
 
 	"github.com/ogredforman/waypoint/internal/changeset"
@@ -320,14 +322,80 @@ func (w *Worker) claim(ctx context.Context) (domain.ExtractionRun, error) {
 	return run, err
 }
 
-// Stages of a run, for failure messages and logs.
+// Stages of a run, for failure messages and logs. A failed run's error starts
+// with its stage and ": ", which is what FailureReason reads.
 const (
-	stageLoad     = "load entry"
-	stageSnapshot = "snapshot"
-	stageExtract  = "extract"
-	stageValidate = "validate"
-	stageStore    = "store results"
+	stageLoad        = "load entry"
+	stageSnapshot    = "snapshot"
+	stageExtract     = "extract"
+	stageTimeout     = "timeout"     // extract, timed out
+	stageUnreachable = "unreachable" // extract, couldn't connect
+	stageValidate    = "validate"
+	stageRetried     = "validate (retried)"
+	stageStore       = "store results"
 )
+
+// fromExtractor reports whether a stage's error came from the extractor or
+// the validator, and so could quote the entry.
+func fromExtractor(stage string) bool {
+	switch stage {
+	case stageExtract, stageTimeout, stageUnreachable, stageValidate, stageRetried:
+		return true
+	}
+	return false
+}
+
+// extractStage names an extractor error's stage: a timeout and a failed
+// connection get their own, so the UI can say what happened.
+func extractStage(err error) string {
+	var ne net.Error
+	var op *net.OpError
+	switch {
+	case errors.Is(err, context.DeadlineExceeded), errors.As(err, &ne) && ne.Timeout():
+		return stageTimeout
+	case errors.As(err, &op) && op.Op == "dial":
+		return stageUnreachable
+	}
+	return stageExtract
+}
+
+// problems lists a validation error's problems as "field: problem" lines, to
+// feed back to the extractor.
+func problems(err error) []string {
+	var ve *domain.ValidationError
+	if !errors.As(err, &ve) {
+		return []string{err.Error()}
+	}
+	out := make([]string, len(ve.Problems))
+	for i, p := range ve.Problems {
+		out[i] = p.Field + ": " + p.Problem
+	}
+	return out
+}
+
+// FailureReason is why a run failed, in the terms the UI uses.
+type FailureReason string
+
+const (
+	FailureTimeout     FailureReason = "timeout"     // the extractor took too long
+	FailureUnreachable FailureReason = "unreachable" // the extractor couldn't connect to its model
+	FailureInvalid     FailureReason = "invalid"     // the result failed validation, even on the retry
+	FailureOther       FailureReason = "error"
+)
+
+// FailureOf reads a failed run's error, as fail wrote it, for its reason.
+func FailureOf(msg string) FailureReason {
+	stage, _, _ := strings.Cut(msg, ": ")
+	switch stage {
+	case stageTimeout:
+		return FailureTimeout
+	case stageUnreachable:
+		return FailureUnreachable
+	case stageValidate, stageRetried:
+		return FailureInvalid
+	}
+	return FailureOther
+}
 
 // process takes one running run to succeeded or failed.
 func (w *Worker) process(ctx context.Context, run domain.ExtractionRun) {
@@ -369,16 +437,29 @@ func (w *Worker) process(ctx context.Context, run domain.ExtractionRun) {
 	res, err := w.extract(ctx, in)
 	latency := time.Since(start).Milliseconds()
 	if err != nil {
-		w.fail(ctx, run, stageExtract, err, nil, &latency)
+		w.fail(ctx, run, extractStage(err), err, nil, &latency)
 		return
 	}
 
 	// Validate first: it catches what can't be encoded, such as a NaN
 	// confidence. The raw output of an invalid result is kept if it encodes.
-	if err := extract.Validate(in, res); err != nil {
+	// An invalid result gets one retry, told what was wrong; an extractor
+	// error doesn't, so a timeout can't double.
+	if verr := extract.Validate(in, res); verr != nil {
 		raw, _ := json.Marshal(res)
-		w.fail(ctx, run, stageValidate, err, raw, &latency)
-		return
+		w.logger.Debug("extraction result invalid, retrying", "run_id", run.ID, "entry_id", run.EntryID)
+		in.Retry = &extract.Retry{Previous: raw, Problems: problems(verr)}
+		res, err = w.extract(ctx, in)
+		latency = time.Since(start).Milliseconds()
+		if err != nil {
+			w.fail(ctx, run, extractStage(err), err, raw, &latency)
+			return
+		}
+		if err := extract.Validate(in, res); err != nil {
+			raw, _ := json.Marshal(res)
+			w.fail(ctx, run, stageRetried, err, raw, &latency)
+			return
+		}
 	}
 	raw, err := json.Marshal(res)
 	if err != nil {
@@ -571,7 +652,7 @@ func (w *Worker) fail(ctx context.Context, run domain.ExtractionRun, stage strin
 		return
 	}
 	attrs := []any{"run_id", run.ID, "entry_id", run.EntryID, "stage", stage}
-	if stage != stageExtract && stage != stageValidate {
+	if !fromExtractor(stage) {
 		attrs = append(attrs, "err", cause)
 	}
 	w.logger.Warn("extraction run failed", attrs...)

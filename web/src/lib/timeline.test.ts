@@ -38,7 +38,7 @@ afterAll(() => {
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 function run(status: ExtractionRun['status']): ExtractionRun {
-  return { id: 1, entry_id: 1, status, error: null, created_at: '', updated_at: '' }
+  return { id: 1, entry_id: 1, status, error: null, failure: null, created_at: '', updated_at: '' }
 }
 
 // changeset is a stand-in with only the fields the timeline reads.

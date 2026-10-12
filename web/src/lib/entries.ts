@@ -1,5 +1,5 @@
 import type { ObservationKind } from './api/enums.gen'
-import type { Changeset, Entry, EntryDetail, Observation, Question } from './api/types.gen'
+import type { Changeset, Entry, EntryDetail, ExtractionRun, Observation, Question } from './api/types.gen'
 import { paths } from './router'
 
 // Segment is a run of an entry's body: plain text, or the part an observation points at.
@@ -96,6 +96,20 @@ export function runState(detail: EntryDetail): RunState {
       return 'failed'
     default:
       return 'done'
+  }
+}
+
+// failureText says calmly why Waypoint couldn't read an entry, from the run's failure reason.
+export function failureText(run: ExtractionRun | null): string {
+  switch (run?.failure) {
+    case 'timeout':
+      return "Waypoint couldn't read this entry: the model took too long to answer. It's saved as written."
+    case 'unreachable':
+      return "Waypoint couldn't reach the model to read this entry. Is it running? The entry is saved as written."
+    case 'invalid':
+      return "Waypoint couldn't make sense of the model's answer, even on a second try. The entry is saved as written."
+    default:
+      return "Waypoint couldn't read this entry. It's saved as written."
   }
 }
 

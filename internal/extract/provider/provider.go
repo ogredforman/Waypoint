@@ -4,6 +4,7 @@ package provider
 
 import (
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/ogredforman/waypoint/internal/extract"
@@ -19,23 +20,28 @@ type Options struct {
 	Model    string
 	Endpoint string
 	APIKey   string
+	Timeout  time.Duration // one model request; 0 means the provider's DefaultTimeout
 
 	MockLatency time.Duration // mock only
 }
 
 // New returns the extractor Options name, or an error naming what's missing.
 func New(o Options) (extract.Extractor, error) {
+	var client *http.Client // nil: the provider's default
+	if o.Timeout > 0 {
+		client = &http.Client{Timeout: o.Timeout}
+	}
 	switch o.Provider {
 	case "", mock.Name:
 		return mock.New(o.MockLatency), nil
 	case anthropic.Name:
-		x, err := anthropic.New(anthropic.Options{Endpoint: o.Endpoint, Model: o.Model, APIKey: o.APIKey})
+		x, err := anthropic.New(anthropic.Options{Endpoint: o.Endpoint, Model: o.Model, APIKey: o.APIKey, HTTPClient: client})
 		if err != nil {
 			return nil, err
 		}
 		return x, nil
 	case openaicompat.Name:
-		x, err := openaicompat.New(openaicompat.Options{Endpoint: o.Endpoint, Model: o.Model, APIKey: o.APIKey})
+		x, err := openaicompat.New(openaicompat.Options{Endpoint: o.Endpoint, Model: o.Model, APIKey: o.APIKey, HTTPClient: client})
 		if err != nil {
 			return nil, err
 		}

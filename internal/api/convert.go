@@ -11,6 +11,7 @@ import (
 	"github.com/ogredforman/waypoint/internal/api/apitypes"
 	"github.com/ogredforman/waypoint/internal/briefing"
 	"github.com/ogredforman/waypoint/internal/domain"
+	"github.com/ogredforman/waypoint/internal/pipeline"
 	"github.com/ogredforman/waypoint/internal/store"
 )
 
@@ -103,11 +104,21 @@ func entryDTO(e domain.Entry) apitypes.Entry {
 // runDTO leaves out the provider, model, snapshot, and raw output: the UI
 // only needs to know how the run went.
 func runDTO(r domain.ExtractionRun) apitypes.ExtractionRun {
+	var failure *string
+	if r.Status == domain.RunFailed {
+		msg := ""
+		if r.Error != nil {
+			msg = *r.Error
+		}
+		reason := string(pipeline.FailureOf(msg))
+		failure = &reason
+	}
 	return apitypes.ExtractionRun{
 		ID:        r.ID,
 		EntryID:   r.EntryID,
 		Status:    r.Status,
 		Error:     r.Error,
+		Failure:   failure,
 		CreatedAt: r.CreatedAt,
 		UpdatedAt: r.UpdatedAt,
 	}

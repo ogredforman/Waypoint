@@ -10,7 +10,7 @@ import (
 
 // PromptVersion names the system prompt and the user message format below.
 // Bump it whenever either changes, so runs and eval scores stay comparable.
-const PromptVersion = "v3"
+const PromptVersion = "v4"
 
 //go:embed prompt_system.md
 var systemPromptText string
@@ -29,7 +29,8 @@ func SystemPrompt(maxQuestions int) string {
 }
 
 // UserMessage formats an extraction's input for the model: today's date, the
-// entry's scope, the snapshot, the question being answered, and the entry.
+// entry's scope, the snapshot, the question being answered, the entry, and on
+// a retry, the rejected result with what was wrong with it.
 // Rows are written as "<kind> <id>" so the model returns the kind and ID it
 // was shown. The output is deterministic for a given input.
 func UserMessage(in ExtractInput) string {
@@ -98,6 +99,17 @@ func UserMessage(in ExtractInput) string {
 	}
 
 	fmt.Fprintf(&b, "\n# Entry, written %s\n<entry>\n%s\n</entry>\n", day(in.Entry.CreatedAt), in.Entry.Body)
+
+	if r := in.Retry; r != nil {
+		b.WriteString("\n# Your previous answer was rejected\nThese problems were found in it:\n")
+		for _, p := range r.Problems {
+			fmt.Fprintf(&b, "- %s\n", p)
+		}
+		if len(r.Previous) > 0 {
+			fmt.Fprintf(&b, "Your previous answer:\n<previous_answer>\n%s\n</previous_answer>\n", r.Previous)
+		}
+		fmt.Fprintf(&b, "Call %s again with a complete, corrected answer. Refer only to rows listed above, or to \"$new:N\" for what op N creates.\n", ToolName)
+	}
 	return b.String()
 }
 

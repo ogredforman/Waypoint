@@ -6,7 +6,7 @@ import { timeline } from '../lib/timeline.svelte'
 import EntryCard from './EntryCard.svelte'
 
 function run(status: ExtractionRun['status']): ExtractionRun {
-  return { id: 1, entry_id: 1, status, error: null, created_at: '', updated_at: '' }
+  return { id: 1, entry_id: 1, status, error: null, failure: null, created_at: '', updated_at: '' }
 }
 
 const changeset: Changeset = {
@@ -107,6 +107,12 @@ describe('EntryCard reading again', () => {
     expect(posts()).toEqual(['/api/entries/1/reprocess'])
     expect(buttons('Read again')).toHaveLength(0)
     expect(buttons('More')).toHaveLength(0)
+  })
+
+  it('says why the read failed, next to Read again', () => {
+    show(detail({ run: { ...run('failed'), error: 'timeout: x', failure: 'timeout' } }))
+    expect(target.textContent).toContain('the model took too long to answer')
+    expect(buttons('Read again')).toHaveLength(1)
   })
 
   it('keeps the action behind More on a finished entry', () => {

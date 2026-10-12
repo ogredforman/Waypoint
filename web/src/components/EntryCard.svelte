@@ -3,6 +3,7 @@
   import type { Project, Question } from '../lib/api/types.gen'
   import {
     canReprocess,
+    failureText,
     highlightClass,
     observationHref,
     observationLabel,
@@ -155,7 +156,7 @@
     </p>
   {:else if run === 'failed'}
     <div class="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
-      <p>Waypoint couldn't read this entry. It's saved as written.</p>
+      <p>{failureText(detail?.run ?? null)}</p>
       {#if !asking}
         <Button variant="secondary" size="xs" disabled={rereading} onclick={readAgain}>Read again</Button>
       {/if}

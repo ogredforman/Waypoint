@@ -56,6 +56,10 @@ type Config struct {
 	Model    string
 	Endpoint string
 	APIKey   string
+
+	// Timeout bounds one model request; 0 means the provider's default. It
+	// is set in config.toml or WAYPOINT_TIMEOUT.
+	Timeout time.Duration
 }
 
 // Addr is the listen address. The server always binds to loopback.
@@ -100,6 +104,7 @@ type fileConfig struct {
 	Model    *string `toml:"model"`
 	Endpoint *string `toml:"endpoint"`
 	APIKey   *string `toml:"api_key"`
+	Timeout  *string `toml:"timeout"`
 }
 
 // Load resolves the configuration from args (without the program name), the
@@ -176,6 +181,13 @@ func Load(args []string, env LookupEnv, goos string, stderr io.Writer) (Config, 
 		if v, ok := nonEmpty(env, name); ok {
 			*field = v
 		}
+	}
+	if v, ok := nonEmpty(env, "WAYPOINT_TIMEOUT"); ok {
+		d, err := parseTimeout(v)
+		if err != nil {
+			return Config{}, fmt.Errorf("env WAYPOINT_TIMEOUT: %w", err)
+		}
+		cfg.Timeout = d
 	}
 
 	var fromFlags overrides
@@ -303,7 +315,23 @@ func applyFile(cfg *Config, path string) error {
 			*field = *v
 		}
 	}
+	if fc.Timeout != nil {
+		if cfg.Timeout, err = parseTimeout(*fc.Timeout); err != nil {
+			return fmt.Errorf("timeout: %w", err)
+		}
+	}
 	return nil
+}
+
+func parseTimeout(s string) (time.Duration, error) {
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return 0, fmt.Errorf("%q is not a duration such as \"5m\"", s)
+	}
+	if d <= 0 {
+		return 0, fmt.Errorf("must be positive, got %s", d)
+	}
+	return d, nil
 }
 
 func parsePort(s string) (int, error) {

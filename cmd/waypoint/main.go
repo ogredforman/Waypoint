@@ -45,6 +45,7 @@ func run() int {
 		Model:       cfg.Model,
 		Endpoint:    cfg.Endpoint,
 		APIKey:      cfg.APIKey,
+		Timeout:     cfg.Timeout,
 		MockLatency: cfg.MockLatency,
 	})
 	if err != nil {

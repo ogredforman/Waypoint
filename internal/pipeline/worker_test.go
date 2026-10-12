@@ -5,8 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
+	"net"
+	"net/url"
 	"reflect"
 	"slices"
 	"strconv"
@@ -59,9 +62,13 @@ func (e *events) next(t *testing.T) Event {
 
 // fakeExtractor returns a fixed result or error, or blocks until its context
 // is cancelled if block is set. during, if set, runs while it "extracts", to
-// change state behind the worker's back. in is the last input it was given.
+// change state behind the worker's back. in is the last input it was given,
+// calls every input. first, if set, is returned by the first call instead of
+// res.
 type fakeExtractor struct {
 	in      extract.ExtractInput
+	calls   []extract.ExtractInput
+	first   *extract.ExtractionResult
 	res     extract.ExtractionResult
 	err     error
 	block   bool
@@ -74,6 +81,7 @@ func (*fakeExtractor) Name() string { return "fake" }
 
 func (f *fakeExtractor) Extract(ctx context.Context, in extract.ExtractInput) (extract.ExtractionResult, error) {
 	f.in = in
+	f.calls = append(f.calls, in)
 	if f.during != nil {
 		f.during()
 	}
@@ -84,6 +92,9 @@ func (f *fakeExtractor) Extract(ctx context.Context, in extract.ExtractInput) (e
 		close(f.started)
 		<-ctx.Done()
 		return extract.ExtractionResult{}, ctx.Err()
+	}
+	if f.first != nil && len(f.calls) == 1 {
+		return *f.first, f.err
 	}
 	return f.res, f.err
 }
@@ -387,13 +398,17 @@ func TestProcessRecordsExtractorFailure(t *testing.T) {
 	ev := newEvents()
 	var log bytes.Buffer
 	secret := "a secret the extractor echoed"
-	w := f.workerWithLog(&fakeExtractor{err: errors.New(secret)}, ev, &log)
+	x := &fakeExtractor{err: errors.New(secret)}
+	w := f.workerWithLog(x, ev, &log)
 	e, _ := f.save(w, "feel: private", nil)
 
 	run := f.run(processNext(t, w).ID)
 
 	if run.Status != domain.RunFailed || run.Error == nil || *run.Error != "extract: "+secret {
 		t.Errorf("run = %+v, want failed with the extractor's error", run)
+	}
+	if len(x.calls) != 1 {
+		t.Errorf("extractor called %d times, want 1: an extractor error isn't retried", len(x.calls))
 	}
 	if run.RawOutput != nil || run.LatencyMS == nil {
 		t.Errorf("raw output = %s, latency = %v; want none and set", run.RawOutput, run.LatencyMS)
@@ -430,9 +445,9 @@ func TestProcessRejectsInvalidOutput(t *testing.T) {
 
 	run := f.run(processNext(t, w).ID)
 
-	if run.Status != domain.RunFailed || run.Error == nil || !strings.HasPrefix(*run.Error, "validate: ") ||
+	if run.Status != domain.RunFailed || run.Error == nil || !strings.HasPrefix(*run.Error, "validate (retried): ") ||
 		!strings.Contains(*run.Error, "not in the snapshot") {
-		t.Errorf("run = %+v, want failed validation", run)
+		t.Errorf("run = %+v, want failed validation after the retry", run)
 	}
 	if run.RawOutput == nil {
 		t.Error("the invalid output wasn't kept on the run")
@@ -442,6 +457,108 @@ func TestProcessRejectsInvalidOutput(t *testing.T) {
 	}
 	if got := ev.list(); len(got) != 1 || got[0].Type != EventRunFailed {
 		t.Errorf("events = %+v, want one run.failed", got)
+	}
+
+	// One retry, told what was wrong; never a second.
+	if len(x.calls) != 2 {
+		t.Fatalf("extractor called %d times, want 2", len(x.calls))
+	}
+	if x.calls[0].Retry != nil {
+		t.Errorf("first attempt has Retry %+v", x.calls[0].Retry)
+	}
+	r := x.calls[1].Retry
+	if r == nil || len(r.Problems) != 1 || !strings.HasPrefix(r.Problems[0], "observations[1].links[0]") ||
+		!strings.Contains(r.Problems[0], "not in the snapshot") || !strings.Contains(string(r.Previous), `"Made up"`) {
+		t.Errorf("retry = %+v, want the problem and the previous result", r)
+	}
+}
+
+func TestProcessRetrySucceeds(t *testing.T) {
+	f := newFixture(t)
+	p := f.project("Build Waypoint", domain.ProjectActive)
+	ev := newEvents()
+	conf := 0.9
+	x := &fakeExtractor{
+		first: &extract.ExtractionResult{Observations: []extract.ObservationDraft{
+			{Kind: domain.ObservationProgress, Summary: "Made up", SpanStart: 0, SpanEnd: 4,
+				Links: []extract.LinkDraft{{TargetType: domain.TargetTask, TargetID: changeset.ID(999), Confidence: &conf}}},
+		}},
+		res: extract.ExtractionResult{Observations: []extract.ObservationDraft{
+			{Kind: domain.ObservationNote, Summary: "Fixed", SpanStart: 0, SpanEnd: 4},
+		}},
+	}
+	w := f.worker(x, ev)
+	e, _ := f.save(w, "note", &p.ID)
+
+	run := f.run(processNext(t, w).ID)
+
+	if run.Status != domain.RunSucceeded || run.Error != nil {
+		t.Fatalf("run = %+v, want succeeded on the retry", run)
+	}
+	if len(x.calls) != 2 || x.calls[1].Retry == nil {
+		t.Errorf("calls = %d, retry = %v; want 2 with feedback", len(x.calls), x.calls[len(x.calls)-1].Retry)
+	}
+	if !strings.Contains(string(run.RawOutput), `"Fixed"`) || strings.Contains(string(run.RawOutput), `"Made up"`) {
+		t.Errorf("raw output = %s, want the retry's", run.RawOutput)
+	}
+	if got := f.stored(e.ID); len(got.observations) != 1 || got.observations[0].Summary != "Fixed" {
+		t.Errorf("stored %+v, want the retry's observation", got)
+	}
+	if got := ev.list(); len(got) != 1 || got[0].Type != EventEntryProcessed {
+		t.Errorf("events = %+v, want one entry.processed", got)
+	}
+}
+
+// timeoutError is a net.Error that timed out, as http.Client's timeout is.
+type timeoutError struct{}
+
+func (timeoutError) Error() string   { return "Client.Timeout exceeded" }
+func (timeoutError) Timeout() bool   { return true }
+func (timeoutError) Temporary() bool { return true }
+
+func TestProcessNamesExtractorFailures(t *testing.T) {
+	tests := []struct {
+		name   string
+		err    error
+		prefix string
+		reason FailureReason
+	}{
+		{"client timeout", &url.Error{Op: "Post", URL: "http://x", Err: timeoutError{}}, "timeout: ", FailureTimeout},
+		{"deadline", fmt.Errorf("call: %w", context.DeadlineExceeded), "timeout: ", FailureTimeout},
+		{"refused", &url.Error{Op: "Post", URL: "http://x", Err: &net.OpError{Op: "dial", Net: "tcp", Err: errors.New("connection refused")}}, "unreachable: ", FailureUnreachable},
+		{"other", errors.New("no tool call"), "extract: ", FailureOther},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			w := f.worker(&fakeExtractor{err: tt.err}, nil)
+			f.save(w, "note", nil)
+
+			run := f.run(processNext(t, w).ID)
+
+			if run.Error == nil || !strings.HasPrefix(*run.Error, tt.prefix) {
+				t.Fatalf("error = %v, want prefix %q", run.Error, tt.prefix)
+			}
+			if got := FailureOf(*run.Error); got != tt.reason {
+				t.Errorf("FailureOf = %q, want %q", got, tt.reason)
+			}
+		})
+	}
+}
+
+func TestFailureOf(t *testing.T) {
+	for msg, want := range map[string]FailureReason{
+		"timeout: x":                  FailureTimeout,
+		"unreachable: x":              FailureUnreachable,
+		"validate: encode output: x":  FailureInvalid,
+		"validate (retried): invalid": FailureInvalid,
+		"extract: no tool call":       FailureOther,
+		"store results: locked":       FailureOther,
+		"":                            FailureOther,
+	} {
+		if got := FailureOf(msg); got != want {
+			t.Errorf("FailureOf(%q) = %q, want %q", msg, got, want)
+		}
 	}
 }
 

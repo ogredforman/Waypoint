@@ -60,7 +60,7 @@ Seed: cfg.SettingsDefaults(), Extractor: provider.New(…), …})` → `api.NewR
   resolves pending observation links on applied creating ops, drops them on rejected ones;
   calls `AfterApply.Applied`. `manual.go`: `Applier.ApplyManual(ctx, ops ...Payload)` for
   `source=manual`. `reject.go`: `RejectPending`. `AfterApplies` chains hooks (briefings, then the SSE hub).
-- **extract**: provider-neutral boundary. `Extractor{Extract, Name}`, `ExtractInput` (entry, snapshot, `ReplyTo` question),
+- **extract**: provider-neutral boundary. `Extractor{Extract, Name}`, `ExtractInput` (entry, snapshot, `ReplyTo` question, `Retry` (rejected result + problems, added to `UserMessage`)),
   `ExtractionResult` (observations, links, `ChangeOpDraft`s, `QuestionDraft`s), `StateSnapshot`
   (projects with open `SnapshotMilestone`s, tasks, blockers; `Has`), `Validate` (shared validator, `MaxQuestions = 2`). `LinkDraft.TargetID` is a `changeset.Ref`,
   so a link can name `$new:N`; the worker stores those pending.
@@ -76,11 +76,11 @@ Seed: cfg.SettingsDefaults(), Extractor: provider.New(…), …})` → `api.NewR
   **extract/anthropic**: `New(Options{Endpoint, Model, APIKey, HTTPClient})` for the Messages API (defaults `https://api.anthropic.com/v1`, `claude-haiku-4-5`; key required):
   `propose_changes` tool call, forced with temperature 0 for Haiku/3.x/Sonnet 4 (`pinsOutput`), `auto` otherwise; system prompt cached; then `ResolveQuotes`.
   **extract/llmhttp**: what the model extractors share: `Post` (JSON POST, read cap, server error message cut short), `NumericIDs` (quoted `_id`s to numbers).
-  **extract/provider**: `New(Options{Provider, Model, Endpoint, APIKey, MockLatency})` picks the extractor (empty provider = mock); `main` calls it.
+  **extract/provider**: `New(Options{Provider, Model, Endpoint, APIKey, Timeout, MockLatency})` picks the extractor (empty provider = mock; `Timeout` > 0 replaces the provider's `DefaultTimeout`); `main` calls it.
 - **pipeline**: `SnapshotBuilder.Build(ctx, entry)`; `Worker`: `SaveEntry` (entry + pending run in
   one tx), `Reprocess`, `DeleteEntry` (refused while running), `Wake`, `Run(ctx)` (claims runs, extracts, validates, stores result +
-  changeset (keeping only `questions_per_entry` questions), emits `Event`s via `Notifier`, calls `AfterRun.EntryProcessed`). Failures recorded on
-  the run, never partial state.
+  changeset (keeping only `questions_per_entry` questions), emits `Event`s via `Notifier`, calls `AfterRun.EntryProcessed`). An invalid result is retried once with `extract.Retry`; failures recorded on
+  the run, never partial state, with the stage first in the error (`timeout`, `unreachable`, `validate (retried)`, …); `FailureOf(msg)` → `FailureReason` for the API's `ExtractionRun.failure`.
 - **briefing**: `Briefer` interface (`State` includes the project's milestones), `Heuristic` implementation (`heuristic.go`; todo window prefers the first open milestone), `Service`
   (`Refresh`, `Get` → `View` (with `Step`: the next task's parent and step number, → `Briefing.next_step`), `EntryDeleted`; drops recap entries the Briefer wasn't shown; implements `changeset.AfterApply` and `pipeline.AfterRun`; notifies
   `BriefingUpdated`). Briefings are cached per project in the DB; the recap (`[]domain.RecapEntry`, newest first, points with observation kinds) in `briefing_recap_points`.
@@ -98,7 +98,7 @@ Seed: cfg.SettingsDefaults(), Extractor: provider.New(…), …})` → `api.NewR
   **api/apitypes**: request/response/event DTOs; `gen/` generates `web/src/lib/api/*.gen.ts`
   (`make gen`, checked by `make lint`).
 - **config**: `Load(args, env, goos, stderr)` (flags > env > `config.toml`; `provider`/`model`/`endpoint`/`api_key` from the file or
-  `WAYPOINT_PROVIDER`/`_MODEL`/`_ENDPOINT`/`_API_KEY` only, no flags), `EnsureDataDir`, `ProfilesDir`, `LegacyDBPath`,
+  `WAYPOINT_PROVIDER`/`_MODEL`/`_ENDPOINT`/`_API_KEY` only, no flags; `timeout` / `WAYPOINT_TIMEOUT`), `EnsureDataDir`, `ProfilesDir`, `LegacyDBPath`,
   `SettingsDefaults` (the preference values that seed a new database).
 - **web**: embeds `web/dist`, `NewHandler` serves the SPA with fallback.
 - `tools/hooks`: Claude Code hooks (edit guard, formatter, stop check). Not app code.
