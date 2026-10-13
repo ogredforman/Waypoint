@@ -3,9 +3,11 @@ package eval
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/ogredforman/waypoint/internal/domain"
+	"github.com/ogredforman/waypoint/internal/extract"
 )
 
 // TestFixtures loads testdata/entries, which checks every expected result
@@ -21,8 +23,16 @@ func TestFixtures(t *testing.T) {
 
 	kinds := map[domain.ObservationKind]bool{}
 	ops := map[domain.OpType]bool{}
-	var replies, unscoped, empty int
+	var replies, unscoped, empty, questions, asked int
 	for _, f := range fs {
+		if len(f.Expected.Questions) > 0 {
+			questions++
+		}
+		for _, e := range f.Input.Snapshot.RecentEntries {
+			if len(e.Questions) > 0 {
+				asked++
+			}
+		}
 		if f.Input.Entry.Body == "" {
 			t.Errorf("%s: empty entry", f.Name)
 		}
@@ -61,6 +71,42 @@ func TestFixtures(t *testing.T) {
 	}
 	if replies == 0 || unscoped == 0 || empty == 0 {
 		t.Errorf("want replies, unscoped entries, and entries with no ops; got %d, %d, %d", replies, unscoped, empty)
+	}
+	// One fixture per question gap (SPEC §7.2), and one where a question was
+	// recently asked; only that fixture sees it.
+	if questions < 3 || asked != 1 {
+		t.Errorf("want 3+ fixtures expecting a question and 1 with a recently asked one; got %d, %d", questions, asked)
+	}
+}
+
+func TestLoadFixturesAsked(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "snapshots/s.json", `{"taken_at": "2026-10-12T21:00:00Z",
+		"recent_entries": [{"id": 5, "created_at": "2026-10-11T21:00:00Z", "summaries": ["Did a thing"]}]}`)
+	body := "Did another thing.\n"
+	empty := `"expected": {"observations": [], "ops": [], "questions": []}`
+	write(t, dir, "01-a.md", body)
+	write(t, dir, "01-a.json", `{"snapshot": "s", "notes": "n", `+empty+`,
+		"asked": [{"entry": 5, "text": "What's next?", "status": "dismissed"}]}`)
+	write(t, dir, "02-b.md", body)
+	write(t, dir, "02-b.json", `{"snapshot": "s", "notes": "n", `+empty+`}`)
+	fs, err := LoadFixtures(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []extract.SnapshotQuestion{{Text: "What's next?", Status: domain.QuestionDismissed}}
+	if got := fs[0].Input.Snapshot.RecentEntries[0].Questions; !reflect.DeepEqual(got, want) {
+		t.Errorf("01-a questions = %+v, want %+v", got, want)
+	}
+	if got := fs[1].Input.Snapshot.RecentEntries[0].Questions; got != nil {
+		t.Errorf("02-b questions = %+v, want none: asked is per fixture", got)
+	}
+
+	write(t, dir, "03-c.md", body)
+	write(t, dir, "03-c.json", `{"snapshot": "s", "notes": "n", `+empty+`,
+		"asked": [{"entry": 6, "text": "What's next?", "status": "open"}]}`)
+	if _, err := LoadFixtures(dir); err == nil {
+		t.Fatal("want an error for a question asked after an entry the snapshot doesn't have")
 	}
 }
 

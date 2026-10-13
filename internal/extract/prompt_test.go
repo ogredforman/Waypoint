@@ -28,6 +28,10 @@ func TestSystemPromptQuestionLimit(t *testing.T) {
 		if strings.Contains(got, "{{") || strings.Contains(got, "<no value>") {
 			t.Errorf("SystemPrompt(%d) has an unfilled template action", c.limit)
 		}
+		// The gaps worth a question are described only when questions are on.
+		if gaps := strings.Contains(got, "There are three such gaps"); gaps != (c.limit > 0) {
+			t.Errorf("SystemPrompt(%d) describes the question gaps = %v", c.limit, gaps)
+		}
 	}
 }
 
@@ -81,7 +85,10 @@ func TestUserMessage(t *testing.T) {
 				{ID: 8, Title: "Learn Rust"},
 			},
 			RecentEntries: []SnapshotEntry{
-				{ID: 8, CreatedAt: at(11), Summaries: []string{"Started the login form.", "Feels slow."}},
+				{ID: 8, CreatedAt: at(11), Summaries: []string{"Started the login form.", "Feels slow."}, Questions: []SnapshotQuestion{
+					{Text: "Is anything in the way of \"login\"?", Status: domain.QuestionDismissed},
+					{Text: "What's next?", Status: domain.QuestionAnswered},
+				}},
 			},
 		},
 		ReplyTo: &domain.FollowUpQuestion{Text: "What's next after login?"},
@@ -113,6 +120,8 @@ Open tasks:
 
 # Recent entries, newest first (summaries only)
 - 2026-10-11: Started the login form. Feels slow.
+  - you asked: "Is anything in the way of \"login\"?" (dismissed)
+  - you asked: "What's next?" (answered)
 
 # This entry answers your earlier question
 "What's next after login?"

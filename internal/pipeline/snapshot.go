@@ -42,7 +42,8 @@ func (b *SnapshotBuilder) WithStalledAfter(d time.Duration) *SnapshotBuilder {
 //   - every parked idea, title only;
 //   - up to recentEntries entries written before e, newest first: those of
 //     e's project, or of any project if e has none. Each carries the
-//     summaries of its latest run's observations, not its body.
+//     summaries of its latest run's observations, not its body, and the
+//     follow-up questions asked after it (from any run) with their status.
 //
 // All reads happen in one read-only transaction, so the snapshot is
 // consistent without holding up writers.
@@ -190,11 +191,19 @@ func (b *SnapshotBuilder) addRecentEntries(ctx context.Context, tx *store.ReadTx
 		if err != nil {
 			return err
 		}
-		snap.RecentEntries = append(snap.RecentEntries, extract.SnapshotEntry{
+		qs, err := tx.ListQuestionsByEntry(ctx, re.ID)
+		if err != nil {
+			return err
+		}
+		se := extract.SnapshotEntry{
 			ID:        re.ID,
 			CreatedAt: re.CreatedAt,
 			Summaries: latestRunSummaries(obs),
-		})
+		}
+		for _, q := range qs {
+			se.Questions = append(se.Questions, extract.SnapshotQuestion{Text: q.Text, Status: q.Status})
+		}
+		snap.RecentEntries = append(snap.RecentEntries, se)
 	}
 	return nil
 }

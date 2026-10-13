@@ -62,7 +62,7 @@ Seed: cfg.SettingsDefaults(), Extractor: provider.New(…), …})` → `api.NewR
   `source=manual`. `reject.go`: `RejectPending`. `AfterApplies` chains hooks (briefings, then the SSE hub).
 - **extract**: provider-neutral boundary. `Extractor{Extract, Name}`, `ExtractInput` (entry, snapshot, `ReplyTo` question, `Retry` (rejected result + problems, added to `UserMessage`)),
   `ExtractionResult` (observations, links, `ChangeOpDraft`s, `QuestionDraft`s, `Response`: the model's reply, not encoded), `ResponseError`/`ResponseOf` (an extractor error carrying the reply), `StateSnapshot`
-  (projects with open `SnapshotMilestone`s, tasks (with `Size` and `Stalled`), blockers; `Has`), `Validate` (shared validator, `MaxQuestions = 2`). `LinkDraft.TargetID` is a `changeset.Ref`,
+  (projects with open `SnapshotMilestone`s, tasks (with `Size` and `Stalled`), blockers; recent entries with their `SnapshotQuestion`s; `Has`), `Validate` (shared validator, `MaxQuestions = 2`). `LinkDraft.TargetID` is a `changeset.Ref`,
   so a link can name `$new:N`; the worker stores those pending.
   `prompt.go` + embedded `prompt_system.md`: `PromptVersion` (bump on any prompt or format change), `SystemPrompt(maxQuestions)`,
   `UserMessage(ExtractInput)` (snapshot as text, rows as "task 12"); `ExtractInput.MaxQuestions` is the questions-per-entry setting.
@@ -79,7 +79,7 @@ Seed: cfg.SettingsDefaults(), Extractor: provider.New(…), …})` → `api.NewR
   `propose_changes` tool call, forced with temperature 0 for Haiku/3.x/Sonnet 4 (`pinsOutput`), `auto` otherwise; system prompt cached; then `ResolveQuotes`.
   **extract/llmhttp**: what the model extractors share: `Post` (JSON POST, read cap, server error message cut short), `NumericIDs` (quoted `_id`s to numbers).
   **extract/provider**: `New(Options{Provider, Model, Endpoint, APIKey, Timeout, MockLatency})` picks the extractor (empty provider = mock; `Timeout` > 0 replaces the provider's `DefaultTimeout`); `main` calls it.
-- **pipeline**: `SnapshotBuilder.Build(ctx, entry)` (`WithStalledAfter(d)` marks in-progress tasks unchanged, steps included, for `d`; config `stalled_after_days`); `Worker`: `SaveEntry` (entry + pending run in
+- **pipeline**: `SnapshotBuilder.Build(ctx, entry)` (`WithStalledAfter(d)` marks in-progress tasks unchanged, steps included, for `d`; config `stalled_after_days`; recent entries carry their questions and status); `Worker`: `SaveEntry` (entry + pending run in
   one tx), `Reprocess`, `DeleteEntry` (refused while running), `Wake`, `Run(ctx)` (claims runs, extracts, validates, stores result +
   changeset (keeping only `questions_per_entry` questions), emits `Event`s via `Notifier`, calls `AfterRun.EntryProcessed`). An invalid result is retried once with `extract.Retry`; the run's raw output is `rawOutput(attempts)`, `{"attempts":[{response, result, problems, latency_ms}]}`, one per extractor call; failures recorded on
   the run, never partial state, with the stage first in the error (`timeout`, `unreachable`, `validate (retried)`, …); `FailureOf(msg)` → `FailureReason` for the API's `ExtractionRun.failure`.
@@ -233,7 +233,7 @@ All use a real temp SQLite DB migrated with `db.Migrations()`.
 - `extract/mock/mock_test.go`: `run(t, snap, project, body)`.
 - `extract/openaicompat/openaicompat_test.go`: `newServer(t, status, reply)` (fake chat completions server), `toolReply`, `contentReply`, `input()`.
 - `extract/anthropic/anthropic_test.go`: `newServer(t, status, reply)` (fake Messages server), `reply(stopReason, blocks...)`, `toolUse`, `text`, `input()`.
-- `testdata/entries/`: eval fixtures, `NN-slug.md` (the entry) + `NN-slug.json` (`snapshot`, `project_id`, `reply_to`, `notes`, `expected` result, `forbid` op types);
+- `testdata/entries/`: eval fixtures, `NN-slug.md` (the entry) + `NN-slug.json` (`snapshot`, `project_id`, `reply_to`, `asked` (questions added to a recent entry for that fixture only), `notes`, `expected` result, `forbid` op types);
   `snapshots/waypoint.json` (Waypoint mid-Stage 2, Garden shed, paused Learn Spanish; task 10 stalled, 12 size l; IDs: projects 1-3, tasks 10-16/50-52/70, milestones 40-41, blockers 20-21/60, ideas 30-32) and `snapshots/empty.json`.
   `eval/fixtures_test.go` loads them all; `write(t, dir, name, content)` builds a throwaway fixture dir.
 - `extract/validate_test.go`: `input()` (entry + snapshot), `opDraft`, `obs`, `link`, `fields`.

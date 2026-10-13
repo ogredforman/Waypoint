@@ -1,0 +1,17 @@
+{
+  "snapshot": "waypoint",
+  "project_id": 1,
+  "notes": "Touches the stalled task (10) again, but the question about what's in its way was dismissed after a recent entry: don't ask it again, and no split.",
+  "asked": [
+    {"entry": 101, "text": "Is anything in the way of the eval fixtures?", "status": "dismissed"}
+  ],
+  "expected": {
+    "observations": [
+      {"kind": "progress", "summary": "Tidied up how the snapshot is formatted for the prompt.", "quote": "Tidied up how the snapshot gets formatted for the prompt tonight", "links": [{"target_type": "project", "target_id": 1, "confidence": 0.8}]},
+      {"kind": "note", "summary": "Hasn't gone back to the eval fixtures yet.", "quote": "Still haven't gone back to the fixtures", "links": [{"target_type": "task", "target_id": 10, "confidence": 0.85}]}
+    ],
+    "ops": [],
+    "questions": []
+  },
+  "forbid": ["split_task", "set_task_status", "create_blocker"]
+}

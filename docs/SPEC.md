@@ -173,7 +173,9 @@ The extractor generates questions when useful information is missing. Examples:
 - Progress was reported but no next step is clear.
 - The entry has a negative tone and the scope might be the problem.
 
-Answering a question creates a new entry with `reply_to_question_id` set, which goes through the normal pipeline. Dismissed questions are recorded so the same question isn't asked again right away.
+Each example is one gap the extractor looks for: a task the entry touches is marked stalled in the snapshot and has no open blocker (unless the entry says it is stuck, which gets a split instead); the entry finishes or moves something forward and its project would be left with no open task; the entry sounds discouraged about the work itself, not about tiredness from outside it. A question asks one thing, is forward-looking, never mentions how long something has waited, and comes with a reason naming its gap; most entries get none.
+
+Answering a question creates a new entry with `reply_to_question_id` set, which goes through the normal pipeline. Dismissed questions are recorded so the same question isn't asked again right away: the snapshot's recent entries carry the questions asked after them (from any run) with their status, and the extractor doesn't ask again one that is open, answered, or dismissed.
 
 ### 7.3 Briefing ("Now" view)
 

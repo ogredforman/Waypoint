@@ -1,0 +1,19 @@
+{
+  "snapshot": "waypoint",
+  "project_id": 3,
+  "notes": "Finishes the paused project's only open task and names nothing after it: one question about the next step, and the project stays paused.",
+  "expected": {
+    "observations": [
+      {"kind": "progress", "summary": "Had the trial Spanish lesson with Marta.", "quote": "Had the trial lesson with Marta today!", "links": [{"target_type": "task", "target_id": 70, "confidence": 0.95}]},
+      {"kind": "note", "summary": "Practised the past tense, talking about the train trip.", "quote": "she was patient with my past tense", "links": [{"target_type": "project", "target_id": 3, "confidence": 0.8}]},
+      {"kind": "feeling", "summary": "Enjoyed the lesson.", "quote": "Really enjoyed it", "links": [{"target_type": "project", "target_id": 3, "confidence": 0.8}]}
+    ],
+    "ops": [
+      {"op_type": "set_task_status", "payload": {"task_id": 70, "status": "done"}, "rationale": "The trial lesson happened.", "confidence": 0.9}
+    ],
+    "questions": [
+      {"text": "What's the next step for your Spanish?", "reason": "The trial lesson was the project's last open task and no next step is named."}
+    ]
+  },
+  "forbid": ["update_project", "create_project", "split_task"]
+}

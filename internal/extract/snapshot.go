@@ -64,11 +64,20 @@ type SnapshotIdea struct {
 }
 
 // SnapshotEntry is a recent entry of the relevant project, as the summaries of
-// its observations rather than its body.
+// its observations rather than its body, with the follow-up questions asked
+// after it, so the model doesn't ask them again right away (SPEC §7.2).
 type SnapshotEntry struct {
-	ID        int64     `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	Summaries []string  `json:"summaries"`
+	ID        int64              `json:"id"`
+	CreatedAt time.Time          `json:"created_at"`
+	Summaries []string           `json:"summaries"`
+	Questions []SnapshotQuestion `json:"questions,omitempty"`
+}
+
+// SnapshotQuestion is a follow-up question asked after a recent entry, and
+// whether it is still open, was answered, or was dismissed.
+type SnapshotQuestion struct {
+	Text   string                `json:"text"`
+	Status domain.QuestionStatus `json:"status"`
 }
 
 // Has reports whether the snapshot contains the row of kind k with the given

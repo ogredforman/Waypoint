@@ -116,7 +116,8 @@ func (f fixture) entry(body string, projectID *int64) (e domain.Entry) {
 
 // observe records a run over entry e with one note observation per summary,
 // spanning the whole body, in reverse so the snapshot's span order matters.
-func (f fixture) observe(e domain.Entry, summaries ...string) {
+// It returns the run's ID.
+func (f fixture) observe(e domain.Entry, summaries ...string) (runID int64) {
 	f.t.Helper()
 	res, err := f.sqlDB.ExecContext(context.Background(),
 		`INSERT INTO extraction_runs (entry_id, provider, status, created_at, updated_at)
@@ -124,7 +125,7 @@ func (f fixture) observe(e domain.Entry, summaries ...string) {
 	if err != nil {
 		f.t.Fatal(err)
 	}
-	runID, err := res.LastInsertId()
+	runID, err = res.LastInsertId()
 	if err != nil {
 		f.t.Fatal(err)
 	}
@@ -139,6 +140,7 @@ func (f fixture) observe(e domain.Entry, summaries ...string) {
 		}
 		return nil
 	})
+	return runID
 }
 
 // world is the state the tests build snapshots over.
@@ -317,6 +319,50 @@ func TestBuildUnscopedUsesAllProjectsEntries(t *testing.T) {
 	}
 	if len(snap.Projects) != 2 {
 		t.Errorf("%d projects, want the 2 active ones", len(snap.Projects))
+	}
+}
+
+// A recent entry carries the questions asked after it, from every run, with
+// their status, so the model doesn't ask them again.
+func TestBuildRecentEntryQuestions(t *testing.T) {
+	f := newFixture(t)
+	p := f.project("Shed", domain.ProjectActive)
+	earlier := f.entry("Levelled half the pad.", &p.ID)
+	quiet := f.entry("Bought gravel.", &p.ID)
+	current := f.entry("Pad is done.", &p.ID)
+	runID := f.observe(earlier, "Levelled half the pad")
+	f.observe(quiet, "Bought gravel")
+	f.write(func(tx *store.Tx) error {
+		ctx := context.Background()
+		for _, text := range []string{"Is anything in the way of the pad?", "What comes after the pad?"} {
+			if _, err := tx.CreateQuestion(ctx, domain.FollowUpQuestion{
+				EntryID: earlier.ID, ExtractionRunID: runID, Text: text, Reason: "r", Status: domain.QuestionOpen,
+			}); err != nil {
+				return err
+			}
+		}
+		qs, err := tx.ListQuestionsByEntry(ctx, earlier.ID)
+		if err != nil {
+			return err
+		}
+		_, err = tx.DismissQuestion(ctx, qs[0].ID)
+		return err
+	})
+
+	snap := build(t, f, 5, current)
+	var got [][]extract.SnapshotQuestion
+	for _, re := range snap.RecentEntries {
+		got = append(got, re.Questions)
+	}
+	want := [][]extract.SnapshotQuestion{
+		nil, // quiet: none asked
+		{
+			{Text: "Is anything in the way of the pad?", Status: domain.QuestionDismissed},
+			{Text: "What comes after the pad?", Status: domain.QuestionOpen},
+		},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("recent entry questions = %+v, want %+v", got, want)
 	}
 }
 

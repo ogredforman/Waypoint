@@ -10,7 +10,7 @@ import (
 
 // PromptVersion names the system prompt and the user message format below.
 // Bump it whenever either changes, so runs and eval scores stay comparable.
-const PromptVersion = "v5"
+const PromptVersion = "v6"
 
 //go:embed prompt_system.md
 var systemPromptText string
@@ -90,6 +90,9 @@ func UserMessage(in ExtractInput) string {
 		b.WriteString("\n# Recent entries, newest first (summaries only)\n")
 		for _, e := range snap.RecentEntries {
 			fmt.Fprintf(&b, "- %s: %s\n", day(e.CreatedAt), strings.Join(e.Summaries, " "))
+			for _, q := range e.Questions {
+				fmt.Fprintf(&b, "  - you asked: %s (%s)\n", quote(q.Text), q.Status)
+			}
 		}
 	}
 

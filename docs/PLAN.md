@@ -173,7 +173,7 @@ Tasks:
 ### 2C. LLM features
 - [x] **2.9** LLM `Briefer`: next action with a reason, plus a recap. Validated against existing task IDs, with heuristic fallback.
 - [x] **2.10** `split_task` suggestions when a task is vague or has stalled.
-- [ ] **2.11** Better follow-up questions (stalled tasks, missing next step, negative tone).
+- [x] **2.11** Better follow-up questions (stalled tasks, missing next step, negative tone).
 
 ### 2D. Usability minimums
 - [ ] **2.12** Provider settings on the Settings screen (1.5.7): provider, model, endpoint, and key (key stored in config, masked in UI and excluded from export).

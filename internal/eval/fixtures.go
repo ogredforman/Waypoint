@@ -33,6 +33,7 @@ type fixtureFile struct {
 	Snapshot  string                   `json:"snapshot"` // snapshots/<name>.json
 	ProjectID *int64                   `json:"project_id"`
 	ReplyTo   *replyTo                 `json:"reply_to"`
+	Asked     []asked                  `json:"asked"`
 	Notes     string                   `json:"notes"`
 	Expected  extract.ExtractionResult `json:"expected"`
 	Forbid    []domain.OpType          `json:"forbid"`
@@ -41,6 +42,14 @@ type fixtureFile struct {
 type replyTo struct {
 	Text   string `json:"text"`
 	Reason string `json:"reason"`
+}
+
+// asked is a follow-up question asked after one of the snapshot's recent
+// entries, added to that entry for this fixture only.
+type asked struct {
+	Entry  int64                 `json:"entry"`
+	Text   string                `json:"text"`
+	Status domain.QuestionStatus `json:"status"`
 }
 
 // Entry and question IDs the fixtures are given; nothing in a snapshot uses them.
@@ -88,6 +97,11 @@ func loadFixture(dir, path string, entryID int64, snapshots map[string]extract.S
 		snapshots[ff.Snapshot] = snap
 	}
 
+	snap, err = withAsked(snap, ff.Asked)
+	if err != nil {
+		return Fixture{}, err
+	}
+
 	in := extract.ExtractInput{
 		Entry: domain.Entry{
 			ID:        entryID,
@@ -128,6 +142,27 @@ func loadFixture(dir, path string, entryID int64, snapshots map[string]extract.S
 		}
 	}
 	return Fixture{Name: name, Notes: ff.Notes, Input: in, Expected: exp, Forbid: ff.Forbid}, nil
+}
+
+// withAsked returns snap with the questions in asked added to its recent
+// entries. The shared snapshot is left alone: the recent entries are copied.
+func withAsked(snap extract.StateSnapshot, asked []asked) (extract.StateSnapshot, error) {
+	if len(asked) == 0 {
+		return snap, nil
+	}
+	snap.RecentEntries = slices.Clone(snap.RecentEntries)
+	for i, a := range asked {
+		if !a.Status.Valid() {
+			return snap, fmt.Errorf("asked[%d]: unknown status %q", i, a.Status)
+		}
+		j := slices.IndexFunc(snap.RecentEntries, func(e extract.SnapshotEntry) bool { return e.ID == a.Entry })
+		if j < 0 {
+			return snap, fmt.Errorf("asked[%d]: entry %d isn't a recent entry of the snapshot", i, a.Entry)
+		}
+		e := &snap.RecentEntries[j]
+		e.Questions = append(slices.Clone(e.Questions), extract.SnapshotQuestion{Text: a.Text, Status: a.Status})
+	}
+	return snap, nil
 }
 
 // forEntry trims a snapshot the way the pipeline builds one: active projects,

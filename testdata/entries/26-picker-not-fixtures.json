@@ -1,0 +1,18 @@
+{
+  "snapshot": "waypoint",
+  "project_id": 1,
+  "notes": "Touches the stalled task (10) without saying why it is paused, and it has no blocker: one gentle question about what's in the way, no split, nothing about how long it has been.",
+  "expected": {
+    "observations": [
+      {"kind": "progress", "summary": "Fixed Escape closing the project picker twice; the input and the dialog both handled the key.", "quote": "Fixed the Escape bug in the project picker", "links": [{"target_type": "task", "target_id": 16, "confidence": 0.95}]},
+      {"kind": "note", "summary": "Didn't work on the eval fixtures.", "quote": "Didn't touch the fixtures", "links": [{"target_type": "task", "target_id": 10, "confidence": 0.85}]}
+    ],
+    "ops": [
+      {"op_type": "set_task_status", "payload": {"task_id": 16, "status": "done"}, "rationale": "The Escape bug in the picker is fixed.", "confidence": 0.9}
+    ],
+    "questions": [
+      {"text": "Is anything in the way of the eval fixtures?", "reason": "Task 10 is stalled and has no blocker."}
+    ]
+  },
+  "forbid": ["split_task"]
+}

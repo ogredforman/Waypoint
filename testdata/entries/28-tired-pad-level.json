@@ -1,0 +1,17 @@
+{
+  "snapshot": "waypoint",
+  "project_id": 2,
+  "notes": "Tired for reasons outside the work, but progress was made and the next step is named: no question at all.",
+  "expected": {
+    "observations": [
+      {"kind": "feeling", "summary": "Worn out after a long day at work.", "quote": "Long day at work and I'm wiped"},
+      {"kind": "progress", "summary": "Finished levelling the gravel pad for the shed.", "quote": "the gravel pad is level now", "links": [{"target_type": "task", "target_id": 51, "confidence": 0.95}]},
+      {"kind": "plan", "summary": "Plans to order the lumber for the shed floor tomorrow.", "quote": "Tomorrow I'll order the lumber for the floor", "links": [{"target_type": "task", "target_id": 50, "confidence": 0.9}]}
+    ],
+    "ops": [
+      {"op_type": "set_task_status", "payload": {"task_id": 51, "status": "done"}, "rationale": "The gravel pad is level.", "confidence": 0.9}
+    ],
+    "questions": []
+  },
+  "forbid": ["create_task", "split_task", "update_project"]
+}
