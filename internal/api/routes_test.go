@@ -95,6 +95,9 @@ func (s *server) call(method, target string, body any) *httptest.ResponseRecorde
 		}
 		r = httptest.NewRequest(method, target, bytes.NewReader(raw))
 	}
+	if body != nil {
+		r.Header.Set("Content-Type", "application/json") // as the app sends
+	}
 	rec := httptest.NewRecorder()
 	s.h.ServeHTTP(rec, r)
 	return rec

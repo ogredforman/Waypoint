@@ -566,6 +566,44 @@ export interface Excerpt {
 }
 
 //////////
+// source: provider.go
+
+/**
+ * Provider is the body of GET and PUT /api/provider: the model provider
+ * settings every profile shares, saved in config.toml. The API key is never
+ * sent back, only whether one is set.
+ */
+export interface Provider {
+  /**
+   * Provider is one of Providers; "mock" means no model.
+   */
+  provider: string;
+  model: string;
+  endpoint: string;
+  api_key_set: boolean;
+  /**
+   * FromEnv names the settings ("provider", "model", "endpoint",
+   * "api_key") set by WAYPOINT_* env vars, which can't be changed here.
+   */
+  from_env: string[];
+  /**
+   * Providers are the provider names that can be chosen.
+   */
+  providers: string[];
+}
+/**
+ * UpdateProviderRequest is the body of PUT /api/provider. Provider, model,
+ * and endpoint replace the current ones (empty for none). Without api_key the
+ * key is kept; an empty one removes it.
+ */
+export interface UpdateProviderRequest {
+  provider: string;
+  model: string;
+  endpoint: string;
+  api_key?: string;
+}
+
+//////////
 // source: settings.go
 
 /**

@@ -18,3 +18,5 @@ old one's status is changed to `Superseded by NNNN`.
 | [0006](./0006-archived-projects.md) | Archived projects: a fifth project status | Accepted |
 | [0007](./0007-deleting-entries.md) | Deleting diary entries | Accepted |
 | [0008](./0008-deleting-projects.md) | Deleting projects | Accepted |
+| [0009](./0009-rich-text-editor.md) | Rich text editor for notes | Accepted |
+| [0010](./0010-provider-settings-in-config.md) | Provider settings: changed in the app, saved in config.toml | Accepted |

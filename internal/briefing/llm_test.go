@@ -1,6 +1,7 @@
 package briefing
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -8,8 +9,8 @@ import (
 	"log/slog"
 	"slices"
 	"strings"
-	"time"
 	"testing"
+	"time"
 
 	"github.com/ogredforman/waypoint/internal/domain"
 	"github.com/ogredforman/waypoint/internal/extract"
@@ -183,5 +184,20 @@ func TestLLMSchemaKinds(t *testing.T) {
 	slices.Sort(want)
 	if !slices.Equal(got, want) {
 		t.Errorf("schema kinds = %v, want %v", got, want)
+	}
+}
+
+func TestLLMWithoutModelIsQuiet(t *testing.T) {
+	var logs bytes.Buffer
+	l := NewLLM(&fakeCaller{err: extract.ErrNoModel}, func() time.Time { return t0 }, slog.New(slog.NewTextHandler(&logs, nil)))
+	b, err := l.Brief(context.Background(), llmState())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b.Source != domain.BriefingHeuristic {
+		t.Errorf("source = %s, want the heuristic's", b.Source)
+	}
+	if logs.Len() != 0 {
+		t.Errorf("logged %q; the mock provider isn't a failure", logs.String())
 	}
 }

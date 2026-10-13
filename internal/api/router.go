@@ -26,6 +26,9 @@ type Deps struct {
 	// /api/profiles/{profile}/ (ADR 0005), and backs /api/health. Nil leaves
 	// those routes unmounted and /api/health always ok.
 	Profiles Profiles
+	// Provider serves /api/provider, the model provider settings every
+	// profile shares. Nil leaves the route unmounted.
+	Provider Provider
 }
 
 // ProfileDeps are one profile's dependencies: its database's store and the
@@ -79,6 +82,10 @@ func newMux(d Deps) *chi.Mux {
 		if d.Profiles != nil {
 			h := &handlers{logger: d.Logger}
 			h.profileRoutes(r, d.Profiles)
+		}
+		if d.Provider != nil {
+			h := &handlers{logger: d.Logger}
+			h.providerRoutes(r, d.Provider)
 		}
 	})
 	if d.Web != nil {

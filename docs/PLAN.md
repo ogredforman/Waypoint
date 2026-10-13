@@ -176,7 +176,8 @@ Tasks:
 - [x] **2.11** Better follow-up questions (stalled tasks, missing next step, negative tone).
 
 ### 2D. Usability minimums
-- [ ] **2.12** Provider settings on the Settings screen (1.5.7): provider, model, endpoint, and key (key stored in config, masked in UI and excluded from export).
+- [x] **2.12** Provider settings on the Settings screen (1.5.7): provider, model, endpoint, and key (key stored in config, masked in UI and excluded from export). Backend: `/api/provider`, saved to `config.toml`, applied without a restart (ADR 0010).
+- [ ] **2.12b** The Settings screen's "Model" section on `/api/provider`: says it applies to every profile; provider select, model and endpoint fields; the key only as set or not set, with Replace and Clear; fields from env vars read-only with a note; per-field problems from a 422. Split out of 2.12.
 - [ ] **2.13** JSON export (`/api/export`) and a documented "back up by copying the DB file" note.
 - [ ] **2.14** Error and empty states; a first-run flow that creates the first project.
 - [ ] **2.15** README: install, configure a provider, run.
@@ -262,3 +263,6 @@ Ideas and tangents captured mid-work (via `/devflow:park`). Not scheduled. Revie
 - [ ] A run details view (or `GET /api/runs/{id}`) showing a run's model, prompt version, latency, and raw output attempts, for debugging a provider without opening the DB; 2.6 stores them but nothing shows them (parked 2026-10-12; suggested stage: 3)
 - [ ] `waypoint eval` could write a JSON report (`-json`) and compare against a saved baseline, so a prompt change shows what got better or worse per fixture; today the text report has to be compared by eye (parked 2026-10-12; suggested stage: 3)
 - [ ] `waypoint eval -parallel N` for hosted providers; fixtures run one at a time, which suits a local model but is slow against an API (parked 2026-10-12; suggested stage: 3)
+- [ ] A "Test connection" button for the provider settings: a tiny model call that reports whether the endpoint, model, and key work before relying on them (parked 2026-10-13; suggested stage: 2, with 2.12b, or 3)
+- [ ] The provider `timeout` (and `mock_latency`) could be edited in the app too; 2.12 covers provider, model, endpoint, and key only (parked 2026-10-13; suggested stage: 3)
+- [ ] Cross-site writes: any page the user visits can send a "simple" (text/plain) POST/PATCH/DELETE to `127.0.0.1` without a CORS preflight. `PUT /api/provider` now requires `application/json` (2.12); the other mutating routes should too, or check `Origin` in the router (parked 2026-10-13; suggested stage: 2, with 2.14)

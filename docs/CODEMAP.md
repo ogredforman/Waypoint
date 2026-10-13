@@ -78,7 +78,7 @@ Seed: cfg.SettingsDefaults(), Extractor: provider.New(…), …})` → `api.NewR
   **extract/anthropic**: `New(Options{Endpoint, Model, APIKey, HTTPClient})` for the Messages API (defaults `https://api.anthropic.com/v1`, `claude-haiku-4-5`; key required):
   `propose_changes` tool call, forced with temperature 0 for Haiku/3.x/Sonnet 4 (`pinsOutput`), `auto` otherwise; system prompt cached; then `ResolveQuotes`.
   **extract/llmhttp**: what the model extractors share: `Post` (JSON POST, read cap, server error message cut short), `NumericIDs` (quoted `_id`s to numbers).
-  **extract/provider**: `New(Options{Provider, Model, Endpoint, APIKey, Timeout, MockLatency})` picks the extractor (empty provider = mock; `Timeout` > 0 replaces the provider's `DefaultTimeout`); `main` calls it.
+  **extract/provider**: `New(Options{Provider, Model, Endpoint, APIKey, Timeout, MockLatency})` picks the extractor (empty provider = mock; `Timeout` > 0 replaces the provider's `DefaultTimeout`). `switch.go`: `NewSwitch(opts, fromEnv, save SaveFunc, logger)` is the extractor `main` gives every profile and serves `/api/provider` (ADR 0010): `Settings`, `Update` (checks, saves, swaps), `Names`; its `Call` returns `extract.ErrNoModel` while the mock is in use.
 - **pipeline**: `SnapshotBuilder.Build(ctx, entry)` (`WithStalledAfter(d)` marks in-progress tasks unchanged, steps included, for `d`; config `stalled_after_days`; recent entries carry their questions and status); `Worker`: `SaveEntry` (entry + pending run in
   one tx), `Reprocess`, `DeleteEntry` (refused while running), `Wake`, `Run(ctx)` (claims runs, extracts, validates, stores result +
   changeset (keeping only `questions_per_entry` questions), emits `Event`s via `Notifier`, calls `AfterRun.EntryProcessed`). An invalid result is retried once with `extract.Retry`; the run's raw output is `rawOutput(attempts)`, `{"attempts":[{response, result, problems, latency_ms}]}`, one per extractor call; failures recorded on
@@ -100,6 +100,7 @@ Seed: cfg.SettingsDefaults(), Extractor: provider.New(…), …})` → `api.NewR
 - **api**: chi router (`router.go`, route list in `handlers.routes`), one file per resource
   (`projects.go`, `milestones.go` (incl. `moveMilestone`, `milestoneMovePositions`), `tasks.go`, `blockers.go`, `ideas.go`, `entries.go`, `changesets.go`, `settings.go`),
   `profiles.go` (`Profiles` interface, `/api/profiles` routes, hands `/api/profiles/{profile}/*` to `Profiles.Serve`);
+  `provider.go` (`Provider` interface, `GET`/`PUT /api/provider`, mounted when `Deps.Provider` is set);
   `NewRouter(Deps{Logger, Web, Profiles})` is the root, `NewProfileHandler(ProfileDeps{…})` one profile's data routes and `/events`,
   `projects.go` also has `GET /projects/{id}/observations`, `DELETE /projects/{id}?entries=keep|delete` and `GET /projects/{id}/deletion` (paged by entry; `pageQuery` in `entries.go` reads `before`/`limit`),
   `convert.go` (domain → apitypes, incl. `milestoneDTO`; `opRefs` names rows in op payloads, milestones too; `projectDTO` takes the last activity, `handlers.projectView` reads a project with it), `respond.go` (JSON encode/decode, `h.fail` maps errors to the
@@ -109,7 +110,7 @@ Seed: cfg.SettingsDefaults(), Extractor: provider.New(…), …})` → `api.NewR
   (`make gen`, checked by `make lint`).
 - **config**: `Load(args, env, goos, stderr)` (flags > env > `config.toml`; `provider`/`model`/`endpoint`/`api_key` from the file or
   `WAYPOINT_PROVIDER`/`_MODEL`/`_ENDPOINT`/`_API_KEY` only, no flags; `timeout` / `WAYPOINT_TIMEOUT`; `stalled_after_days` → `StalledAfter()`), `EnsureDataDir`, `ProfilesDir`, `LegacyDBPath`,
-  `SettingsDefaults` (the preference values that seed a new database).
+  `SettingsDefaults` (the preference values that seed a new database); `WritePath`, `ProviderFromEnv`. `write.go`: `SaveProvider(path, values)` edits only the provider keys' lines in `config.toml`, atomically, 0600.
 - **web**: embeds `web/dist`, `NewHandler` serves the SPA with fallback.
 - `tools/hooks`: Claude Code hooks (edit guard, formatter, stop check). Not app code.
 

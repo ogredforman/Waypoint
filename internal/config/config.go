@@ -35,6 +35,10 @@ type Config struct {
 	DataDir  string // absolute
 	LogLevel slog.Level
 	File     string // config file that was read; empty if none was found
+	// WritePath is the config file settings changed in the app are saved to:
+	// File, or where the default one would be if it doesn't exist yet. Empty
+	// if no location could be determined.
+	WritePath string
 
 	// ActiveProjectCap and QuestionsPerEntry only seed the settings of a
 	// database that has none yet (SettingsDefaults); after that the stored
@@ -66,6 +70,9 @@ type Config struct {
 	Model    string
 	Endpoint string
 	APIKey   string
+	// ProviderFromEnv names the provider keys ("provider", "model",
+	// "endpoint", "api_key") that WAYPOINT_* env vars set, in that order.
+	ProviderFromEnv []string
 
 	// Timeout bounds one model request; 0 means the provider's default. It
 	// is set in config.toml or WAYPOINT_TIMEOUT.
@@ -157,13 +164,16 @@ func Load(args []string, env LookupEnv, goos string, stderr io.Writer) (Config, 
 			return Config{}, fmt.Errorf("config file %s: %w", *flagConfig, err)
 		}
 		cfg.File = *flagConfig
+		cfg.WritePath = cfg.File
 	} else if path, ok := nonEmpty(env, "WAYPOINT_CONFIG"); ok {
 		if err := applyFile(&cfg, path); err != nil {
 			return Config{}, fmt.Errorf("config file %s: %w", path, err)
 		}
 		cfg.File = path
+		cfg.WritePath = cfg.File
 	} else if dir, err := defaultConfigDir(goos, env); err == nil {
 		path := filepath.Join(dir, "config.toml")
+		cfg.WritePath = path
 		err := applyFile(&cfg, path)
 		switch {
 		case err == nil:
@@ -188,14 +198,18 @@ func Load(args []string, env LookupEnv, goos string, stderr io.Writer) (Config, 
 		return Config{}, fmt.Errorf("env %w", err)
 	}
 
-	for name, field := range map[string]*string{
-		"WAYPOINT_PROVIDER": &cfg.Provider,
-		"WAYPOINT_MODEL":    &cfg.Model,
-		"WAYPOINT_ENDPOINT": &cfg.Endpoint,
-		"WAYPOINT_API_KEY":  &cfg.APIKey,
+	for _, p := range []struct {
+		env, key string
+		field    *string
+	}{
+		{"WAYPOINT_PROVIDER", "provider", &cfg.Provider},
+		{"WAYPOINT_MODEL", "model", &cfg.Model},
+		{"WAYPOINT_ENDPOINT", "endpoint", &cfg.Endpoint},
+		{"WAYPOINT_API_KEY", "api_key", &cfg.APIKey},
 	} {
-		if v, ok := nonEmpty(env, name); ok {
-			*field = v
+		if v, ok := nonEmpty(env, p.env); ok {
+			*p.field = v
+			cfg.ProviderFromEnv = append(cfg.ProviderFromEnv, p.key)
 		}
 	}
 	if v, ok := nonEmpty(env, "WAYPOINT_TIMEOUT"); ok {

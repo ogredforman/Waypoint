@@ -3,6 +3,7 @@ package extract
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
@@ -28,9 +29,15 @@ type ToolReply struct {
 // internal/extract/* can use the model without knowing the provider. The
 // model extractors implement it; the mock doesn't. Once the provider has
 // answered, an error is a *ResponseError carrying the reply.
+//
+// A Caller whose provider can change at run time (provider.Switch) returns
+// ErrNoModel while the provider is one without a model, the mock.
 type Caller interface {
 	Call(ctx context.Context, c ToolCall) (ToolReply, error)
 }
+
+// ErrNoModel is returned by a Caller when no model is configured.
+var ErrNoModel = errors.New("no model is configured")
 
 // ExtractWith runs an extraction through c: one ToolCall with the extraction
 // prompt and ResultSchema, then the tool input decoded and its quotes

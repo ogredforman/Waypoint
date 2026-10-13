@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -56,14 +58,14 @@ func abs(t *testing.T, p string) string {
 }
 
 func TestLoadDefaults(t *testing.T) {
-	env, _ := testEnv(t, nil)
+	env, configDir := testEnv(t, nil)
 	cfg, err := Load(nil, env, "linux", io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}
 	dataHome, _ := env("XDG_DATA_HOME")
-	want := Config{Port: DefaultPort, DataDir: filepath.Join(dataHome, "waypoint"), LogLevel: slog.LevelInfo, ActiveProjectCap: 3, QuestionsPerEntry: 2, SnapshotRecentEntries: 5, StalledAfterDays: 14}
-	if cfg != want {
+	want := Config{Port: DefaultPort, DataDir: filepath.Join(dataHome, "waypoint"), LogLevel: slog.LevelInfo, ActiveProjectCap: 3, QuestionsPerEntry: 2, SnapshotRecentEntries: 5, StalledAfterDays: 14, WritePath: filepath.Join(configDir, "config.toml")}
+	if !reflect.DeepEqual(cfg, want) {
 		t.Errorf("got %+v, want %+v", cfg, want)
 	}
 	if got := cfg.Addr(); got != "127.0.0.1:7420" {
@@ -188,8 +190,8 @@ func TestLoadPrecedence(t *testing.T) {
 				dataHome, _ := env("XDG_DATA_HOME")
 				wantDir = filepath.Join(dataHome, "waypoint")
 			}
-			want := Config{Port: tt.wantPort, DataDir: wantDir, LogLevel: tt.wantLevel, ActiveProjectCap: wantCap, QuestionsPerEntry: wantQuestions, MockLatency: tt.wantMock, SnapshotRecentEntries: wantRecent, StalledAfterDays: DefaultStalledAfterDays, File: wantFile}
-			if cfg != want {
+			want := Config{Port: tt.wantPort, DataDir: wantDir, LogLevel: tt.wantLevel, ActiveProjectCap: wantCap, QuestionsPerEntry: wantQuestions, MockLatency: tt.wantMock, SnapshotRecentEntries: wantRecent, StalledAfterDays: DefaultStalledAfterDays, File: wantFile, WritePath: filepath.Join(configDir, "config.toml")}
+			if !reflect.DeepEqual(cfg, want) {
 				t.Errorf("got %+v, want %+v", cfg, want)
 			}
 		})
@@ -203,19 +205,23 @@ func TestLoadExtractor(t *testing.T) {
 		file string
 		env  map[string]string
 		want [4]string // provider, model, endpoint, api key
+		// wantEnv is ProviderFromEnv
+		wantEnv []string
 	}{
 		{name: "default is empty (the mock)"},
 		{name: "file", file: file, want: [4]string{"openai-compatible", "qwen3:8b", "http://localhost:11434/v1", "from-file"}},
 		{
-			name: "env overrides file",
-			file: file,
-			env:  map[string]string{"WAYPOINT_MODEL": "llama3.2", "WAYPOINT_ENDPOINT": "http://localhost:1234/v1", "WAYPOINT_API_KEY": "from-env"},
-			want: [4]string{"openai-compatible", "llama3.2", "http://localhost:1234/v1", "from-env"},
+			name:    "env overrides file",
+			file:    file,
+			env:     map[string]string{"WAYPOINT_MODEL": "llama3.2", "WAYPOINT_ENDPOINT": "http://localhost:1234/v1", "WAYPOINT_API_KEY": "from-env"},
+			want:    [4]string{"openai-compatible", "llama3.2", "http://localhost:1234/v1", "from-env"},
+			wantEnv: []string{"model", "endpoint", "api_key"},
 		},
 		{
-			name: "env alone",
-			env:  map[string]string{"WAYPOINT_PROVIDER": "mock"},
-			want: [4]string{"mock", "", "", ""},
+			name:    "env alone",
+			env:     map[string]string{"WAYPOINT_PROVIDER": "mock"},
+			want:    [4]string{"mock", "", "", ""},
+			wantEnv: []string{"provider"},
 		},
 	}
 	for _, tt := range tests {
@@ -230,6 +236,9 @@ func TestLoadExtractor(t *testing.T) {
 			}
 			if got := [4]string{cfg.Provider, cfg.Model, cfg.Endpoint, cfg.APIKey}; got != tt.want {
 				t.Errorf("got %q, want %q", got, tt.want)
+			}
+			if !slices.Equal(cfg.ProviderFromEnv, tt.wantEnv) {
+				t.Errorf("ProviderFromEnv = %q, want %q", cfg.ProviderFromEnv, tt.wantEnv)
 			}
 		})
 	}
@@ -313,8 +322,8 @@ func TestLoadExplicitConfigFile(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if cfg.Port != 4004 || cfg.File != path {
-				t.Errorf("got port %d file %q, want 4004 %q", cfg.Port, cfg.File, path)
+			if cfg.Port != 4004 || cfg.File != path || cfg.WritePath != path {
+				t.Errorf("got port %d file %q write path %q, want 4004 %q", cfg.Port, cfg.File, cfg.WritePath, path)
 			}
 			// A relative data_dir in the file is relative to the file, not the working dir.
 			if want := filepath.Join(dir, "rel"); cfg.DataDir != want {

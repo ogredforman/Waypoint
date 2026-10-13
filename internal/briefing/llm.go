@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -81,6 +82,9 @@ func (l *LLM) Brief(ctx context.Context, st State) (domain.Briefing, error) {
 		Description: BriefDescription,
 		Schema:      json.RawMessage(slices.Clone(llmSchema)),
 	})
+	if errors.Is(err, extract.ErrNoModel) {
+		return b, nil // the provider is the mock for now
+	}
 	if err != nil {
 		log.Warn("llm briefing failed; using the heuristic", "err", err)
 		return b, nil

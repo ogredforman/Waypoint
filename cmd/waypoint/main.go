@@ -46,14 +46,20 @@ func run() int {
 		logger.Error("startup failed", "err", err)
 		return 1
 	}
-	extractor, err := provider.New(provider.Options{
+	// The provider settings can change from the app (PUT /api/provider);
+	// they're saved to config.toml, except those env vars set.
+	var save provider.SaveFunc
+	if cfg.WritePath != "" {
+		save = func(values map[string]string) error { return config.SaveProvider(cfg.WritePath, values) }
+	}
+	extractor, err := provider.NewSwitch(provider.Options{
 		Provider:    cfg.Provider,
 		Model:       cfg.Model,
 		Endpoint:    cfg.Endpoint,
 		APIKey:      cfg.APIKey,
 		Timeout:     cfg.Timeout,
 		MockLatency: cfg.MockLatency,
-	})
+	}, cfg.ProviderFromEnv, save, logger)
 	if err != nil {
 		logger.Error("startup failed", "err", err)
 		return 1
@@ -114,6 +120,7 @@ func run() int {
 		Logger:   logger,
 		Web:      web.NewHandler(web.Dist()),
 		Profiles: profiles,
+		Provider: extractor,
 	})
 	err = api.Serve(ctx, ln, router, logger, profiles.EndStreams)
 	if err != nil {
