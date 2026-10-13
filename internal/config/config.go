@@ -24,6 +24,10 @@ const DefaultPort = 7420
 // extraction snapshot when none is configured.
 const DefaultSnapshotRecentEntries = 5
 
+// DefaultStalledAfterDays is how many days an in-progress task can go
+// unchanged before extraction sees it as stalled, when none is configured.
+const DefaultStalledAfterDays = 14
+
 // Config is the resolved configuration. Each field comes from the highest
 // precedence source that sets it: flags > WAYPOINT_* env vars > config.toml > defaults.
 type Config struct {
@@ -47,6 +51,12 @@ type Config struct {
 	// summaries, the extractor sees for context. 0 means none. It is set in
 	// config.toml only.
 	SnapshotRecentEntries int
+
+	// StalledAfterDays is how many days an in-progress task, steps included,
+	// can go unchanged before the extractor is told it has stalled, which
+	// makes it a candidate for a split_task suggestion. 0 marks none. It is
+	// set in config.toml only.
+	StalledAfterDays int
 
 	// Provider, Model, Endpoint, and APIKey choose the extractor (see
 	// extract/provider). An empty Provider means the mock. They are set in
@@ -77,6 +87,11 @@ func (c Config) SettingsDefaults() domain.Settings {
 	return s
 }
 
+// StalledAfter is StalledAfterDays as a duration.
+func (c Config) StalledAfter() time.Duration {
+	return time.Duration(c.StalledAfterDays) * 24 * time.Hour
+}
+
 // ProfilesDir holds one SQLite database per profile (ADR 0005).
 func (c Config) ProfilesDir() string {
 	return filepath.Join(c.DataDir, "profiles")
@@ -99,6 +114,7 @@ type fileConfig struct {
 	MockLatency       *string `toml:"mock_latency"`
 
 	SnapshotRecentEntries *int `toml:"snapshot_recent_entries"`
+	StalledAfterDays      *int `toml:"stalled_after_days"`
 
 	Provider *string `toml:"provider"`
 	Model    *string `toml:"model"`
@@ -129,7 +145,7 @@ func Load(args []string, env LookupEnv, goos string, stderr io.Writer) (Config, 
 
 	// DataDir stays empty until a source sets it; the OS default is filled in
 	// last, so a missing $HOME only matters when nothing else names the folder.
-	cfg := Config{Port: DefaultPort, LogLevel: slog.LevelInfo, ActiveProjectCap: domain.DefaultActiveProjectCap, QuestionsPerEntry: domain.MaxQuestionsPerEntry, SnapshotRecentEntries: DefaultSnapshotRecentEntries}
+	cfg := Config{Port: DefaultPort, LogLevel: slog.LevelInfo, ActiveProjectCap: domain.DefaultActiveProjectCap, QuestionsPerEntry: domain.MaxQuestionsPerEntry, SnapshotRecentEntries: DefaultSnapshotRecentEntries, StalledAfterDays: DefaultStalledAfterDays}
 
 	// Config file: an explicitly named file must exist. The default one is
 	// optional, and skipped if the OS config dir can't be determined.
@@ -304,6 +320,12 @@ func applyFile(cfg *Config, path string) error {
 			return fmt.Errorf("snapshot_recent_entries: must not be negative, got %d", *fc.SnapshotRecentEntries)
 		}
 		cfg.SnapshotRecentEntries = *fc.SnapshotRecentEntries
+	}
+	if fc.StalledAfterDays != nil {
+		if *fc.StalledAfterDays < 0 {
+			return fmt.Errorf("stalled_after_days: must not be negative, got %d", *fc.StalledAfterDays)
+		}
+		cfg.StalledAfterDays = *fc.StalledAfterDays
 	}
 	for field, v := range map[*string]*string{
 		&cfg.Provider: fc.Provider,

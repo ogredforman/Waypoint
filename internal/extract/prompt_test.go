@@ -65,7 +65,7 @@ func TestUserMessage(t *testing.T) {
 					ID: 1, Title: "Build Waypoint", Status: domain.ProjectActive,
 					Milestones: []SnapshotMilestone{{ID: 3, Title: "MVP"}, {ID: 6, Title: "Beta"}},
 					Tasks: []SnapshotTask{
-						{ID: 10, Title: "Write the login form", Status: domain.TaskInProgress, MilestoneID: ptr(int64(3)), UpdatedAt: at(2)},
+						{ID: 10, Title: "Write the login form", Status: domain.TaskInProgress, MilestoneID: ptr(int64(3)), Size: ptr(domain.SizeL), UpdatedAt: at(2), Stalled: true},
 						{ID: 12, Title: "Add validation", Status: domain.TaskTodo, ParentTaskID: ptr(int64(10)), UpdatedAt: at(3)},
 						{ID: 13, Title: "Orphan step", Status: domain.TaskTodo, ParentTaskID: ptr(int64(99)), UpdatedAt: at(4)},
 					},
@@ -96,7 +96,7 @@ Open milestones, in order:
 - milestone 3: "MVP"
 - milestone 6: "Beta"
 Open tasks:
-- task 10 [in_progress] "Write the login form" (milestone 3, updated 2026-10-02)
+- task 10 [in_progress] "Write the login form" (milestone 3, size l, updated 2026-10-02, stalled)
   - task 12 [todo] "Add validation" (updated 2026-10-03)
 - task 13 [todo] "Orphan step" (updated 2026-10-04)
 Open blockers:

@@ -1,0 +1,19 @@
+{
+  "snapshot": "waypoint",
+  "project_id": 1,
+  "notes": "Stuck on a stalled task (10, marked stalled in the snapshot) without naming steps: suggest split_task on it, not new top-level tasks. The steps are the model's; ops are scored by type and task.",
+  "expected": {
+    "observations": [
+      {"kind": "feeling", "summary": "Stuck on the eval fixtures; doesn't know which entry to write next.", "quote": "I never know which entry to write next", "links": [{"target_type": "task", "target_id": 10, "confidence": 0.9}]}
+    ],
+    "ops": [
+      {"op_type": "split_task", "payload": {"task_id": 10, "subtasks": [
+        {"title": "List the kinds of entry the fixtures should cover", "size": "xs"},
+        {"title": "Write one fixture for a finished task"},
+        {"title": "Write one fixture for a parked idea"}
+      ]}, "rationale": "Smaller steps make it easier to start.", "confidence": 0.6}
+    ],
+    "questions": []
+  },
+  "forbid": ["create_task", "delete_task", "set_task_status"]
+}

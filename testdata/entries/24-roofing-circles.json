@@ -1,0 +1,18 @@
+{
+  "snapshot": "waypoint",
+  "notes": "Unscoped, about the shed. A vague todo task (52) the entry is stuck on: suggest split_task on it, without picking a material for them.",
+  "expected": {
+    "observations": [
+      {"kind": "question", "summary": "Unsure how to choose between felt, metal sheets, and shingles for the shed roof.", "quote": "Keep going round in circles on the shed roof", "links": [{"target_type": "task", "target_id": 52, "confidence": 0.9}]}
+    ],
+    "ops": [
+      {"op_type": "split_task", "payload": {"task_id": 52, "subtasks": [
+        {"title": "Write down what matters for the roof (cost, lifespan, fitting)", "size": "xs"},
+        {"title": "Compare felt, metal sheets, and shingles on those points"},
+        {"title": "Choose the roofing material"}
+      ]}, "rationale": "Smaller steps make the choice easier to start.", "confidence": 0.6}
+    ],
+    "questions": []
+  },
+  "forbid": ["create_task", "create_project", "set_task_status"]
+}

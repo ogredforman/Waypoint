@@ -66,6 +66,7 @@ func run() int {
 		"log_level", cfg.LogLevel.String(),
 		"mock_latency", cfg.MockLatency.String(),
 		"snapshot_recent_entries", cfg.SnapshotRecentEntries,
+		"stalled_after_days", cfg.StalledAfterDays,
 		"provider", extractor.Name(),
 		"model", cfg.Model,
 		"endpoint", cfg.Endpoint,
@@ -81,6 +82,7 @@ func run() int {
 		Seed:                  cfg.SettingsDefaults(),
 		Extractor:             extractor,
 		SnapshotRecentEntries: cfg.SnapshotRecentEntries,
+		StalledAfter:          cfg.StalledAfter(),
 		Logger:                logger,
 	})
 	if err != nil {

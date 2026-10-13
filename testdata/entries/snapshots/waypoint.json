@@ -10,9 +10,9 @@
         {"id": 41, "title": "Packaging and desktop"}
       ],
       "tasks": [
-        {"id": 10, "title": "Write eval fixtures in /testdata/entries", "status": "in_progress", "milestone_id": 40, "updated_at": "2026-09-28T20:00:00Z"},
+        {"id": 10, "title": "Write eval fixtures in /testdata/entries", "status": "in_progress", "milestone_id": 40, "updated_at": "2026-09-28T20:00:00Z", "stalled": true},
         {"id": 11, "title": "Build the waypoint eval command", "status": "todo", "milestone_id": 40, "updated_at": "2026-10-01T19:00:00Z"},
-        {"id": 12, "title": "Write the LLM Briefer", "status": "todo", "milestone_id": 40, "updated_at": "2026-10-01T19:00:00Z"},
+        {"id": 12, "title": "Write the LLM Briefer", "status": "todo", "milestone_id": 40, "size": "l", "updated_at": "2026-10-01T19:00:00Z"},
         {"id": 13, "title": "Suggest split_task for vague or stalled tasks", "status": "todo", "milestone_id": 40, "updated_at": "2026-10-01T19:00:00Z"},
         {"id": 14, "title": "Run the fixtures against qwen3 on Ollama", "status": "todo", "milestone_id": 40, "updated_at": "2026-10-10T22:00:00Z"},
         {"id": 15, "title": "Set up goreleaser builds", "status": "todo", "milestone_id": 41, "updated_at": "2026-10-01T19:00:00Z"},

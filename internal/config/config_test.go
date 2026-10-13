@@ -62,7 +62,7 @@ func TestLoadDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	dataHome, _ := env("XDG_DATA_HOME")
-	want := Config{Port: DefaultPort, DataDir: filepath.Join(dataHome, "waypoint"), LogLevel: slog.LevelInfo, ActiveProjectCap: 3, QuestionsPerEntry: 2, SnapshotRecentEntries: 5}
+	want := Config{Port: DefaultPort, DataDir: filepath.Join(dataHome, "waypoint"), LogLevel: slog.LevelInfo, ActiveProjectCap: 3, QuestionsPerEntry: 2, SnapshotRecentEntries: 5, StalledAfterDays: 14}
 	if cfg != want {
 		t.Errorf("got %+v, want %+v", cfg, want)
 	}
@@ -188,7 +188,7 @@ func TestLoadPrecedence(t *testing.T) {
 				dataHome, _ := env("XDG_DATA_HOME")
 				wantDir = filepath.Join(dataHome, "waypoint")
 			}
-			want := Config{Port: tt.wantPort, DataDir: wantDir, LogLevel: tt.wantLevel, ActiveProjectCap: wantCap, QuestionsPerEntry: wantQuestions, MockLatency: tt.wantMock, SnapshotRecentEntries: wantRecent, File: wantFile}
+			want := Config{Port: tt.wantPort, DataDir: wantDir, LogLevel: tt.wantLevel, ActiveProjectCap: wantCap, QuestionsPerEntry: wantQuestions, MockLatency: tt.wantMock, SnapshotRecentEntries: wantRecent, StalledAfterDays: DefaultStalledAfterDays, File: wantFile}
 			if cfg != want {
 				t.Errorf("got %+v, want %+v", cfg, want)
 			}
@@ -263,6 +263,36 @@ func TestLoadTimeout(t *testing.T) {
 	}
 }
 
+func TestLoadStalledAfterDays(t *testing.T) {
+	tests := []struct {
+		name string
+		file string
+		want int
+	}{
+		{name: "default", want: DefaultStalledAfterDays},
+		{name: "file", file: "stalled_after_days = 7\n", want: 7},
+		{name: "zero turns it off", file: "stalled_after_days = 0\n", want: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env, configDir := testEnv(t, nil)
+			if tt.file != "" {
+				writeFile(t, filepath.Join(configDir, "config.toml"), tt.file)
+			}
+			cfg, err := Load(nil, env, "linux", io.Discard)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg.StalledAfterDays != tt.want {
+				t.Errorf("StalledAfterDays = %d, want %d", cfg.StalledAfterDays, tt.want)
+			}
+			if want := time.Duration(tt.want) * 24 * time.Hour; cfg.StalledAfter() != want {
+				t.Errorf("StalledAfter() = %s, want %s", cfg.StalledAfter(), want)
+			}
+		})
+	}
+}
+
 func TestLoadExplicitConfigFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "custom.toml")
@@ -316,6 +346,7 @@ func TestLoadErrors(t *testing.T) {
 		{name: "file mock latency not a duration", file: "mock_latency = 'soon'\n", wantErr: "mock_latency"},
 		{name: "file mock latency negative", file: "mock_latency = '-1s'\n", wantErr: "mock_latency"},
 		{name: "file snapshot recent entries negative", file: "snapshot_recent_entries = -1\n", wantErr: "snapshot_recent_entries"},
+		{name: "file stalled after days negative", file: "stalled_after_days = -1\n", wantErr: "stalled_after_days"},
 		{name: "file timeout not a duration", file: "timeout = 'soon'\n", wantErr: "timeout"},
 		{name: "file timeout zero", file: "timeout = '0s'\n", wantErr: "timeout"},
 		{name: "env timeout negative", env: map[string]string{"WAYPOINT_TIMEOUT": "-1m"}, wantErr: "WAYPOINT_TIMEOUT"},

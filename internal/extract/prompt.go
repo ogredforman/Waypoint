@@ -10,7 +10,7 @@ import (
 
 // PromptVersion names the system prompt and the user message format below.
 // Bump it whenever either changes, so runs and eval scores stay comparable.
-const PromptVersion = "v4"
+const PromptVersion = "v5"
 
 //go:embed prompt_system.md
 var systemPromptText string
@@ -133,11 +133,18 @@ func writeTasks(b *strings.Builder, tasks []SnapshotTask) {
 	}
 	var write func(t SnapshotTask, depth int)
 	write = func(t SnapshotTask, depth int) {
-		in := ""
+		var about []string
 		if t.MilestoneID != nil {
-			in = fmt.Sprintf("milestone %d, ", *t.MilestoneID)
+			about = append(about, fmt.Sprintf("milestone %d", *t.MilestoneID))
 		}
-		fmt.Fprintf(b, "%s- task %d [%s] %s (%supdated %s)\n", strings.Repeat("  ", depth), t.ID, t.Status, quote(t.Title), in, day(t.UpdatedAt))
+		if t.Size != nil {
+			about = append(about, fmt.Sprintf("size %s", *t.Size))
+		}
+		about = append(about, "updated "+day(t.UpdatedAt))
+		if t.Stalled {
+			about = append(about, "stalled")
+		}
+		fmt.Fprintf(b, "%s- task %d [%s] %s (%s)\n", strings.Repeat("  ", depth), t.ID, t.Status, quote(t.Title), strings.Join(about, ", "))
 		for _, s := range steps[t.ID] {
 			write(s, depth+1)
 		}

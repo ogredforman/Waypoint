@@ -41,7 +41,10 @@ type Options struct {
 	Extractor extract.Extractor
 	// SnapshotRecentEntries is how many recent entries a snapshot holds.
 	SnapshotRecentEntries int
-	Logger                *slog.Logger
+	// StalledAfter is how long an in-progress task can go unchanged before
+	// its snapshot marks it stalled; 0 marks none.
+	StalledAfter time.Duration
+	Logger       *slog.Logger
 	// Now is the clock; nil means time.Now.
 	Now func() time.Time
 }
@@ -198,7 +201,7 @@ func (m *Manager) startDB(ctx context.Context, id, path string, sqlDB *sql.DB) (
 		return nil, err
 	}
 	hub := api.NewHub(logger)
-	snapshots := pipeline.NewSnapshotBuilder(st, now, m.opts.SnapshotRecentEntries)
+	snapshots := pipeline.NewSnapshotBuilder(st, now, m.opts.SnapshotRecentEntries).WithStalledAfter(m.opts.StalledAfter)
 	briefings := briefing.NewService(st, briefing.Heuristic{}, now, hub, logger)
 	if caller, ok := m.opts.Extractor.(extract.Caller); ok {
 		briefings.WithModel(briefing.NewLLM(caller, now, logger))

@@ -1,0 +1,14 @@
+{
+  "snapshot": "waypoint",
+  "project_id": 1,
+  "notes": "The stalled task (10) is going well again: no split, and not done yet.",
+  "expected": {
+    "observations": [
+      {"kind": "progress", "summary": "Wrote four more eval fixtures, including the reply ones.", "quote": "wrote four tonight including the reply ones", "links": [{"target_type": "task", "target_id": 10, "confidence": 0.9}]},
+      {"kind": "feeling", "summary": "Feels good about the fixtures.", "quote": "Feels good"}
+    ],
+    "ops": [],
+    "questions": []
+  },
+  "forbid": ["split_task", "create_task", "set_task_status"]
+}

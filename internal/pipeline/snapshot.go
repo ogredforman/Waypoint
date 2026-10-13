@@ -16,6 +16,7 @@ type SnapshotBuilder struct {
 	store         *store.Store
 	now           func() time.Time
 	recentEntries int
+	stalledAfter  time.Duration
 }
 
 // NewSnapshotBuilder returns a builder over s. now stamps each snapshot's
@@ -25,10 +26,19 @@ func NewSnapshotBuilder(s *store.Store, now func() time.Time, recentEntries int)
 	return &SnapshotBuilder{store: s, now: now, recentEntries: recentEntries}
 }
 
+// WithStalledAfter marks an in-progress task stalled when neither it nor any
+// of its steps has changed for d (config stalled_after_days). 0, the default,
+// marks none.
+func (b *SnapshotBuilder) WithStalledAfter(d time.Duration) *SnapshotBuilder {
+	b.stalledAfter = d
+	return b
+}
+
 // Build returns the snapshot for entry e:
 //   - the active projects, plus e's project whatever its status (even archived), each with its
 //     open milestones (in order), open tasks (in position order, each with its
-//     milestone if that is open), and open blockers;
+//     milestone if that is open, and stalled if it is in progress and
+//     unchanged, steps included, for stalledAfter), and open blockers;
 //   - every parked idea, title only;
 //   - up to recentEntries entries written before e, newest first: those of
 //     e's project, or of any project if e has none. Each carries the
@@ -44,7 +54,11 @@ func (b *SnapshotBuilder) Build(ctx context.Context, e domain.Entry) (extract.St
 		RecentEntries: []extract.SnapshotEntry{},
 	}
 	err := b.store.InReadTx(ctx, func(tx *store.ReadTx) error {
-		if err := addProjects(ctx, tx, e, &snap); err != nil {
+		var stalledBefore time.Time
+		if b.stalledAfter > 0 {
+			stalledBefore = snap.TakenAt.Add(-b.stalledAfter)
+		}
+		if err := addProjects(ctx, tx, e, stalledBefore, &snap); err != nil {
 			return err
 		}
 		if err := addIdeas(ctx, tx, &snap); err != nil {
@@ -58,7 +72,10 @@ func (b *SnapshotBuilder) Build(ctx context.Context, e domain.Entry) (extract.St
 	return snap, nil
 }
 
-func addProjects(ctx context.Context, tx *store.ReadTx, e domain.Entry, snap *extract.StateSnapshot) error {
+// addProjects adds the projects an entry's snapshot holds. An in-progress
+// task whose last change, or its steps' (done ones too), is before
+// stalledBefore is marked stalled; a zero stalledBefore marks none.
+func addProjects(ctx context.Context, tx *store.ReadTx, e domain.Entry, stalledBefore time.Time, snap *extract.StateSnapshot) error {
 	projects, err := tx.ListProjects(ctx)
 	if err != nil {
 		return err
@@ -94,6 +111,14 @@ func addProjects(ctx context.Context, tx *store.ReadTx, e domain.Entry, snap *ex
 		if err != nil {
 			return err
 		}
+		changed := make(map[int64]time.Time, len(tasks))
+		for _, t := range tasks {
+			for _, id := range []*int64{&t.ID, t.ParentTaskID} {
+				if id != nil && t.UpdatedAt.After(changed[*id]) {
+					changed[*id] = t.UpdatedAt
+				}
+			}
+		}
 		for _, t := range tasks {
 			if t.Status != domain.TaskTodo && t.Status != domain.TaskInProgress {
 				continue
@@ -103,7 +128,9 @@ func addProjects(ctx context.Context, tx *store.ReadTx, e domain.Entry, snap *ex
 				Title:        t.Title,
 				Status:       t.Status,
 				ParentTaskID: t.ParentTaskID,
+				Size:         t.Size,
 				UpdatedAt:    t.UpdatedAt,
+				Stalled:      t.Status == domain.TaskInProgress && !stalledBefore.IsZero() && changed[t.ID].Before(stalledBefore),
 			}
 			if t.MilestoneID != nil && open[*t.MilestoneID] {
 				st.MilestoneID = t.MilestoneID

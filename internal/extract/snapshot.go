@@ -35,13 +35,18 @@ type SnapshotMilestone struct {
 
 // SnapshotTask is an open (todo or in-progress) task. MilestoneID is set only
 // when the task's milestone is open, so it names a milestone in the snapshot.
+// Stalled marks an in-progress task that, with its steps, hasn't changed for
+// a while (the pipeline decides how long); the prompt asks the model to
+// suggest splitting such a task when the entry is about it.
 type SnapshotTask struct {
 	ID           int64             `json:"id"`
 	Title        string            `json:"title"`
 	Status       domain.TaskStatus `json:"status"`
 	ParentTaskID *int64            `json:"parent_task_id,omitempty"`
 	MilestoneID  *int64            `json:"milestone_id,omitempty"`
+	Size         *domain.TaskSize  `json:"size,omitempty"`
 	UpdatedAt    time.Time         `json:"updated_at"`
+	Stalled      bool              `json:"stalled,omitempty"`
 }
 
 // SnapshotBlocker is an open blocker.

@@ -366,3 +366,46 @@ func TestBuildFeedsMockExtractor(t *testing.T) {
 		t.Errorf("set_task_status payload = %s, %v; want task %d", res.Ops[0].Payload, err, w.spec.ID)
 	}
 }
+
+// An in-progress task is stalled when neither it nor any of its steps (done
+// ones too) has changed for stalledAfter; todo tasks never are, and 0 marks
+// none.
+func TestBuildMarksStalledTasks(t *testing.T) {
+	f := newFixture(t)
+	p := f.project("Waypoint", domain.ProjectActive)
+	size := domain.SizeL
+	old := f.task(domain.Task{ProjectID: p.ID, Title: "Old", Status: domain.TaskInProgress, Size: &size})
+	oldTodo := f.task(domain.Task{ProjectID: p.ID, Title: "Old todo", Status: domain.TaskTodo})
+	withStep := f.task(domain.Task{ProjectID: p.ID, Title: "Old with a new step", Status: domain.TaskInProgress})
+	withDone := f.task(domain.Task{ProjectID: p.ID, Title: "Old with a step just done", Status: domain.TaskInProgress})
+
+	f.c.t = f.c.t.Add(10 * 24 * time.Hour)
+	f.task(domain.Task{ProjectID: p.ID, Title: "New step", Status: domain.TaskTodo, ParentTaskID: &withStep.ID})
+	f.task(domain.Task{ProjectID: p.ID, Title: "Done step", Status: domain.TaskDone, ParentTaskID: &withDone.ID})
+	recent := f.task(domain.Task{ProjectID: p.ID, Title: "Recent", Status: domain.TaskInProgress})
+	e := f.entry("still stuck", &p.ID)
+
+	stalled := func(after time.Duration) map[int64]bool {
+		t.Helper()
+		snap, err := NewSnapshotBuilder(f.s, f.c.now, 0).WithStalledAfter(after).Build(context.Background(), e)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := map[int64]bool{}
+		for _, task := range snap.Projects[0].Tasks {
+			if task.Stalled {
+				got[task.ID] = true
+			}
+			if task.ID == old.ID && (task.Size == nil || *task.Size != size) {
+				t.Errorf("task %d size = %v, want %s", task.ID, task.Size, size)
+			}
+		}
+		return got
+	}
+	if got, want := stalled(7*24*time.Hour), map[int64]bool{old.ID: true}; !reflect.DeepEqual(got, want) {
+		t.Errorf("stalled = %v, want %v (old todo %d, with step %d, with done step %d, recent %d)", got, want, oldTodo.ID, withStep.ID, withDone.ID, recent.ID)
+	}
+	if got := stalled(0); len(got) != 0 {
+		t.Errorf("stalled with 0 = %v, want none", got)
+	}
+}
