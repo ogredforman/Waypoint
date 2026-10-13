@@ -36,7 +36,8 @@ type Options struct {
 }
 
 // Extractor asks the model to call the extract.ToolName tool with the result,
-// and resolves the observations' quotes into spans.
+// and resolves the observations' quotes into spans. It is also an
+// extract.Caller, for other uses of the model.
 type Extractor struct {
 	url    string
 	model  string
@@ -68,35 +69,34 @@ func (x *Extractor) Name() string          { return Name }
 func (x *Extractor) Model() string         { return x.model }
 func (x *Extractor) PromptVersion() string { return extract.PromptVersion }
 
-// Extract sends one chat completion request and decodes the tool call.
+// Extract makes the extraction tool call and decodes it.
 func (x *Extractor) Extract(ctx context.Context, in extract.ExtractInput) (extract.ExtractionResult, error) {
+	return extract.ExtractWith(ctx, x, in)
+}
+
+// Call sends one chat completion request that forces c.Tool and returns the
+// tool call's arguments. It makes Extractor an extract.Caller.
+func (x *Extractor) Call(ctx context.Context, c extract.ToolCall) (extract.ToolReply, error) {
 	header := http.Header{}
 	if x.apiKey != "" {
 		header.Set("Authorization", "Bearer "+x.apiKey)
 	}
-	raw, err := llmhttp.Post(ctx, x.client, x.url, header, x.request(in))
+	raw, err := llmhttp.Post(ctx, x.client, x.url, header, x.request(c))
 	if err != nil {
-		return extract.ExtractionResult{}, err
+		return extract.ToolReply{}, err
 	}
 
 	// From here on the provider has answered, so a failure keeps its reply.
-	fail := func(err error) (extract.ExtractionResult, error) {
-		return extract.ExtractionResult{}, &extract.ResponseError{Response: raw, Err: err}
+	args, err := toolArguments(raw, c.Tool)
+	if err == nil {
+		if args, err = llmhttp.NumericIDs(args); err != nil {
+			err = fmt.Errorf("decode %s arguments: %w", c.Tool, err)
+		}
 	}
-	args, err := toolArguments(raw)
 	if err != nil {
-		return fail(err)
+		return extract.ToolReply{}, &extract.ResponseError{Response: raw, Err: err}
 	}
-	if args, err = llmhttp.NumericIDs(args); err != nil {
-		return fail(fmt.Errorf("decode %s arguments: %w", extract.ToolName, err))
-	}
-	var res extract.ExtractionResult
-	if err := json.Unmarshal(args, &res); err != nil {
-		return fail(fmt.Errorf("decode %s arguments: %w", extract.ToolName, err))
-	}
-	extract.ResolveQuotes(in.Entry.Body, res.Observations)
-	res.Response = raw
-	return res, nil
+	return extract.ToolReply{Input: args, Response: raw}, nil
 }
 
 // request asks for temperature 0, the most repeatable output. Greedy decoding
@@ -134,22 +134,22 @@ type toolChoice struct {
 	} `json:"function"`
 }
 
-func (x *Extractor) request(in extract.ExtractInput) request {
+func (x *Extractor) request(c extract.ToolCall) request {
 	r := request{
 		Model: x.model,
 		Messages: []message{
-			{Role: "system", Content: extract.SystemPrompt(in.MaxQuestions)},
-			{Role: "user", Content: extract.UserMessage(in)},
+			{Role: "system", Content: c.System},
+			{Role: "user", Content: c.User},
 		},
 		Tools: []tool{{Type: "function", Function: function{
-			Name:        extract.ToolName,
-			Description: extract.ToolDescription,
-			Parameters:  extract.ResultSchema(),
+			Name:        c.Tool,
+			Description: c.Description,
+			Parameters:  c.Schema,
 		}}},
 		ToolChoice: toolChoice{Type: "function"},
 		MaxTokens:  MaxTokens,
 	}
-	r.ToolChoice.Function.Name = extract.ToolName
+	r.ToolChoice.Function.Name = c.Tool
 	return r
 }
 
@@ -167,11 +167,11 @@ type response struct {
 	} `json:"choices"`
 }
 
-// toolArguments returns the JSON object the model passed to the tool. The
+// toolArguments returns the JSON object the model passed to the named tool. The
 // spec has arguments as a string of JSON; some servers send the object
 // itself. A model that ignores tool_choice and answers with the JSON as its
 // message content (some local models do) is accepted too.
-func toolArguments(raw []byte) (json.RawMessage, error) {
+func toolArguments(raw []byte, name string) (json.RawMessage, error) {
 	var resp response
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
@@ -181,7 +181,7 @@ func toolArguments(raw []byte) (json.RawMessage, error) {
 	}
 	msg := resp.Choices[0].Message
 	for _, call := range msg.ToolCalls {
-		if call.Function.Name != extract.ToolName {
+		if call.Function.Name != name {
 			continue
 		}
 		args := call.Function.Arguments
@@ -196,7 +196,7 @@ func toolArguments(raw []byte) (json.RawMessage, error) {
 			return obj, nil
 		}
 	}
-	return nil, fmt.Errorf("the model did not call %s", extract.ToolName)
+	return nil, fmt.Errorf("the model did not call %s", name)
 }
 
 // jsonObject finds a JSON object in free text: whatever lies between the

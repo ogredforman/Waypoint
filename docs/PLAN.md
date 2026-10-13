@@ -171,7 +171,7 @@ Tasks:
 - [x] **2.8** `waypoint eval --provider X`: runs the fixtures, scores op and link accuracy, and prints a report. Run it whenever the prompt changes.
 
 ### 2C. LLM features
-- [ ] **2.9** LLM `Briefer`: next action with a reason, plus a recap. Validated against existing task IDs, with heuristic fallback.
+- [x] **2.9** LLM `Briefer`: next action with a reason, plus a recap. Validated against existing task IDs, with heuristic fallback.
 - [ ] **2.10** `split_task` suggestions when a task is vague or has stalled.
 - [ ] **2.11** Better follow-up questions (stalled tasks, missing next step, negative tone).
 

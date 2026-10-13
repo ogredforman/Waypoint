@@ -484,3 +484,84 @@ func TestGetRefreshesStaleBriefing(t *testing.T) {
 		t.Errorf("next = %+v, want the stale briefing regenerated with %d", v.Next, b)
 	}
 }
+
+// chanNotifier sends each BriefingUpdated on a channel, for a Service whose
+// Run goroutine notifies.
+type chanNotifier chan int64
+
+func (c chanNotifier) BriefingUpdated(projectID int64) { c <- projectID }
+
+func TestModelReplacesBriefingInBackground(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	p := f.project("Waypoint", domain.ProjectActive)
+	a := f.task(p, "Write the briefer", nil)
+	b := f.task(p, "Stub the handler", nil)
+
+	updated := make(chanNotifier, 4)
+	svc := NewService(f.s, Heuristic{}, time.Now, updated, slog.New(slog.NewTextHandler(io.Discard, nil))).
+		WithModel(fixedBriefer{next: b})
+	if err := svc.Refresh(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+	<-updated
+	if br := f.briefing(p); nextOf(br) != a || br.Source != domain.BriefingHeuristic {
+		t.Fatalf("after refresh briefing = %+v, want the heuristic's %d at once", br, a)
+	}
+
+	runCtx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() { defer close(done); svc.Run(runCtx) }()
+	t.Cleanup(func() { cancel(); <-done })
+	select {
+	case <-updated:
+	case <-time.After(5 * time.Second):
+		t.Fatal("no update from the model")
+	}
+	if br := f.briefing(p); nextOf(br) != b || br.Source != domain.BriefingLLM {
+		t.Errorf("after the model briefing = %+v, want the model's %d", br, b)
+	}
+}
+
+// hookBriefer calls during, then answers like fixedBriefer.
+type hookBriefer struct {
+	next   int64
+	during func()
+}
+
+func (b hookBriefer) Brief(ctx context.Context, st State) (domain.Briefing, error) {
+	b.during()
+	return fixedBriefer{next: b.next}.Brief(ctx, st)
+}
+
+func TestModelBriefingDroppedAfterNewerRefresh(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	p := f.project("Waypoint", domain.ProjectActive)
+	a := f.task(p, "Write the briefer", nil)
+	b := f.task(p, "Stub the handler", nil)
+
+	var svc *Service
+	model := hookBriefer{next: b, during: func() {
+		if err := svc.Refresh(ctx, p); err != nil {
+			t.Error(err)
+		}
+	}}
+	svc = NewService(f.s, Heuristic{}, time.Now, nil, slog.New(slog.NewTextHandler(io.Discard, nil))).WithModel(model)
+	if err := svc.refreshModel(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+	if br := f.briefing(p); nextOf(br) != a || br.Source != domain.BriefingHeuristic {
+		t.Errorf("briefing = %+v, want the newer refresh's heuristic one kept", br)
+	}
+	if id, ok := svc.dequeue(); !ok || id != p {
+		t.Errorf("queue = %d %v, want project %d queued again for the model", id, ok, p)
+	}
+
+	// A model that falls back to the heuristic doesn't rewrite the briefing.
+	updated := make(chanNotifier, 1)
+	svc = NewService(f.s, Heuristic{}, time.Now, updated, slog.New(slog.NewTextHandler(io.Discard, nil))).WithModel(Heuristic{})
+	if err := svc.refreshModel(ctx, p); err != nil || len(updated) != 0 {
+		t.Errorf("heuristic model result saved: err %v, %d updates", err, len(updated))
+	}
+}

@@ -293,3 +293,42 @@ func TestNew(t *testing.T) {
 		t.Errorf("url = %q", x.url)
 	}
 }
+
+func TestCall(t *testing.T) {
+	b, _ := json.Marshal(map[string]any{"choices": []any{map[string]any{
+		"message": map[string]any{"role": "assistant", "tool_calls": []any{map[string]any{
+			"id": "call_1", "type": "function",
+			"function": map[string]any{"name": "pick", "arguments": `{"task_id": "12"}`},
+		}}},
+	}}})
+	s := newServer(t, http.StatusOK, string(b))
+	x := newExtractor(t, s, "")
+	reply, err := x.Call(context.Background(), extract.ToolCall{
+		System: "sys", User: "usr", Tool: "pick", Description: "Pick one.", Schema: json.RawMessage(`{"type":"object"}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(reply.Input) != `{"task_id":12}` {
+		t.Errorf("input = %s, want the numeric task_id", reply.Input)
+	}
+	if string(reply.Response) != string(b) {
+		t.Errorf("response = %s, want the provider's reply", reply.Response)
+	}
+	var req request
+	if err := json.Unmarshal(s.body, &req); err != nil {
+		t.Fatal(err)
+	}
+	if len(req.Messages) != 2 || req.Messages[0].Content != "sys" || req.Messages[1].Content != "usr" {
+		t.Errorf("messages = %+v, want the call's system and user text", req.Messages)
+	}
+	if len(req.Tools) != 1 || req.Tools[0].Function.Name != "pick" || req.ToolChoice.Function.Name != "pick" {
+		t.Errorf("tools = %+v, choice = %+v, want pick forced", req.Tools, req.ToolChoice)
+	}
+
+	// A reply that calls another tool is an error that keeps the reply.
+	_, err = x.Call(context.Background(), extract.ToolCall{Tool: "other", Schema: json.RawMessage(`{}`)})
+	if err == nil || !strings.Contains(err.Error(), "did not call other") || extract.ResponseOf(err) == nil {
+		t.Errorf("err = %v, want a ResponseError for the missing tool call", err)
+	}
+}

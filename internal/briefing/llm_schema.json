@@ -1,0 +1,48 @@
+{
+  "type": "object",
+  "properties": {
+    "next_task_id": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The ID of the one task to do next, from those marked \"can start now\"."
+    },
+    "reason": {
+      "type": "string",
+      "description": "One short, kind sentence on why this task, now."
+    },
+    "recap": {
+      "type": "array",
+      "description": "Up to 3 of the recent entries, newest first.",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "properties": {
+          "entry_id": {"type": "integer", "minimum": 1, "description": "The ID of a recent entry."},
+          "points": {
+            "type": "array",
+            "description": "1 to 3 short points the entry made.",
+            "minItems": 1,
+            "maxItems": 3,
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": ["decision", "feeling", "idea", "note", "plan", "progress", "question", "blocker"],
+                  "description": "The kind of observation the point comes from."
+                },
+                "text": {"type": "string", "description": "The point, under 15 words."}
+              },
+              "required": ["kind", "text"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["entry_id", "points"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["next_task_id", "reason", "recap"],
+  "additionalProperties": false
+}

@@ -35,7 +35,9 @@ type Options struct {
 	LegacyDB string
 	// Seed is the settings a profile starts with (config.toml's values).
 	Seed domain.Settings
-	// Extractor processes every profile's entries.
+	// Extractor processes every profile's entries. A model extractor (one
+	// that is an extract.Caller) also writes the briefings, in the
+	// background after the heuristic's.
 	Extractor extract.Extractor
 	// SnapshotRecentEntries is how many recent entries a snapshot holds.
 	SnapshotRecentEntries int
@@ -70,7 +72,7 @@ type running struct {
 	hub        *api.Hub
 	handler    http.Handler
 	stop       context.CancelFunc
-	workerDone chan struct{}
+	workerDone chan struct{} // closed once the extraction worker and briefing model loop stop
 	// inflight counts requests being served, so Delete can wait for them
 	// before closing the database.
 	inflight sync.WaitGroup
@@ -198,6 +200,9 @@ func (m *Manager) startDB(ctx context.Context, id, path string, sqlDB *sql.DB) (
 	hub := api.NewHub(logger)
 	snapshots := pipeline.NewSnapshotBuilder(st, now, m.opts.SnapshotRecentEntries)
 	briefings := briefing.NewService(st, briefing.Heuristic{}, now, hub, logger)
+	if caller, ok := m.opts.Extractor.(extract.Caller); ok {
+		briefings.WithModel(briefing.NewLLM(caller, now, logger))
+	}
 	applier := changeset.NewApplier(st, changeset.AfterApplies{briefings, hub})
 	worker := pipeline.NewWorker(st, snapshots, m.opts.Extractor, hub, briefings, logger)
 
@@ -216,11 +221,21 @@ func (m *Manager) startDB(ctx context.Context, id, path string, sqlDB *sql.DB) (
 	}
 	var workerCtx context.Context
 	workerCtx, r.stop = context.WithCancel(m.ctx)
+	var wg sync.WaitGroup
+	wg.Add(2)
 	go func() {
-		defer close(r.workerDone)
+		defer wg.Done()
 		if err := worker.Run(workerCtx); err != nil {
 			logger.Error("extraction worker stopped", "err", err)
 		}
+	}()
+	go func() {
+		defer wg.Done()
+		briefings.Run(workerCtx)
+	}()
+	go func() {
+		wg.Wait()
+		close(r.workerDone)
 	}()
 	return r, nil
 }
@@ -411,7 +426,7 @@ func (m *Manager) Close() {
 }
 
 // close ends the profile's streams, waits for its requests, stops its
-// worker, and closes its database.
+// worker and briefing loop, and closes its database.
 func (r *running) close() error {
 	r.hub.Close()
 	r.inflight.Wait()

@@ -183,7 +183,9 @@ For each active project, the briefing shows:
 
 Two implementations exist behind one interface:
 - *Heuristic*, used in the prototype and as a fallback: prefer in-progress tasks, then unblocked todo tasks by `position`, preferring smaller sizes. Only tasks that can be started now count: no open blocker on the task, no dependency on an open task, and no open subtasks (the subtasks are the steps to start instead). The most recently updated in-progress task wins, in any milestone; otherwise the smallest of the first 3 such todo tasks by position (an unsized task counts as `m`; ties go to position), drawn from the first open milestone (in milestone order) that has a startable todo task, or from all of them if none does. A step counts in its top-level task's milestone. The recap is the 3 most recent entries about the project that have observations, each with up to 3 of its latest run's observation summaries, kinds kept.
-- *LLM*: selects and explains using the snapshot. It must return a task ID that exists; otherwise the heuristic is used. Its recap has the same shape: it is shown the recent entries (IDs, dates, observations) and returns short points per entry, each with an observation kind; entries it wasn't shown are dropped, and an invalid recap falls back to the heuristic's.
+- *LLM*: selects and explains using the snapshot. It must return the ID of a task that can be started now, with a short reason; otherwise the heuristic's next action is used. Its recap has the same shape: it is shown the recent entries (IDs, dates, observations) and returns short points per entry, each with an observation kind; entries it wasn't shown are dropped, and an invalid recap falls back to the heuristic's. The two parts fall back independently; the briefing's source is `llm` if either came from the model. With no task to start, the model isn't asked. It uses the configured extraction provider and model; with the mock provider, briefings are heuristic only.
+
+A model can take seconds or more, so a refresh is two-phase: the heuristic briefing is written at once (an apply or the "Now" screen never waits on the model), then the project is queued and the model's briefing replaces it in the background, emitting `briefing.updated` again. A model briefing is discarded if the project was refreshed while the model was working; that refresh queued it again with the newer state.
 
 Only the next action, its reason, and the recap are cached (the `briefings` table, and `briefing_recap_points` for the recap's points, each naming its entry; an entry's date is read from the entry). Open blockers, low-energy alternatives, and the entry excerpt (the text of the newest observation linked to the next task) are facts about current state, read fresh each time the briefing is shown. Active projects' briefings are regenerated after every applied changeset that touches the project (manual edits included) and after an entry about it is processed (every active project's, for an unscoped entry); each regeneration emits `briefing.updated`. Every applied changeset, manual or from an entry, also emits `changeset.applied` with the IDs of the projects whose own row, tasks, or blockers it changed, so screens of non-active projects and the parking lot can refresh. "Entries about a project" are those scoped to it plus unscoped ones with an observation linked to the project or one of its tasks or blockers.
 
@@ -336,6 +338,12 @@ type Briefer interface {
     // observation summaries of recent entries about it. Richer than the
     // extractor's StateSnapshot: it needs size, energy, and dependencies.
     Brief(ctx context.Context, st briefing.State) (Briefing, error)
+}
+
+// Caller is how code outside internal/extract/* uses the model without
+// knowing the provider (the LLM Briefer). The model extractors implement it.
+type Caller interface {
+    Call(ctx context.Context, c ToolCall) (ToolReply, error) // one forced tool call
 }
 ```
 

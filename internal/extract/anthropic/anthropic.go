@@ -42,7 +42,8 @@ type Options struct {
 }
 
 // Extractor asks the model to call the extract.ToolName tool with the result,
-// and resolves the observations' quotes into spans.
+// and resolves the observations' quotes into spans. It is also an
+// extract.Caller, for other uses of the model.
 type Extractor struct {
 	url    string
 	model  string
@@ -79,34 +80,33 @@ func (x *Extractor) Name() string          { return Name }
 func (x *Extractor) Model() string         { return x.model }
 func (x *Extractor) PromptVersion() string { return extract.PromptVersion }
 
-// Extract sends one Messages request and decodes the tool call.
+// Extract makes the extraction tool call and decodes it.
 func (x *Extractor) Extract(ctx context.Context, in extract.ExtractInput) (extract.ExtractionResult, error) {
+	return extract.ExtractWith(ctx, x, in)
+}
+
+// Call sends one Messages request offering c.Tool and returns the input the
+// model passed to it. It makes Extractor an extract.Caller.
+func (x *Extractor) Call(ctx context.Context, c extract.ToolCall) (extract.ToolReply, error) {
 	header := http.Header{}
 	header.Set("x-api-key", x.apiKey)
 	header.Set("anthropic-version", APIVersion)
-	raw, err := llmhttp.Post(ctx, x.client, x.url, header, x.request(in))
+	raw, err := llmhttp.Post(ctx, x.client, x.url, header, x.request(c))
 	if err != nil {
-		return extract.ExtractionResult{}, err
+		return extract.ToolReply{}, err
 	}
 
 	// From here on the provider has answered, so a failure keeps its reply.
-	fail := func(err error) (extract.ExtractionResult, error) {
-		return extract.ExtractionResult{}, &extract.ResponseError{Response: raw, Err: err}
+	args, err := toolInput(raw, c.Tool)
+	if err == nil {
+		if args, err = llmhttp.NumericIDs(args); err != nil {
+			err = fmt.Errorf("decode %s input: %w", c.Tool, err)
+		}
 	}
-	args, err := toolInput(raw)
 	if err != nil {
-		return fail(err)
+		return extract.ToolReply{}, &extract.ResponseError{Response: raw, Err: err}
 	}
-	if args, err = llmhttp.NumericIDs(args); err != nil {
-		return fail(fmt.Errorf("decode %s input: %w", extract.ToolName, err))
-	}
-	var res extract.ExtractionResult
-	if err := json.Unmarshal(args, &res); err != nil {
-		return fail(fmt.Errorf("decode %s input: %w", extract.ToolName, err))
-	}
-	extract.ResolveQuotes(in.Entry.Body, res.Observations)
-	res.Response = raw
-	return res, nil
+	return extract.ToolReply{Input: args, Response: raw}, nil
 }
 
 type request struct {
@@ -148,26 +148,26 @@ type toolChoice struct {
 	Name string `json:"name,omitempty"`
 }
 
-func (x *Extractor) request(in extract.ExtractInput) request {
+func (x *Extractor) request(c extract.ToolCall) request {
 	r := request{
 		Model:     x.model,
 		MaxTokens: MaxTokens,
 		System: []textBlock{{
 			Type:         "text",
-			Text:         extract.SystemPrompt(in.MaxQuestions),
+			Text:         c.System,
 			CacheControl: &cacheControl{Type: "ephemeral"},
 		}},
-		Messages: []message{{Role: "user", Content: extract.UserMessage(in)}},
+		Messages: []message{{Role: "user", Content: c.User}},
 		Tools: []tool{{
-			Name:        extract.ToolName,
-			Description: extract.ToolDescription,
-			InputSchema: extract.ResultSchema(),
+			Name:        c.Tool,
+			Description: c.Description,
+			InputSchema: c.Schema,
 		}},
 		ToolChoice: toolChoice{Type: "auto"},
 	}
 	if pinsOutput(x.model) {
 		zero := 0.0
-		r.ToolChoice = toolChoice{Type: "tool", Name: extract.ToolName}
+		r.ToolChoice = toolChoice{Type: "tool", Name: c.Tool}
 		r.Temperature = &zero
 	}
 	return r
@@ -195,8 +195,8 @@ type response struct {
 	} `json:"content"`
 }
 
-// toolInput returns the input the model passed to the tool.
-func toolInput(raw []byte) (json.RawMessage, error) {
+// toolInput returns the input the model passed to the named tool.
+func toolInput(raw []byte, name string) (json.RawMessage, error) {
 	var resp response
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
@@ -208,9 +208,9 @@ func toolInput(raw []byte) (json.RawMessage, error) {
 		return nil, errors.New("the model declined the request")
 	}
 	for _, b := range resp.Content {
-		if b.Type == "tool_use" && b.Name == extract.ToolName {
+		if b.Type == "tool_use" && b.Name == name {
 			return b.Input, nil
 		}
 	}
-	return nil, fmt.Errorf("the model did not call %s", extract.ToolName)
+	return nil, fmt.Errorf("the model did not call %s", name)
 }

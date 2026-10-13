@@ -23,21 +23,127 @@ type Notifier interface {
 // Service keeps the cached briefings current and reads them for the "Now"
 // screen. It refreshes active projects' briefings after a changeset is
 // applied (as a changeset.AfterApply) and after an entry is processed.
+//
+// A refresh briefs with the fast Briefer at once. With a model (WithModel),
+// it also queues the project, and Run asks the model in the background and
+// replaces the briefing, unless the project was refreshed again meanwhile.
+// So a slow model never holds up an apply or the "Now" screen.
 type Service struct {
 	store    *store.Store
 	briefer  Briefer
+	model    Briefer
 	now      func() time.Time
 	notifier Notifier
 	logger   *slog.Logger
 
 	// mu serializes refreshes, so an older result can't overwrite a newer one.
 	mu sync.Mutex
+	// gen counts each project's refreshes, under mu. A model briefing is
+	// saved only if no refresh happened while the model was thinking.
+	gen map[int64]uint64
+
+	// qmu guards the model queue: project IDs in order, each once.
+	qmu    sync.Mutex
+	queue  []int64
+	queued map[int64]bool
+	wake   chan struct{}
 }
 
 // NewService returns a Service that briefs with b. now stamps each
 // briefing's GeneratedAt. A nil notifier drops notifications.
 func NewService(s *store.Store, b Briefer, now func() time.Time, n Notifier, logger *slog.Logger) *Service {
-	return &Service{store: s, briefer: b, now: now, notifier: n, logger: logger}
+	return &Service{
+		store: s, briefer: b, now: now, notifier: n, logger: logger,
+		gen: map[int64]uint64{}, queued: map[int64]bool{}, wake: make(chan struct{}, 1),
+	}
+}
+
+// WithModel makes m the Briefer Run uses after each refresh, and returns s.
+// Call it before the Service is used. m should fall back to b's judgment
+// itself; a briefing it returns with a Source other than llm is dropped,
+// since b's already stands.
+func (s *Service) WithModel(m Briefer) *Service {
+	s.model = m
+	return s
+}
+
+// Run asks the model for the queued projects' briefings, one at a time,
+// until ctx is done. Without a model it returns at once.
+func (s *Service) Run(ctx context.Context) {
+	if s.model == nil {
+		return
+	}
+	for ctx.Err() == nil {
+		id, ok := s.dequeue()
+		if !ok {
+			select {
+			case <-ctx.Done():
+			case <-s.wake:
+			}
+			continue
+		}
+		if err := s.refreshModel(ctx, id); err != nil && ctx.Err() == nil {
+			s.logger.Error("model briefing failed", "project_id", id, "err", err)
+		}
+	}
+}
+
+func (s *Service) enqueue(projectID int64) {
+	s.qmu.Lock()
+	defer s.qmu.Unlock()
+	if !s.queued[projectID] {
+		s.queued[projectID] = true
+		s.queue = append(s.queue, projectID)
+	}
+	select {
+	case s.wake <- struct{}{}:
+	default:
+	}
+}
+
+func (s *Service) dequeue() (int64, bool) {
+	s.qmu.Lock()
+	defer s.qmu.Unlock()
+	if len(s.queue) == 0 {
+		return 0, false
+	}
+	id := s.queue[0]
+	s.queue = s.queue[1:]
+	delete(s.queued, id)
+	return id, true
+}
+
+// refreshModel briefs the project with the model and saves the result if
+// it came from the model and the project wasn't refreshed in the meantime
+// (that refresh queued it again, so the model will see the newer state).
+func (s *Service) refreshModel(ctx context.Context, projectID int64) error {
+	s.mu.Lock()
+	gen := s.gen[projectID]
+	st, err := s.loadState(ctx, projectID)
+	s.mu.Unlock()
+	if errors.Is(err, store.ErrNotFound) {
+		return nil // deleted since it was queued
+	}
+	if err != nil {
+		return fmt.Errorf("model briefing of project %d: %w", projectID, err)
+	}
+	// No lock or transaction is held while the model thinks.
+	b, err := s.model.Brief(ctx, st)
+	if err != nil {
+		return fmt.Errorf("model briefing of project %d: %w", projectID, err)
+	}
+	if b.Source != domain.BriefingLLM {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.gen[projectID] != gen {
+		return nil
+	}
+	if err := s.save(ctx, st, b); err != nil {
+		return fmt.Errorf("model briefing of project %d: %w", projectID, err)
+	}
+	return nil
 }
 
 // Refresh regenerates the briefings of the given projects, whatever their
@@ -57,12 +163,7 @@ func (s *Service) refresh(ctx context.Context, projectID int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	var st State
-	err := s.store.InReadTx(ctx, func(tx *store.ReadTx) error {
-		var err error
-		st, err = loadState(ctx, tx, projectID)
-		return err
-	})
+	st, err := s.loadState(ctx, projectID)
 	if err != nil {
 		return fmt.Errorf("refresh briefing of project %d: %w", projectID, err)
 	}
@@ -71,21 +172,44 @@ func (s *Service) refresh(ctx context.Context, projectID int64) error {
 	if err != nil {
 		return fmt.Errorf("refresh briefing of project %d: %w", projectID, err)
 	}
-	if id := b.NextTaskID; id != nil && !slices.ContainsFunc(st.Tasks, func(t domain.Task) bool { return t.ID == *id && isOpen(t) }) {
-		return fmt.Errorf("refresh briefing of project %d: next task %d is not an open task of the project", projectID, *id)
+	s.gen[projectID]++
+	if err := s.save(ctx, st, b); err != nil {
+		return fmt.Errorf("refresh briefing of project %d: %w", projectID, err)
 	}
-	b.ProjectID = projectID
+	if s.model != nil {
+		s.enqueue(projectID)
+	}
+	return nil
+}
+
+func (s *Service) loadState(ctx context.Context, projectID int64) (State, error) {
+	var st State
+	err := s.store.InReadTx(ctx, func(tx *store.ReadTx) error {
+		var err error
+		st, err = loadState(ctx, tx, projectID)
+		return err
+	})
+	return st, err
+}
+
+// save checks b against st, the state it was made from, caches it, and
+// tells the notifier. The caller holds mu.
+func (s *Service) save(ctx context.Context, st State, b domain.Briefing) error {
+	if id := b.NextTaskID; id != nil && !slices.ContainsFunc(st.Tasks, func(t domain.Task) bool { return t.ID == *id && isOpen(t) }) {
+		return fmt.Errorf("next task %d is not an open task of the project", *id)
+	}
+	b.ProjectID = st.Project.ID
 	b.Recap = knownEntries(b.Recap, st.RecentEntries)
 	b.GeneratedAt = s.now().UTC()
-	err = s.store.InTx(ctx, func(tx *store.Tx) error {
+	err := s.store.InTx(ctx, func(tx *store.Tx) error {
 		_, err := tx.UpsertBriefing(ctx, b)
 		return err
 	})
 	if err != nil {
-		return fmt.Errorf("refresh briefing of project %d: %w", projectID, err)
+		return err
 	}
 	if s.notifier != nil {
-		s.notifier.BriefingUpdated(projectID)
+		s.notifier.BriefingUpdated(st.Project.ID)
 	}
 	return nil
 }

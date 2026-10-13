@@ -70,6 +70,8 @@ Seed: cfg.SettingsDefaults(), Extractor: provider.New(…), …})` → `api.NewR
   `schema.go` + embedded `schema.json`: `ToolName`, `ToolDescription`, `ResultSchema()` (the model's tool input; ops extraction
   may propose, observations with a `quote`; `schema_test.go` keeps it in step with the domain enums and payload structs).
   `quote.go`: `ResolveQuotes(body, observations)` sets spans from `ObservationDraft.Quote` (exact, then whitespace- and quote-normalised).
+  `toolcall.go`: `Caller{Call(ctx, ToolCall{System, User, Tool, Description, Schema}) (ToolReply{Input, Response}, error)}`, the provider-neutral
+  model call (both model extractors implement it; the mock doesn't); `ExtractWith(ctx, caller, in)` is their `Extract`.
   **extract/mock**: deterministic line-prefix extractor (SPEC §10.4), `mock.New(latency)`.
   **extract/openaicompat**: `New(Options{Endpoint, Model, APIKey, HTTPClient})` for any OpenAI-compatible `/chat/completions` (Ollama, LM Studio,
   llama.cpp, OpenAI): forced `propose_changes` tool call (or a JSON object in the content), then `ResolveQuotes`; `DefaultTimeout`.
@@ -84,6 +86,9 @@ Seed: cfg.SettingsDefaults(), Extractor: provider.New(…), …})` → `api.NewR
 - **briefing**: `Briefer` interface (`State` includes the project's milestones), `Heuristic` implementation (`heuristic.go`; todo window prefers the first open milestone), `Service`
   (`Refresh`, `Get` → `View` (with `Step`: the next task's parent and step number, → `Briefing.next_step`), `EntryDeleted`; drops recap entries the Briefer wasn't shown; implements `changeset.AfterApply` and `pipeline.AfterRun`; notifies
   `BriefingUpdated`). Briefings are cached per project in the DB; the recap (`[]domain.RecapEntry`, newest first, points with observation kinds) in `briefing_recap_points`.
+  `llm.go` + embedded `llm_prompt.md`/`llm_schema.json`: `NewLLM(caller, now, logger)`, the model Briefer (`write_briefing` tool; next action and recap
+  each checked, falling back to the heuristic's). `Service.WithModel(m)` + `Run(ctx)`: refresh writes the heuristic at once and queues the project;
+  `Run` asks the model in the background and saves unless the project was refreshed meanwhile (`gen`). `profile` wires it when the extractor is a `Caller`.
 - **eval**: extraction evals (SPEC §12). `LoadFixtures(dir)` → `[]Fixture{Name, Notes, Input extract.ExtractInput, Expected extract.ExtractionResult, Forbid []domain.OpType}`;
   refuses a fixture whose quotes aren't in the body, whose expected result `extract.Validate` rejects, or whose expected ops use a forbidden type.
   `Run(ctx, extractor, fixtures, done)` → `[]Outcome` (extract, validate, one retry as the pipeline does; `Status` ok/retried/invalid/error); `ScoreResult(f, got)` → `Score`
@@ -217,7 +222,8 @@ All use a real temp SQLite DB migrated with `db.Migrations()`.
   `worker_test.go`: `f.worker(extractor, notifier)`, `f.save`, `f.run`, `f.stored`, `processNext`,
   `fakeExtractor`, `events` notifier.
 - `briefing/service_test.go`: `newFixture(t)` with `f.manual(ops...)`, `f.project`, `f.task`,
-  `f.entry`, `f.briefing`, `fixedBriefer`.
+  `f.entry`, `f.briefing`, `fixedBriefer`, `hookBriefer`, `chanNotifier`.
+- `briefing/llm_test.go`: `fakeCaller{input, err}` (records the `ToolCall`), `newLLM(caller)`, `llmState()`.
 - `api/profiles_test.go`: `oneProfile(h, db)` (fake `Profiles` with profile "t"), `profileRouter(ProfileDeps)`;
   data paths in api tests are `/api/profiles/t/…`. `profile/manager_test.go`: `newEnv(t)`, `e.open()` (manager behind the
   real router; open again to restart), `a.call`, `a.events(id)`, `legacyMigrations` (schema before 00007).
