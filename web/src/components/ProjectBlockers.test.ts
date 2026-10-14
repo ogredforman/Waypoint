@@ -158,7 +158,7 @@ describe('ProjectBlockers', () => {
     type('#new-blocker-description', 'no key')
     buttons('Add')[0].click()
     await settle()
-    expect(target.textContent).toContain('Something went wrong.')
+    expect(target.textContent).toContain("Something went wrong on Waypoint's side. Try again in a moment.")
     expect(target.querySelector<HTMLInputElement>('#new-blocker-description')!.value).toBe('no key')
   })
 
@@ -176,7 +176,7 @@ describe('ProjectBlockers', () => {
     failWrites = true
     buttons('Resolve')[0].click()
     await settle()
-    expect(target.querySelector('[role="status"]')?.textContent).toBe('Something went wrong.')
+    expect(target.querySelector('[role="status"]')?.textContent).toBe("Something went wrong on Waypoint's side. Try again in a moment.")
     expect(descriptions('Open')).toEqual(['B1'])
   })
 
@@ -213,7 +213,7 @@ describe('ProjectBlockers', () => {
     select.dispatchEvent(new Event('change', { bubbles: true }))
     await settle()
     expect(select.value).toBe('')
-    expect(target.querySelector('[role="status"]')?.textContent).toBe('Something went wrong.')
+    expect(target.querySelector('[role="status"]')?.textContent).toBe("Something went wrong on Waypoint's side. Try again in a moment.")
   })
 
   it('deletes only after confirming', async () => {

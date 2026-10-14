@@ -211,7 +211,7 @@ describe('switching profiles', () => {
 
   it('keeps the profile when the delete fails', async () => {
     const fails = async () => json({ error: { code: 'internal', message: 'Something went wrong.' } }, 500)
-    await expect(removeProfile('work', fails)).rejects.toThrow('Something went wrong.')
+    await expect(removeProfile('work', fails)).rejects.toThrow("Something went wrong on Waypoint's side. Try again in a moment.")
     expect(profiles.list).toEqual([personal, work])
   })
 

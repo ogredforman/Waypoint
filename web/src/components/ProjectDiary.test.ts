@@ -96,7 +96,7 @@ describe('ProjectDiary', () => {
 
   it('says calmly when it cannot load', async () => {
     await render()
-    expect(target.textContent).toContain('Something went wrong.')
+    expect(target.textContent).toContain("Something went wrong on Waypoint's side. Try again in a moment.")
     expect([...target.querySelectorAll('button')].some((b) => b.textContent?.includes('Try again'))).toBe(true)
   })
 })

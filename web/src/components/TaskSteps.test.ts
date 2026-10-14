@@ -131,7 +131,7 @@ describe('TaskSteps', () => {
     box(2).click()
     await settle()
     expect(box(2).checked).toBe(false)
-    expect(target.textContent).toContain('Something went wrong.')
+    expect(target.textContent).toContain("Something went wrong on Waypoint's side. Try again in a moment.")
   })
 
   it('moves a step and reorders by the positions the server returns', async () => {

@@ -14,6 +14,7 @@
   import Task from '../screens/Task.svelte'
   import DiaryOverlay from './DiaryOverlay.svelte'
   import DiaryPanel from './DiaryPanel.svelte'
+  import ScreenBoundary from './ScreenBoundary.svelte'
 
   // Everything that shows one profile's data: the screens, the diary, and the
   // event stream. App.svelte mounts it once per active profile (ADR 0005).
@@ -35,23 +36,25 @@
 <div class="flex min-h-0 flex-1">
   <div class="flex min-w-0 flex-1 flex-col overflow-y-auto">
     <main class="mx-auto w-full max-w-3xl flex-1 px-gutter py-8">
-      {#if route.name === 'now'}
-        <Now />
-      {:else if route.name === 'diary'}
-        <Diary />
-      {:else if route.name === 'projects'}
-        <Projects />
-      {:else if route.name === 'project'}
-        {#key route.id}<Project id={route.id} />{/key}
-      {:else if route.name === 'task'}
-        {#key route.id}<Task id={route.id} />{/key}
-      {:else if route.name === 'parkingLot'}
-        <ParkingLot />
-      {:else if route.name === 'settings'}
-        <Settings />
-      {:else}
-        <NotFound />
-      {/if}
+      <ScreenBoundary screen={'id' in route ? `${route.name}/${route.id}` : route.name}>
+        {#if route.name === 'now'}
+          <Now />
+        {:else if route.name === 'diary'}
+          <Diary />
+        {:else if route.name === 'projects'}
+          <Projects />
+        {:else if route.name === 'project'}
+          {#key route.id}<Project id={route.id} />{/key}
+        {:else if route.name === 'task'}
+          {#key route.id}<Task id={route.id} />{/key}
+        {:else if route.name === 'parkingLot'}
+          <ParkingLot />
+        {:else if route.name === 'settings'}
+          <Settings />
+        {:else}
+          <NotFound />
+        {/if}
+      </ScreenBoundary>
     </main>
   </div>
 

@@ -109,7 +109,7 @@ describe('IdeaRow editing', () => {
     type('idea-4-title', 'Herb tower')
     click(button('Save'))
 
-    await vi.waitFor(() => expect(target.textContent).toContain('Something went wrong.'))
+    await vi.waitFor(() => expect(target.textContent).toContain("Something went wrong on Waypoint's side. Try again in a moment."))
     expect(onchanged).not.toHaveBeenCalled()
     expect(editForm()).not.toBeNull()
   })

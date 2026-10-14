@@ -179,7 +179,7 @@ Tasks:
 - [x] **2.12** Provider settings on the Settings screen (1.5.7): provider, model, endpoint, and key (key stored in config, masked in UI and excluded from export). Backend: `/api/provider`, saved to `config.toml`, applied without a restart (ADR 0010).
 - [x] **2.12b** The Settings screen's "Model" section on `/api/provider`: says it applies to every profile; provider select, model and endpoint fields; the key only as set or not set, with Replace and Clear; fields from env vars read-only with a note; per-field problems from a 422. Split out of 2.12.
 - [x] **2.13** JSON export (`/api/export`) and a documented "back up by copying the DB file" note.
-- [ ] **2.14** Error and empty states; a first-run flow that creates the first project.
+- [x] **2.14** Error and empty states; a first-run flow that creates the first project.
 - [ ] **2.15** README: install, configure a provider, run.
 
 ### 2E. Dogfooding bootstrap

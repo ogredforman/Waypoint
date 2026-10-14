@@ -12,17 +12,21 @@
     cap,
     oncreated,
     oncancel,
+    startActive: initiallyActive = false,
   }: {
     activeCount: number
     cap: number | null
     oncreated: (p: Project) => void
     oncancel?: () => void
+    // startActive is the start chosen when the form opens (and after a create).
+    startActive?: boolean
   } = $props()
 
   let title = $state('')
   let why = $state('')
   let definitionOfDone = $state('')
-  let startActive = $state(false)
+  // svelte-ignore state_referenced_locally
+  let startActive = $state(initiallyActive)
   let saving = $state(false)
   let problems = $state<Record<string, string>>({})
   let notice = $state('')
@@ -49,7 +53,7 @@
     try {
       const p = await postJSON<Project>('/api/projects', newProjectRequest({ title, why, definitionOfDone, startActive }))
       title = why = definitionOfDone = ''
-      startActive = false
+      startActive = initiallyActive
       capHit = false
       oncreated(p)
     } catch (err) {

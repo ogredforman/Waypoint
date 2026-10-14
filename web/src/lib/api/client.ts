@@ -35,6 +35,9 @@ export class ApiError extends Error {
 }
 
 const unreachableMessage = "Can't reach the Waypoint server."
+// Shown instead of the server's bare "internal server error": the details are
+// in the server log, and there is nothing in them for the user to act on.
+const serverFaultMessage = "Something went wrong on Waypoint's side. Try again in a moment."
 
 // The profile every data path is under (ADR 0005), set at startup by
 // lib/profile.svelte.ts. While none is set, paths go out as given.
@@ -86,6 +89,7 @@ export async function request<T>(method: string, path: string, body?: unknown, f
 
   const err = (decoded as Partial<ErrorBody>).error
   if (err && typeof err.code === 'string' && typeof err.message === 'string') {
+    if (err.code === 'internal') throw new ApiError(res.status, err.code, serverFaultMessage)
     throw new ApiError(res.status, err.code, err.message, err.problems ?? [])
   }
   throw new ApiError(res.status, 'unreachable', unreachableMessage)

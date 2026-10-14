@@ -139,6 +139,7 @@ pieces. Tests sit next to the code as `*.test.ts`.
   `onReconnect`, `onDisconnect`). Screens subscribe in `onMount` and refetch; `lib/events.fake.ts` `FakeEventSource` for tests.
   `lib/live.ts`: `liveReload` (reload on `changeset.applied`, optionally for one project, and on reconnect) and
   `latest` (drop stale answers); used by the Project, Projects, Parking lot, and Task screens. `screens/Project.test.ts`.
+- Errors: `client.ts` turns a server `internal` error into one plain message; `components/ScreenBoundary.svelte` (in `ProfileWorkspace`, around the screens) shows a calm failure with Try again and retries on the next screen; `ScreenBoundary.test.ts`.
 - Server status: `lib/health.ts` (`fetchHealth`, `watchHealth`: asks at start, on stream drop/reconnect, and
   re-polls only while unhealthy) → `components/ServerBanner.svelte` under the header in `App.svelte`; nothing shows while healthy.
 - Diary input: `components/DiaryInput.svelte` (in `DiaryContent`); `lib/diary.ts` (submit shortcut,
@@ -154,7 +155,7 @@ pieces. Tests sit next to the code as `*.test.ts`.
   picker, Apply / Accept all) → `ChangeOpRow.svelte` (accept/reject/edit). `lib/review.ts`: pure logic
   (`reject`/`accept` cascades over `$new:N`, `guessedProject`, `noProject`, `applyRequest`, `describe` using
   the op's `refs`, `editFields`).
-- Now: `screens/Now.svelte` loads active projects' briefings into `components/BriefingCard.svelte` (one block per project: next action, recap as a dated list, blockers and alternatives); `components/BriefingCard.test.ts`, `screens/Now.test.ts`.
+- Now: `screens/Now.svelte` loads active projects' briefings into `components/BriefingCard.svelte` (one block per project: next action, recap as a dated list, blockers and alternatives); with no projects at all, `components/FirstRun.svelte` (welcome, `NewProjectForm` with `startActive`, a no-model hint from `getProvider`); `components/BriefingCard.test.ts`, `screens/Now.test.ts`.
   `lib/dates.ts` `relativeDay` ("today", "yesterday", "3 days ago", then the date).
   `lib/projects.ts`: grouping (`groupByStatus`, newest `last_activity_at` first), `filterProjects`, `collapsedByDefault`, `activeProjects`, `pickable` (the rule every project picker uses: no done or archived projects unless already chosen), cap helpers.
 - Project pickers: `components/ProjectPicker.svelte` (a combobox: type to narrow, arrows + Enter, Escape; "No project" always a choice; callers pass `pickable` projects) used by the diary scope and review; `lib/picker.ts` (`pickerOptions`, `selectedLabel`, `step`); `components/ProjectPicker.test.ts`, `lib/picker.test.ts`.

@@ -41,6 +41,13 @@ describe('request', () => {
     expect(e.problems).toEqual([])
   })
 
+  it('says a server fault plainly instead of passing on its text', async () => {
+    const err = await failure(getJSON('/api/projects', respond(500, '{"error":{"code":"internal","message":"internal server error"}}')))
+    expect(err.status).toBe(500)
+    expect(err.code).toBe('internal')
+    expect(err.message).toBe("Something went wrong on Waypoint's side. Try again in a moment.")
+  })
+
   it('keeps field problems', async () => {
     const body = '{"error":{"code":"invalid","message":"invalid project","problems":[{"field":"title","problem":"is required"}]}}'
     const e = await failure(postJSON('/api/projects', {}, respond(422, body)))

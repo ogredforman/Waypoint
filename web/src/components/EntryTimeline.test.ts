@@ -89,7 +89,7 @@ describe('EntryTimeline', () => {
   it("shows the error, not \"isn't in your diary\", when an older page fails", async () => {
     failOlder = true
     show(5)
-    await vi.waitFor(() => expect(target.textContent).toContain('Something went wrong.'))
+    await vi.waitFor(() => expect(target.textContent).toContain("Something went wrong on Waypoint's side. Try again in a moment."))
     expect(target.textContent).not.toContain("That entry isn't in your diary.")
     expect(card(11)).not.toBeNull()
   })

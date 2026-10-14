@@ -84,7 +84,7 @@ describe('ProjectNext', () => {
 
   it('shows a load failure with a way to try again', async () => {
     await render()
-    expect(target.textContent).toContain('Something went wrong.')
+    expect(target.textContent).toContain("Something went wrong on Waypoint's side. Try again in a moment.")
     answer = briefing(task(3, 'Write the README'))
     ;[...target.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Try again')!.click()
     await settle()

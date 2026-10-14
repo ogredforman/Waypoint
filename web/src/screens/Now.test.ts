@@ -32,7 +32,13 @@ const briefing = (projectID: number, recap: string): Briefing => ({
 
 // A fake API: routes holds the answer, or a promise of one, for each GET path.
 const routes = new Map<string, unknown>()
-const fetchMock = vi.fn(async (url: string) => {
+// A POST to /api/projects answers with created, and adds it to the list.
+let created: Project | null = null
+const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+  if (init?.method === 'POST' && url === '/api/projects' && created) {
+    routes.set('/api/projects', [created])
+    return new Response(JSON.stringify(created), { status: 201 })
+  }
   if (!routes.has(url)) return new Response('{}', { status: 404 })
   return new Response(JSON.stringify(await routes.get(url)), { status: 200 })
 })
@@ -43,6 +49,7 @@ let stopEvents: () => void
 
 beforeEach(() => {
   routes.clear()
+  created = null
   routes.set('/api/projects', [project(1, 'Waypoint')])
   routes.set('/api/projects/1/briefing', briefing(1, 'first recap'))
   vi.stubGlobal('fetch', fetchMock)
@@ -67,6 +74,13 @@ async function settle() {
 }
 
 const text = () => target.textContent ?? ''
+
+// remount shows Now again with the routes as they are now.
+async function remount() {
+  unmount(component)
+  component = mount(Now, { target })
+  await settle()
+}
 
 describe('Now', () => {
   it('refetches a briefing when it is updated', async () => {
@@ -100,5 +114,53 @@ describe('Now', () => {
     expect(text()).toContain('Garden')
     expect(text()).toContain('garden recap')
     expect(text()).toContain('first recap')
+  })
+
+  it('says where to find parked projects when none is active', async () => {
+    routes.set('/api/projects', [{ ...project(1, 'Waypoint'), status: 'parked' }])
+    await remount()
+    expect(text()).toContain('No active projects right now')
+    expect(target.querySelector('a[href="/parking-lot"]')).not.toBeNull()
+    expect(target.querySelector('#project-title')).toBeNull()
+  })
+})
+
+describe('Now on first run', () => {
+  beforeEach(() => {
+    routes.set('/api/projects', [])
+    routes.set('/api/provider', { provider: 'anthropic', model: '', endpoint: '', api_key_set: true, from_env: [], providers: [] })
+  })
+
+  it('welcomes and offers the first project, set to start active', async () => {
+    await remount()
+    expect(text()).toContain('Welcome')
+    expect(target.querySelector('#project-title')).not.toBeNull()
+    const active = target.querySelector<HTMLInputElement>('input[name="project-start"][value="true"]')
+    expect(active?.checked).toBe(true)
+    expect(text()).not.toContain('No model is set up')
+  })
+
+  it('says how entries are read when no model is set up', async () => {
+    routes.set('/api/provider', { provider: 'mock', model: '', endpoint: '', api_key_set: false, from_env: [], providers: [] })
+    await remount()
+    expect(text()).toContain('No model is set up yet')
+    expect(target.querySelector('a[href="/settings"]')).not.toBeNull()
+  })
+
+  it("shows the new project's briefing once it is created", async () => {
+    await remount()
+    created = project(7, 'Garden shed')
+    routes.set('/api/projects/7/briefing', briefing(7, 'shed recap'))
+    const title = target.querySelector<HTMLInputElement>('#project-title')!
+    title.value = 'Garden shed'
+    title.dispatchEvent(new Event('input', { bubbles: true }))
+    flushSync()
+    target.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await settle()
+    expect(text()).not.toContain('Welcome')
+    expect(text()).toContain('Garden shed')
+    expect(text()).toContain('shed recap')
+    const sent = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')
+    expect(JSON.parse(String(sent?.[1]?.body))).toMatchObject({ title: 'Garden shed', status: 'active' })
   })
 })

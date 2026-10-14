@@ -2,6 +2,7 @@
   import Button from '../components/ui/Button.svelte'
   import { onMount } from 'svelte'
   import BriefingCard from '../components/BriefingCard.svelte'
+  import FirstRun from '../components/FirstRun.svelte'
   import { ApiError, getJSON } from '../lib/api/client'
   import type { Briefing, Project } from '../lib/api/types.gen'
   import { on, onReconnect } from '../lib/events'
@@ -18,6 +19,8 @@
   }
 
   let items = $state<Item[] | null>(null)
+  // firstRun is set while the profile has no projects at all.
+  let firstRun = $state(false)
   let loadError = $state('')
 
   // Answers that a newer request replaced are dropped: loadGen counts project
@@ -31,15 +34,17 @@
   // projects without a briefing yet fetch one: briefing.updated covers the rest.
   async function load(all = true) {
     const gen = ++loadGen
-    let active: Project[]
+    let projects: Project[]
     try {
-      active = activeProjects(await getJSON<Project[]>('/api/projects'))
+      projects = await getJSON<Project[]>('/api/projects')
     } catch (err) {
       if (gen === loadGen) loadError = err instanceof ApiError ? err.message : "Couldn't load your projects."
       return
     }
     if (gen !== loadGen) return
     loadError = ''
+    firstRun = projects.length === 0
+    const active = activeProjects(projects)
     const shown = new Map((items ?? []).map((i) => [i.project.id, i]))
     items = active.map((project) => {
       const old = shown.get(project.id)
@@ -97,10 +102,14 @@
     </p>
   {:else if items === null}
     <p class="text-ink-muted">Loading…</p>
+  {:else if firstRun}
+    <FirstRun oncreated={() => load()} />
   {:else if items.length === 0}
     <p class="text-ink-muted">
       No active projects right now. Pick one thing to move forward on the
-      <a href={paths.projects} class="text-accent underline underline-offset-2">Projects</a> page; it can be small.
+      <a href={paths.projects} class="text-accent underline underline-offset-2">Projects</a> page, or bring back a parked
+      one from the <a href={paths.parkingLot} class="text-accent underline underline-offset-2">Parking lot</a>; it can be
+      small.
     </p>
   {:else}
     {#each items as item (item.project.id)}
