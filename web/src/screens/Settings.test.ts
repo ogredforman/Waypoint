@@ -16,6 +16,8 @@ let patchReply: Response | null
 const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
   const method = init?.method ?? 'GET'
   if (url === '/api/projects') return json(projects)
+  if (url === '/api/provider')
+    return json({ provider: 'mock', model: '', endpoint: '', api_key_set: false, from_env: [], providers: ['mock'] })
   if (method === 'PATCH') {
     if (patchReply) return patchReply
     settings = { ...settings, ...JSON.parse(init!.body as string) }
@@ -146,8 +148,14 @@ describe('Settings', () => {
   })
 
   it('offers to try again when the settings fail to load', async () => {
-    fetchMock.mockImplementationOnce(async () => {
-      throw new TypeError('offline')
+    const answer = fetchMock.getMockImplementation()!
+    let failed = false
+    fetchMock.mockImplementation(async (url, init) => {
+      if (url === '/api/settings' && !failed) {
+        failed = true
+        throw new TypeError('offline')
+      }
+      return answer(url, init)
     })
     await render()
     expect(target.textContent).toContain("Can't reach the Waypoint server.")
@@ -155,5 +163,6 @@ describe('Settings', () => {
     retry.click()
     await settle()
     expect(capInput().value).toBe('3')
+    fetchMock.mockImplementation(answer)
   })
 })

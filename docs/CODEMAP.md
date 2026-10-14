@@ -181,8 +181,10 @@ pieces. Tests sit next to the code as `*.test.ts`.
   `ParkedProjectRow.svelte` (activate, calm cap handling). `lib/ideas.ts`: `promoteTargets`, `defaultTarget`, `projectName`, `ideaPatch`; `IdeaRow.test.ts`;
   `lib/projects.ts` `parkedProjects`.
 - Settings: `screens/Settings.svelte` (`/settings`, linked from the header; one `<section>` per group, "Focus" first:
-  active-project cap and questions per entry, saved as one PATCH of the changed fields; then "Appearance"; then "Profiles"). `lib/settings.ts`: `settingsPatch`,
+  active-project cap and questions per entry, saved as one PATCH of the changed fields; then "Appearance"; then "Model"; then "Profiles"). `lib/settings.ts`: `settingsPatch`,
   `parseCap`, `capNote` (a cap below the active count pauses nothing), `fieldProblems` (422 → per-field). `screens/Settings.test.ts`.
+  Model section (server-wide, ADR 0010): `components/ProviderSettings.svelte` on `getProvider`/`updateProvider` (`/api/provider`, in `client.ts`'s `serverWide`);
+  `lib/provider.ts`: `providerForm`, `providerRequest` (PUT body or null; `api_key` only to replace or clear; local per-field checks), `providerProblems`, `fromEnv`/`envNote`, `providerLabel`, `fieldPlaceholder`. Tests: `lib/provider.test.ts`, `components/ProviderSettings.test.ts`.
 - Appearance (theme and fonts): `fonts.ts` (imported by `main.ts`) bundles the `@fontsource-variable/*` faces. `lib/appearance.ts`: `themes`/`themeChoices`,
   `fonts` (setting value → label and CSS stack), `interfaceFontChoices`/`diaryFontChoices`, `appearancePatch`, `applyAppearance`
   (sets `data-theme` and overrides `--font-sans`/`--font-diary` on `<html>`), `restoreTheme` (called first in `main.ts`; the theme last shown,

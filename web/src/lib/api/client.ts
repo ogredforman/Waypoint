@@ -11,8 +11,10 @@ import type {
   Project,
   ProjectDeletion,
   ProjectObservations,
+  Provider,
   Settings,
   UpdateMilestoneRequest,
+  UpdateProviderRequest,
   UpdateSettingsRequest,
 } from './types.gen'
 
@@ -42,8 +44,9 @@ export function useProfile(id: string | null) {
   profileID = id
 }
 
-// Paths that aren't a profile's: the profile list itself and the health check.
-const serverWide = /^\/api\/(profiles|health)(\/|\?|$)/
+// Paths that aren't a profile's: the profile list itself, the health check,
+// and the model provider every profile shares (ADR 0010).
+const serverWide = /^\/api\/(profiles|health|provider)(\/|\?|$)/
 
 // apiPath puts an /api/... path under the active profile, as
 // /api/profiles/{id}/....
@@ -194,4 +197,17 @@ export function renameProfile(id: string, name: string, fetchFn?: typeof fetch):
 // deleteProfile removes the profile and everything in it, for good.
 export function deleteProfile(id: string, fetchFn?: typeof fetch): Promise<void> {
   return deleteJSON(`/api/profiles/${encodeURIComponent(id)}`, fetchFn)
+}
+
+// The model provider (ADR 0010), shared by every profile. The API key never
+// comes back, only whether one is set.
+
+export function getProvider(fetchFn?: typeof fetch): Promise<Provider> {
+  return getJSON<Provider>('/api/provider', fetchFn)
+}
+
+// updateProvider replaces the provider, model, and endpoint; without api_key
+// the key is kept, and an empty one removes it.
+export function updateProvider(req: UpdateProviderRequest, fetchFn?: typeof fetch): Promise<Provider> {
+  return request<Provider>('PUT', '/api/provider', req, fetchFn)
 }

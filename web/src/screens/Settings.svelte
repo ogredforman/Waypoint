@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import AppearanceSettings from '../components/AppearanceSettings.svelte'
   import ProfileSettings from '../components/ProfileSettings.svelte'
+  import ProviderSettings from '../components/ProviderSettings.svelte'
   import Button from '../components/ui/Button.svelte'
   import Input from '../components/ui/Input.svelte'
   import Panel from '../components/ui/Panel.svelte'
@@ -91,8 +92,8 @@
 
 <!--
   Each group of settings is its own <section> under the heading: "Focus" and
-  "Appearance" (the profile in use), then "Profiles". Later ones (the
-  extraction provider) go before "Profiles".
+  "Appearance" (the profile in use), then "Model" (every profile, ADR 0010),
+  then "Profiles".
 -->
 <section class="space-y-8">
   <div>
@@ -168,6 +169,8 @@
 
     <AppearanceSettings settings={saved} onsaved={(s) => (saved = s)} />
   {/if}
+
+  <ProviderSettings />
 
   <ProfileSettings />
 </section>
