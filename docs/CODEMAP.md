@@ -49,6 +49,7 @@ Seed: cfg.SettingsDefaults(), Extractor: provider.New(…), …})` → `api.NewR
   (defaults if no row), `Store.SeedSettings` (insert if missing), `Tx.UpdateSettings`. Pending observation links (to `$new:N`,
   keyed by change op): `CreatePendingLink`, `ListPendingLinksByOp`, `ResolvePendingLinks`, `DropPendingLinks`.
   Profile row (`profile.go`): `GetProfile` (name, created), `Tx.SetProfileName`.
+  Export (`export.go`): `ExportTables()` (every table, parents first; a test checks it against the schema), `ExportTable` (rows as stored), `SchemaVersion`.
   Milestones (`milestones.go`): `GetMilestone`, `ListMilestonesByProject`, `Tx.CreateMilestone` (appends), `UpdateMilestone`, `DeleteMilestone` (tasks keep no milestone, links removed).
 - **changeset**: every mutation of projects/tasks/blockers/ideas. `ops.go`: one payload struct per
   op type (`CreateTask`, `UpdateTask`, `SplitTask`, `DeleteTask`, `ParkIdea`, `CreateMilestone`, …) implementing
@@ -98,7 +99,7 @@ Seed: cfg.SettingsDefaults(), Extractor: provider.New(…), …})` → `api.NewR
   `waypoint.db` in as "Personal", starts each `profiles/<id>.db`), `List`, `Create` (optionally copying another profile's appearance), `Rename`, `Delete`, `Serve`, `Ping`,
   `EndStreams`, `Close`; implements `api.Profiles`. `files.go`: `prepare` (migrate, name, seed, checkpoint, close), `removeDB`.
 - **api**: chi router (`router.go`, route list in `handlers.routes`), one file per resource
-  (`projects.go`, `milestones.go` (incl. `moveMilestone`, `milestoneMovePositions`), `tasks.go`, `blockers.go`, `ideas.go`, `entries.go`, `changesets.go`, `settings.go`),
+  (`projects.go`, `milestones.go` (incl. `moveMilestone`, `milestoneMovePositions`), `tasks.go`, `blockers.go`, `ideas.go`, `entries.go`, `changesets.go`, `settings.go`, `export.go` (`GET /export`, the profile as a JSON attachment)),
   `profiles.go` (`Profiles` interface, `/api/profiles` routes, hands `/api/profiles/{profile}/*` to `Profiles.Serve`);
   `provider.go` (`Provider` interface, `GET`/`PUT /api/provider`, mounted when `Deps.Provider` is set);
   `NewRouter(Deps{Logger, Web, Profiles})` is the root, `NewProfileHandler(ProfileDeps{…})` one profile's data routes and `/events`,
@@ -181,7 +182,7 @@ pieces. Tests sit next to the code as `*.test.ts`.
   `ParkedProjectRow.svelte` (activate, calm cap handling). `lib/ideas.ts`: `promoteTargets`, `defaultTarget`, `projectName`, `ideaPatch`; `IdeaRow.test.ts`;
   `lib/projects.ts` `parkedProjects`.
 - Settings: `screens/Settings.svelte` (`/settings`, linked from the header; one `<section>` per group, "Focus" first:
-  active-project cap and questions per entry, saved as one PATCH of the changed fields; then "Appearance"; then "Model"; then "Profiles"). `lib/settings.ts`: `settingsPatch`,
+  active-project cap and questions per entry, saved as one PATCH of the changed fields; then "Appearance"; then "Data" (link to `exportURL()` from `client.ts`, the copy-the-DB-file note); then "Model"; then "Profiles"). `lib/settings.ts`: `settingsPatch`,
   `parseCap`, `capNote` (a cap below the active count pauses nothing), `fieldProblems` (422 → per-field). `screens/Settings.test.ts`.
   Model section (server-wide, ADR 0010): `components/ProviderSettings.svelte` on `getProvider`/`updateProvider` (`/api/provider`, in `client.ts`'s `serverWide`);
   `lib/provider.ts`: `providerForm`, `providerRequest` (PUT body or null; `api_key` only to replace or clear; local per-field checks), `providerProblems`, `fromEnv`/`envNote`, `providerLabel`, `fieldPlaceholder`. Tests: `lib/provider.test.ts`, `components/ProviderSettings.test.ts`.

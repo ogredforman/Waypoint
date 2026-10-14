@@ -310,6 +310,39 @@ export interface EntryDeletedEvent {
 }
 
 //////////
+// source: export.go
+
+/**
+ * Export is the body of GET /api/export: everything in one profile's
+ * database, table by table, for keeping or moving the data elsewhere. Rows
+ * are as stored, keyed by column name: timestamps are unix milliseconds, JSON
+ * columns (op payloads, a run's raw output) are strings, NULL is null. API
+ * keys live in config.toml, never in a database, so no export contains one.
+ */
+export interface Export {
+  /**
+   * Format is always "waypoint-export".
+   */
+  format: string;
+  /**
+   * Version is the export format's version, 1. It changes only if this
+   * envelope does; the tables follow SchemaVersion.
+   */
+  version: number /* int */;
+  /**
+   * SchemaVersion is the newest database migration applied.
+   */
+  schema_version: number /* int64 */;
+  exported_at: string;
+  /**
+   * Tables holds every row of every table, keyed by table name. Tables are
+   * listed in TableOrder, parents before the tables that reference them.
+   */
+  tables: { [key: string]: { [key: string]: any}[]};
+  table_order: string[];
+}
+
+//////////
 // source: ideas.go
 
 export interface Idea {

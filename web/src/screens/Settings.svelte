@@ -6,7 +6,7 @@
   import Button from '../components/ui/Button.svelte'
   import Input from '../components/ui/Input.svelte'
   import Panel from '../components/ui/Panel.svelte'
-  import { ApiError, getSettings, listProjects, updateSettings } from '../lib/api/client'
+  import { ApiError, exportURL, getSettings, listProjects, updateSettings } from '../lib/api/client'
   import type { Settings } from '../lib/api/types.gen'
   import { latest, liveReload } from '../lib/live'
   import { pageHeading } from '../lib/navigation.svelte'
@@ -91,9 +91,9 @@
 </script>
 
 <!--
-  Each group of settings is its own <section> under the heading: "Focus" and
-  "Appearance" (the profile in use), then "Model" (every profile, ADR 0010),
-  then "Profiles".
+  Each group of settings is its own <section> under the heading: "Focus",
+  "Appearance", and "Data" (the profile in use), then "Model" (every profile,
+  ADR 0010), then "Profiles".
 -->
 <section class="space-y-8">
   <div>
@@ -169,6 +169,35 @@
 
     <AppearanceSettings settings={saved} onsaved={(s) => (saved = s)} />
   {/if}
+
+  <section aria-labelledby="data-heading" class="space-y-3">
+    <div>
+      <h2 id="data-heading" class="text-lg font-semibold">Data</h2>
+      {#if profiles.active}
+        <p class="text-sm text-ink-muted">For the {profiles.active.name} profile.</p>
+      {/if}
+    </div>
+    <Panel>
+      <div class="space-y-3 p-5">
+        <div>
+          <a
+            href={exportURL()}
+            download
+            class="inline-block rounded-control border border-line bg-raised px-4 py-2 text-sm text-ink transition hover:border-accent/60"
+            >Export as JSON</a
+          >
+          <p class="mt-2 text-sm text-ink-muted">
+            Every project, task, entry, and change in this profile, in one file. API keys are never included.
+          </p>
+        </div>
+        <p class="text-sm text-ink-muted">
+          To back up the profile, quit Waypoint and copy its database file,
+          <code class="text-ink">profiles/{profiles.active?.id ?? '<profile>'}.db</code>
+          in Waypoint's data folder. Copy it only while Waypoint is stopped: a copy made while it runs can miss recent changes.
+        </p>
+      </div>
+    </Panel>
+  </section>
 
   <ProviderSettings />
 

@@ -63,3 +63,16 @@ values only seed a profile that has no settings yet (including every new profile
 
 The server only listens on `127.0.0.1`. A relative `data_dir` in `config.toml` is relative to that file.
 Provider setup instructions arrive with Stage 2.
+
+## Backups
+
+Two ways, both per profile:
+
+- **Copy the database file.** Quit Waypoint, then copy `profiles/<id>.db` from the data folder above
+  (Settings → Data names the file). Copy it only while Waypoint is stopped: the database runs in WAL
+  mode, so a copy made while it runs can miss recent changes. To restore, quit Waypoint and put the
+  file back.
+- **Export as JSON.** Settings → Data → Export as JSON (or `GET /api/profiles/<id>/export`) downloads
+  every table of the profile in one file, readable outside Waypoint. Importing it comes later.
+
+Neither contains an API key: keys live in `config.toml`, never in a database.

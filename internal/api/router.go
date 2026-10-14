@@ -189,6 +189,8 @@ func (h *handlers) routes(r chi.Router) {
 
 	r.Get("/settings", h.getSettings)
 	r.Patch("/settings", h.patchSettings)
+
+	r.Get("/export", h.getExport)
 }
 
 // logRequests logs one line per request. It records only the method, path,

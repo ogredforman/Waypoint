@@ -147,6 +147,15 @@ describe('Settings', () => {
     expect(target.textContent).not.toContain('Saved.')
   })
 
+  it('links to the JSON export and says how to back up the database file', async () => {
+    await render()
+    const link = Array.from(target.querySelectorAll('a')).find((a) => a.textContent?.includes('Export as JSON'))
+    expect(link?.getAttribute('href')).toBe('/api/export')
+    expect(link?.hasAttribute('download')).toBe(true)
+    expect(target.textContent).toContain('copy its database file')
+    expect(target.textContent).toContain('only while Waypoint is stopped')
+  })
+
   it('offers to try again when the settings fail to load', async () => {
     const answer = fetchMock.getMockImplementation()!
     let failed = false

@@ -27,7 +27,7 @@ type Store struct {
 // New returns a Store over a migrated database. now supplies the timestamps
 // written to created_at and updated_at.
 func New(sqlDB *sql.DB, now func() time.Time) *Store {
-	return &Store{reader: reader{q: dbgen.New(sqlDB)}, db: sqlDB, now: now}
+	return &Store{reader: reader{q: dbgen.New(sqlDB), db: sqlDB}, db: sqlDB, now: now}
 }
 
 // Tx is one write transaction. It is only valid inside the InTx callback that
@@ -40,6 +40,9 @@ type Tx struct {
 // reader holds the read methods shared by Store and Tx.
 type reader struct {
 	q *dbgen.Queries
+	// db is the same connection or transaction q uses, for the few queries
+	// sqlc can't express (the export's table dump).
+	db dbgen.DBTX
 }
 
 // InTx runs fn in a transaction. It commits if fn returns nil and rolls back
@@ -58,7 +61,7 @@ func (s *Store) InTx(ctx context.Context, fn func(*Tx) error) error {
 		}
 	}()
 
-	if err := fn(&Tx{reader: reader{q: s.q.WithTx(sqlTx)}, now: s.now}); err != nil {
+	if err := fn(&Tx{reader: reader{q: s.q.WithTx(sqlTx), db: sqlTx}, now: s.now}); err != nil {
 		return err
 	}
 	if err := sqlTx.Commit(); err != nil {
@@ -86,7 +89,7 @@ func (s *Store) InReadTx(ctx context.Context, fn func(*ReadTx) error) error {
 		return fmt.Errorf("begin read tx: %w", err)
 	}
 	defer func() { _ = sqlTx.Rollback() }()
-	return fn(&ReadTx{reader: reader{q: s.q.WithTx(sqlTx)}})
+	return fn(&ReadTx{reader: reader{q: s.q.WithTx(sqlTx), db: sqlTx}})
 }
 
 // nowMS is the transaction's current time in unix milliseconds.

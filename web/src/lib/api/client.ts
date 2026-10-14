@@ -171,6 +171,12 @@ export function getSettings(fetchFn?: typeof fetch): Promise<Settings> {
   return getJSON<Settings>('/api/settings', fetchFn)
 }
 
+// exportURL is where the profile's JSON export downloads from (GET /api/export,
+// an attachment); the app links to it rather than fetching it.
+export function exportURL(): string {
+  return apiPath('/api/export')
+}
+
 // updateSettings changes the settings present in req and answers with all of them.
 export function updateSettings(req: UpdateSettingsRequest, fetchFn?: typeof fetch): Promise<Settings> {
   return patchJSON<Settings>('/api/settings', req, fetchFn)
