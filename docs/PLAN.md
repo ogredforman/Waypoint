@@ -183,7 +183,7 @@ Tasks:
 - [x] **2.15** README: install, configure a provider, run.
 
 ### 2E. Dogfooding bootstrap
-- [ ] **2.16** Create the project "Build Waypoint" inside Waypoint. Import the remaining stages of this plan as tasks via diary entries (not manual entry, which is the point).
+- [x] **2.16** Create the project "Build Waypoint" inside Waypoint. Import the remaining stages of this plan as tasks via diary entries (not manual entry, which is the point).
 - [ ] **2.17** Use it daily for 1–2 weeks. Log friction as diary entries tagged to the project. Those entries become the Stage 3 backlog.
 
 **Exit criteria:**
