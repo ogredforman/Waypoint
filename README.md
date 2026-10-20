@@ -15,6 +15,51 @@ single user, no accounts.
 - How it's being built, and what's next: [`docs/PLAN.md`](docs/PLAN.md)
 - Instructions for AI coding agents: [`AGENTS.md`](AGENTS.md)
 
+<!-- TODO: screenshot of the Diary screen with a proposed changeset, and the Now screen -->
+
+## Why
+
+Ambitious projects stall when the next step is unclear and the plan goes stale. Todo apps need
+disciplined data entry, which is exactly what breaks down. Waypoint asks only for what you'd write
+in a notebook and keeps the plan current from that.
+
+## How it works
+
+```
+diary entry ─▶ snapshot of project state ─▶ model (tool call) ─▶ proposed changeset
+                                                                      │ review: accept / edit / reject
+                                       briefing (next action) ◀─ apply to SQLite
+```
+
+- **The model proposes, the user decides.** A model never writes to project state directly. Its
+  output is validated into a changeset of typed operations that you review, edit or reject; only
+  applied changes touch the database. Every task, blocker and status change links back to the
+  entry text that produced it.
+- **Provider-neutral.** One tool-calling interface covers the Anthropic API and any
+  OpenAI-compatible server (Ollama, LM Studio, llama.cpp, OpenAI). The provider can be changed from
+  the Settings screen without a restart, and a mock provider keeps the app usable with no model.
+- **The briefing never waits on the model.** A heuristic briefing is written immediately; the
+  model's version replaces it in the background when it arrives.
+- **Measured, not guessed.** `waypoint eval` runs a set of fixture entries through the extraction
+  pipeline and scores the result, so prompt and model changes are compared on numbers
+  ([`internal/eval`](internal/eval)).
+
+## Stack
+
+- **Backend:** Go, `net/http`, SQLite with goose migrations and sqlc-generated queries, one
+  database per profile.
+- **Frontend:** Svelte 5 + TypeScript (Vite), embedded in the Go binary. API types are generated
+  from the Go types.
+- **Tests:** Go tests, frontend tests and a Playwright end-to-end test of write → review → apply;
+  CI on GitHub Actions. Design decisions are recorded as ADRs in [`docs/adr/`](docs/adr/).
+
+## How it's built
+
+I wrote the spec, the staged plan and the project rules, and made the architecture decisions. AI
+coding agents implement the plan one task at a time using my
+[Devflow](https://github.com/ogredforman/Devflow) workflow: each task gets a plan I approve, tests,
+lint, and a review against the project's rules before it's committed.
+
 ## Install
 
 There are no prebuilt releases yet; build from source.
